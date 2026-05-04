@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { watch } from 'vue'
 import LoginView from '../views/LoginView.vue'
 import { useAuthStore } from '../stores/auth'
 
@@ -7,14 +8,30 @@ const router = createRouter({
   routes: [
     { path: '/login', component: LoginView },
     { path: '/', component: () => import('../views/HomeView.vue'), meta: { requiresAuth: true } },
+    {
+      path: '/admin',
+      component: () => import('../views/admin/AdminLayout.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true },
+      children: [
+        { path: '', redirect: '/admin/seasons' },
+        { path: 'seasons', component: () => import('../views/admin/SeasonsView.vue') },
+      ],
+    },
   ],
 })
 
-router.beforeEach((to) => {
+function waitForReady(auth: ReturnType<typeof useAuthStore>) {
+  if (auth.ready) return Promise.resolve()
+  return new Promise<void>(resolve => {
+    const stop = watch(() => auth.ready, (val) => { if (val) { stop(); resolve() } })
+  })
+}
+
+router.beforeEach(async (to) => {
   const auth = useAuthStore()
-  if (to.meta.requiresAuth && !auth.isLoggedIn()) {
-    return { path: '/login' }
-  }
+  await waitForReady(auth)
+  if (to.meta.requiresAuth && !auth.isLoggedIn()) return { path: '/login' }
+  if (to.meta.requiresAdmin && !auth.isAdmin) return { path: '/' }
 })
 
 export default router
