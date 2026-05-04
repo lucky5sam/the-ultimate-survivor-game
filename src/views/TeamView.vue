@@ -27,7 +27,7 @@ const byTribe = computed(() => {
   const map: Record<string, Contestant[]> = {}
   for (const c of allContestants.value) {
     if (!map[c.tribe]) map[c.tribe] = []
-    map[c.tribe].push(c)
+    map[c.tribe]!.push(c)
   }
   return Object.fromEntries(Object.entries(map).sort(([a], [b]) => a.localeCompare(b)))
 })
@@ -59,7 +59,7 @@ async function loadSeasons() {
     .order('created_at', { ascending: false })
   seasons.value = data ?? []
   if (seasons.value.length > 0 && !selectedSeasonId.value) {
-    selectedSeasonId.value = seasons.value[0].id
+    selectedSeasonId.value = seasons.value[0]!.id
   }
 }
 
@@ -167,7 +167,7 @@ onMounted(async () => {
           <!-- Season selector -->
           <div class="mb-6">
             <div v-if="seasons.length === 1">
-              <h2 class="text-2xl font-bold">{{ seasons[0].name }}</h2>
+              <h2 class="text-2xl font-bold">{{ seasons[0]?.name }}</h2>
             </div>
             <div v-else>
               <label class="block text-sm font-medium text-gray-700 mb-1">Season</label>

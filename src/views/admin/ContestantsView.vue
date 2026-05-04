@@ -20,7 +20,7 @@ async function loadSeasons() {
   const { data } = await supabase.from('seasons').select('id, name').order('created_at', { ascending: false })
   seasons.value = data ?? []
   if (seasons.value.length > 0 && !selectedSeasonId.value) {
-    selectedSeasonId.value = seasons.value[0].id
+    selectedSeasonId.value = seasons.value[0]!.id
   }
 }
 

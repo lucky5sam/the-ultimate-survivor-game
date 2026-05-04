@@ -52,7 +52,7 @@ const byType = computed(() => {
   const map: Record<string, ActionType[]> = {}
   for (const a of actionTypes.value) {
     if (!map[a.type]) map[a.type] = []
-    map[a.type].push(a)
+    map[a.type]!.push(a)
   }
   return map
 })
@@ -91,7 +91,7 @@ const byTribe = computed(() => {
   const map: Record<string, Contestant[]> = {}
   for (const c of contestants.value) {
     if (!map[c.tribe]) map[c.tribe] = []
-    map[c.tribe].push(c)
+    map[c.tribe]!.push(c)
   }
   return map
 })
@@ -150,7 +150,7 @@ async function loadEntries() {
     .eq('episode_id', episodeId)
     .order('created_at')
   if (error) errorMsg.value = error.message
-  else entries.value = data as ActionEntry[] ?? []
+  else entries.value = (data as unknown as ActionEntry[]) ?? []
 }
 
 async function addEntry() {

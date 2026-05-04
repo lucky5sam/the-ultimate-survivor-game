@@ -30,8 +30,8 @@ async function loadSeasons() {
     .order('created_at', { ascending: false })
   seasons.value = data ?? []
   if (seasons.value.length > 0 && !selectedSeasonId.value) {
-    selectedSeasonId.value = seasons.value[0].id
-    selectedSeason.value = seasons.value[0]
+    selectedSeasonId.value = seasons.value[0]!.id
+    selectedSeason.value = seasons.value[0] ?? null
   }
 }
 
