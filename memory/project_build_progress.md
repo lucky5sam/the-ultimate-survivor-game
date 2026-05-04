@@ -18,10 +18,8 @@ type: project
    - 7e: Add env vars to Vercel ✅
 8. Build admin shell + Seasons CRUD as first feature
    - 8a: Admin shell (layout, routing, isAdmin guard) ✅
-   - 8b: Seasons CRUD
-      - List + create ✅
-      - Edit + delete ⬅️ CURRENT
-9. Team creation + MVP designation
+   - 8b: Seasons CRUD (list, create, edit, delete) ✅
+9. Team creation + MVP designation ⬅️ CURRENT
 10. Episode workflow + action entry
 11. Scoring view + leaderboard
 12. Bounties

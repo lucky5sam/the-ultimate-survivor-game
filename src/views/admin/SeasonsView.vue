@@ -19,6 +19,7 @@ const loading = ref(true)
 const errorMsg = ref('')
 const showForm = ref(false)
 const saving = ref(false)
+const editingId = ref<string | null>(null)
 
 const form = ref({
   name: '',
@@ -41,18 +42,52 @@ async function loadSeasons() {
   loading.value = false
 }
 
-async function createSeason() {
+async function saveSeason() {
   saving.value = true
   errorMsg.value = ''
-  const { error } = await supabase.from('seasons').insert(form.value)
-  if (error) {
-    errorMsg.value = error.message
+
+  if (editingId.value) {
+    const { error } = await supabase
+      .from('seasons')
+      .update(form.value)
+      .eq('id', editingId.value)
+    if (error) { errorMsg.value = error.message; saving.value = false; return }
   } else {
-    showForm.value = false
-    resetForm()
-    await loadSeasons()
+    const { error } = await supabase.from('seasons').insert(form.value)
+    if (error) { errorMsg.value = error.message; saving.value = false; return }
   }
+
+  showForm.value = false
+  resetForm()
+  await loadSeasons()
   saving.value = false
+}
+
+async function deleteSeason(id: string, name: string) {
+  if (!confirm(`Delete "${name}"? This cannot be undone.`)) return
+  const { error } = await supabase.from('seasons').delete().eq('id', id)
+  if (error) errorMsg.value = error.message
+  else await loadSeasons()
+}
+
+function openCreate() {
+  editingId.value = null
+  resetForm()
+  showForm.value = true
+}
+
+function openEdit(season: Season) {
+  editingId.value = season.id
+  form.value = {
+    name: season.name,
+    status: season.status,
+    bounty_points_pre_merge: season.bounty_points_pre_merge,
+    bounty_points_post_merge: season.bounty_points_post_merge,
+    swap_penalty_mvp: season.swap_penalty_mvp,
+    swap_penalty_player: season.swap_penalty_player,
+    grace_period_through_episode: season.grace_period_through_episode,
+  }
+  showForm.value = true
 }
 
 function resetForm() {
@@ -87,7 +122,7 @@ onMounted(loadSeasons)
     <div class="flex items-center justify-between mb-6">
       <h1 class="text-2xl font-bold">Seasons</h1>
       <button
-        @click="showForm = true"
+        @click="openCreate"
         class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-lg"
       >
         + New Season
@@ -110,6 +145,7 @@ onMounted(loadSeasons)
           <th class="px-4 py-3">Bounty (pre/post)</th>
           <th class="px-4 py-3">Swap penalty (MVP/player)</th>
           <th class="px-4 py-3">Grace period</th>
+          <th class="px-4 py-3"></th>
         </tr>
       </thead>
       <tbody>
@@ -123,20 +159,24 @@ onMounted(loadSeasons)
           <td class="px-4 py-3">{{ season.bounty_points_pre_merge }} / {{ season.bounty_points_post_merge }}</td>
           <td class="px-4 py-3">{{ season.swap_penalty_mvp }} / {{ season.swap_penalty_player }}</td>
           <td class="px-4 py-3">Ep {{ season.grace_period_through_episode }}</td>
+          <td class="px-4 py-3 text-right space-x-3">
+            <button @click="openEdit(season)" class="text-blue-600 hover:text-blue-800 text-xs font-medium">Edit</button>
+            <button @click="deleteSeason(season.id, season.name)" class="text-red-500 hover:text-red-700 text-xs font-medium">Delete</button>
+          </td>
         </tr>
       </tbody>
     </table>
 
-    <!-- Create Season Modal -->
+    <!-- Create / Edit Modal -->
     <div
       v-if="showForm"
       class="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
       @click.self="showForm = false"
     >
       <div class="bg-white rounded-xl shadow-lg w-full max-w-md p-6">
-        <h2 class="text-lg font-bold mb-4">New Season</h2>
+        <h2 class="text-lg font-bold mb-4">{{ editingId ? 'Edit Season' : 'New Season' }}</h2>
 
-        <form @submit.prevent="createSeason" class="space-y-4">
+        <form @submit.prevent="saveSeason" class="space-y-4">
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Season name</label>
             <input
@@ -207,7 +247,7 @@ onMounted(loadSeasons)
               :disabled="saving"
               class="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-lg"
             >
-              {{ saving ? 'Saving…' : 'Create season' }}
+              {{ saving ? 'Saving…' : editingId ? 'Save changes' : 'Create season' }}
             </button>
           </div>
         </form>

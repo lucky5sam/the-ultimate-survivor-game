@@ -7,7 +7,8 @@ const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     { path: '/login', component: LoginView },
-    { path: '/', component: () => import('../views/HomeView.vue'), meta: { requiresAuth: true } },
+    { path: '/', redirect: '/my-team' },
+    { path: '/my-team', component: () => import('../views/TeamView.vue'), meta: { requiresAuth: true } },
     {
       path: '/admin',
       component: () => import('../views/admin/AdminLayout.vue'),
@@ -15,6 +16,9 @@ const router = createRouter({
       children: [
         { path: '', redirect: '/admin/seasons' },
         { path: 'seasons', component: () => import('../views/admin/SeasonsView.vue') },
+        { path: 'contestants', component: () => import('../views/admin/ContestantsView.vue') },
+        { path: 'episodes', component: () => import('../views/admin/EpisodesView.vue') },
+        { path: 'episodes/:episodeId/actions', component: () => import('../views/admin/ActionEntryView.vue') },
       ],
     },
   ],
