@@ -149,6 +149,7 @@ onMounted(async () => {
     <header class="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
       <h1 class="text-xl font-bold">The Ultimate Survivor Game</h1>
       <div class="flex items-center gap-4 text-sm">
+        <RouterLink to="/leaderboard" class="text-blue-600 hover:text-blue-800">Leaderboard</RouterLink>
         <RouterLink v-if="auth.isAdmin" to="/admin" class="text-blue-600 hover:text-blue-800">Admin</RouterLink>
         <span class="text-gray-400">{{ auth.user?.email }}</span>
         <button @click="handleSignOut" class="text-red-500 hover:text-red-700">Sign out</button>
