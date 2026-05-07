@@ -4,13 +4,18 @@ import { useRouter } from 'vue-router'
 import { supabase } from '../../lib/supabase'
 
 type Season = { id: string; name: string; current_episode_id: string | null }
-type Episode = { id: string; number: number; title: string | null; air_date: string | null; status: string }
+type Episode = {
+  id: string; number: number; title: string | null; air_date: string | null
+  status: string; is_merge: boolean; is_finale: boolean; bounty_contestant_id: string | null
+}
+type Contestant = { id: string; name: string }
 
 const router = useRouter()
 const seasons = ref<Season[]>([])
 const selectedSeasonId = ref('')
 const selectedSeason = ref<Season | null>(null)
 const episodes = ref<Episode[]>([])
+const contestants = ref<Contestant[]>([])
 const loading = ref(false)
 const errorMsg = ref('')
 const showForm = ref(false)
@@ -21,7 +26,11 @@ const nextNumber = computed(() =>
   episodes.value.length > 0 ? Math.max(...episodes.value.map(e => e.number)) + 1 : 1
 )
 
-const form = ref({ number: 1, title: '', air_date: '' })
+const form = ref({ number: 1, title: '', air_date: '', is_merge: false, is_finale: false, bounty_contestant_id: '' })
+
+const contestantMap = computed(() =>
+  Object.fromEntries(contestants.value.map(c => [c.id, c.name]))
+)
 
 async function loadSeasons() {
   const { data } = await supabase
@@ -48,22 +57,40 @@ async function loadEpisodes() {
   loading.value = false
 }
 
+async function loadContestants() {
+  if (!selectedSeasonId.value) return
+  const { data } = await supabase
+    .from('contestants')
+    .select('id, name')
+    .eq('season_id', selectedSeasonId.value)
+    .order('name')
+  contestants.value = data ?? []
+}
+
 async function saveEpisode() {
   saving.value = true
   errorMsg.value = ''
-  const payload = {
-    number: form.value.number,
-    title: form.value.title || null,
-    air_date: form.value.air_date || null,
-    season_id: selectedSeasonId.value,
-    status: 'upcoming',
-  }
 
   if (editingId.value) {
-    const { error } = await supabase.from('episodes').update(payload).eq('id', editingId.value)
+    const { error } = await supabase.from('episodes').update({
+      number: form.value.number,
+      title: form.value.title || null,
+      air_date: form.value.air_date || null,
+      is_merge: form.value.is_merge,
+      is_finale: form.value.is_finale,
+      bounty_contestant_id: form.value.bounty_contestant_id || null,
+    }).eq('id', editingId.value)
     if (error) { errorMsg.value = error.message; saving.value = false; return }
   } else {
-    const { error } = await supabase.from('episodes').insert(payload)
+    const { error } = await supabase.from('episodes').insert({
+      number: form.value.number,
+      title: form.value.title || null,
+      air_date: form.value.air_date || null,
+      season_id: selectedSeasonId.value,
+      status: 'upcoming',
+      is_merge: form.value.is_merge,
+      is_finale: form.value.is_finale,
+    })
     if (error) { errorMsg.value = error.message; saving.value = false; return }
   }
 
@@ -74,27 +101,16 @@ async function saveEpisode() {
 }
 
 async function startEpisode(episode: Episode) {
-  const { error: epErr } = await supabase
-    .from('episodes')
-    .update({ status: 'active' })
-    .eq('id', episode.id)
+  const { error: epErr } = await supabase.from('episodes').update({ status: 'active' }).eq('id', episode.id)
   if (epErr) { errorMsg.value = epErr.message; return }
-
-  const { error: sErr } = await supabase
-    .from('seasons')
-    .update({ current_episode_id: episode.id })
-    .eq('id', selectedSeasonId.value)
+  const { error: sErr } = await supabase.from('seasons').update({ current_episode_id: episode.id }).eq('id', selectedSeasonId.value)
   if (sErr) { errorMsg.value = sErr.message; return }
-
   selectedSeason.value = { ...selectedSeason.value!, current_episode_id: episode.id }
   await loadEpisodes()
 }
 
 async function endEpisode(episode: Episode) {
-  const { error } = await supabase
-    .from('episodes')
-    .update({ status: 'completed' })
-    .eq('id', episode.id)
+  const { error } = await supabase.from('episodes').update({ status: 'completed' }).eq('id', episode.id)
   if (error) { errorMsg.value = error.message; return }
   await loadEpisodes()
 }
@@ -108,18 +124,25 @@ async function deleteEpisode(id: string, number: number) {
 
 function openCreate() {
   editingId.value = null
-  form.value = { number: nextNumber.value, title: '', air_date: '' }
+  form.value = { number: nextNumber.value, title: '', air_date: '', is_merge: false, is_finale: false, bounty_contestant_id: '' }
   showForm.value = true
 }
 
 function openEdit(ep: Episode) {
   editingId.value = ep.id
-  form.value = { number: ep.number, title: ep.title ?? '', air_date: ep.air_date ?? '' }
+  form.value = {
+    number: ep.number,
+    title: ep.title ?? '',
+    air_date: ep.air_date ?? '',
+    is_merge: ep.is_merge,
+    is_finale: ep.is_finale,
+    bounty_contestant_id: ep.bounty_contestant_id ?? '',
+  }
   showForm.value = true
 }
 
 function resetForm() {
-  form.value = { number: nextNumber.value, title: '', air_date: '' }
+  form.value = { number: nextNumber.value, title: '', air_date: '', is_merge: false, is_finale: false, bounty_contestant_id: '' }
 }
 
 const statusColor: Record<string, string> = {
@@ -130,10 +153,13 @@ const statusColor: Record<string, string> = {
 
 watch(selectedSeasonId, async (id) => {
   selectedSeason.value = seasons.value.find(s => s.id === id) ?? null
-  await loadEpisodes()
+  await Promise.all([loadEpisodes(), loadContestants()])
 })
 
-onMounted(async () => { await loadSeasons(); await loadEpisodes() })
+onMounted(async () => {
+  await loadSeasons()
+  await Promise.all([loadEpisodes(), loadContestants()])
+})
 </script>
 
 <template>
@@ -173,6 +199,7 @@ onMounted(async () => { await loadSeasons(); await loadEpisodes() })
           <th class="px-4 py-3">Title</th>
           <th class="px-4 py-3">Air Date</th>
           <th class="px-4 py-3">Status</th>
+          <th class="px-4 py-3">Bounty Result</th>
           <th class="px-4 py-3"></th>
         </tr>
       </thead>
@@ -180,10 +207,9 @@ onMounted(async () => { await loadSeasons(); await loadEpisodes() })
         <tr v-for="ep in episodes" :key="ep.id" class="border-t border-gray-100">
           <td class="px-4 py-3 font-medium">
             {{ ep.number }}
-            <span
-              v-if="ep.id === selectedSeason?.current_episode_id"
-              class="ml-1 text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full font-semibold"
-            >CURRENT</span>
+            <span v-if="ep.id === selectedSeason?.current_episode_id" class="ml-1 text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full font-semibold">CURRENT</span>
+            <span v-if="ep.is_merge" class="ml-1 text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full font-semibold">MERGE</span>
+            <span v-if="ep.is_finale" class="ml-1 text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-semibold">FINALE</span>
           </td>
           <td class="px-4 py-3">{{ ep.title ?? '—' }}</td>
           <td class="px-4 py-3 text-gray-500">{{ ep.air_date ?? '—' }}</td>
@@ -192,21 +218,13 @@ onMounted(async () => { await loadSeasons(); await loadEpisodes() })
               {{ ep.status.charAt(0).toUpperCase() + ep.status.slice(1) }}
             </span>
           </td>
+          <td class="px-4 py-3 text-xs text-gray-500">
+            {{ ep.bounty_contestant_id ? (contestantMap[ep.bounty_contestant_id] ?? '—') : '—' }}
+          </td>
           <td class="px-4 py-3 text-right space-x-3">
-            <button
-              @click="router.push(`/admin/episodes/${ep.id}/actions`)"
-              class="text-blue-600 hover:text-blue-800 text-xs font-medium"
-            >Actions</button>
-            <button
-              v-if="ep.status === 'upcoming'"
-              @click="startEpisode(ep)"
-              class="text-green-600 hover:text-green-800 text-xs font-medium"
-            >Start</button>
-            <button
-              v-if="ep.status === 'active'"
-              @click="endEpisode(ep)"
-              class="text-gray-500 hover:text-gray-700 text-xs font-medium"
-            >End</button>
+            <button @click="router.push(`/admin/episodes/${ep.id}/actions`)" class="text-blue-600 hover:text-blue-800 text-xs font-medium">Actions</button>
+            <button v-if="ep.status === 'upcoming'" @click="startEpisode(ep)" class="text-green-600 hover:text-green-800 text-xs font-medium">Start</button>
+            <button v-if="ep.status === 'active'" @click="endEpisode(ep)" class="text-gray-500 hover:text-gray-700 text-xs font-medium">End</button>
             <button @click="openEdit(ep)" class="text-blue-600 hover:text-blue-800 text-xs font-medium">Edit</button>
             <button @click="deleteEpisode(ep.id, ep.number)" class="text-red-500 hover:text-red-700 text-xs font-medium">Delete</button>
           </td>
@@ -226,51 +244,57 @@ onMounted(async () => { await loadSeasons(); await loadEpisodes() })
         <form @submit.prevent="saveEpisode" class="space-y-4">
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Episode number</label>
-            <input
-              v-model.number="form.number"
-              type="number"
-              min="1"
-              required
-              class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+            <input v-model.number="form.number" type="number" min="1" required
+              class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
 
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">
               Title <span class="text-gray-400 font-normal">(optional)</span>
             </label>
-            <input
-              v-model="form.title"
-              type="text"
-              placeholder="e.g. It's a New Era"
-              class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+            <input v-model="form.title" type="text" placeholder="e.g. It's a New Era"
+              class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
 
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">
               Air date <span class="text-gray-400 font-normal">(optional)</span>
             </label>
-            <input
-              v-model="form.air_date"
-              type="date"
-              class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+            <input v-model="form.air_date" type="date"
+              class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+
+          <div class="flex gap-6">
+            <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+              <input type="checkbox" v-model="form.is_merge" class="rounded border-gray-300 text-purple-600 focus:ring-purple-500" />
+              Merge episode
+            </label>
+            <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+              <input type="checkbox" v-model="form.is_finale" class="rounded border-gray-300 text-amber-500 focus:ring-amber-500" />
+              Finale
+            </label>
+          </div>
+
+          <!-- Bounty result — only on edit, set after episode airs -->
+          <div v-if="editingId">
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              Bounty result <span class="text-gray-400 font-normal">(voted out / winner)</span>
+            </label>
+            <select v-model="form.bounty_contestant_id"
+              class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="">Not set</option>
+              <option v-for="c in contestants" :key="c.id" :value="c.id">{{ c.name }}</option>
+            </select>
           </div>
 
           <p v-if="errorMsg" class="text-sm text-red-600">{{ errorMsg }}</p>
 
           <div class="flex justify-end gap-3 pt-2">
-            <button
-              type="button"
-              @click="showForm = false"
-              class="text-sm text-gray-500 hover:text-gray-700 px-4 py-2"
-            >Cancel</button>
-            <button
-              type="submit"
-              :disabled="saving"
-              class="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-lg"
-            >{{ saving ? 'Saving…' : editingId ? 'Save changes' : 'Create episode' }}</button>
+            <button type="button" @click="showForm = false" class="text-sm text-gray-500 hover:text-gray-700 px-4 py-2">Cancel</button>
+            <button type="submit" :disabled="saving"
+              class="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-lg">
+              {{ saving ? 'Saving…' : editingId ? 'Save changes' : 'Create episode' }}
+            </button>
           </div>
         </form>
       </div>
