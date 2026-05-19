@@ -29,29 +29,31 @@ export const useAuthStore = defineStore('auth', () => {
     ready.value = true
 
     supabase.auth.onAuthStateChange(async (event, session) => {
-      ready.value = false
       user.value = session?.user ?? null
       if (user.value) {
-        const profile = await fetchProfile(user.value.id)
-        if (!profile?.first_name) {
-          const meta = session?.user?.user_metadata
-          const fn = meta?.given_name ?? meta?.full_name?.split(' ')[0] ?? ''
-          const ln = meta?.family_name ?? meta?.full_name?.split(' ').slice(1).join(' ') ?? ''
-          if (fn || ln) {
-            await supabase.from('profiles').upsert(
-              { id: user.value.id, first_name: fn, last_name: ln },
-              { onConflict: 'id' }
-            )
-            firstName.value = fn
-            lastName.value = ln
+        try {
+          const profile = await fetchProfile(user.value.id)
+          if (!profile?.first_name) {
+            const meta = session?.user?.user_metadata
+            const fn = meta?.given_name ?? meta?.full_name?.split(' ')[0] ?? ''
+            const ln = meta?.family_name ?? meta?.full_name?.split(' ').slice(1).join(' ') ?? ''
+            if (fn || ln) {
+              await supabase.from('profiles').upsert(
+                { id: user.value.id, first_name: fn, last_name: ln },
+                { onConflict: 'id' }
+              )
+              firstName.value = fn
+              lastName.value = ln
+            }
           }
+        } catch {
+          // profile fetch failure should not block navigation
         }
       } else {
         isAdmin.value = false
         firstName.value = ''
         lastName.value = ''
       }
-      ready.value = true
     })
   }
 

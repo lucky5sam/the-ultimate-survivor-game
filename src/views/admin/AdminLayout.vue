@@ -41,6 +41,13 @@ async function handleSignOut() {
           Episodes
         </RouterLink>
         <RouterLink
+          to="/admin/action-types"
+          class="block px-3 py-2 rounded-lg text-sm hover:bg-gray-700"
+          active-class="bg-gray-700"
+        >
+          Action Types
+        </RouterLink>
+        <RouterLink
           to="/admin/settings"
           class="block px-3 py-2 rounded-lg text-sm hover:bg-gray-700"
           active-class="bg-gray-700"

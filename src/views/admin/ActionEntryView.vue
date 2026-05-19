@@ -136,11 +136,16 @@ async function loadContestants() {
 async function loadActionTypes() {
   if (!episode.value) return
   const { data } = await supabase
-    .from('action_types')
-    .select('id, type, category, points')
+    .from('season_action_types')
+    .select('id, points, sort_order, action_types!inner(id, type, category)')
     .eq('season_id', episode.value.season_id)
     .order('sort_order')
-  actionTypes.value = data ?? []
+  actionTypes.value = (data ?? []).map(sat => ({
+    id: (sat.action_types as unknown as { id: string; type: string; category: string }).id,
+    type: (sat.action_types as unknown as { id: string; type: string; category: string }).type,
+    category: (sat.action_types as unknown as { id: string; type: string; category: string }).category,
+    points: sat.points,
+  }))
 }
 
 async function loadEntries() {

@@ -21,6 +21,7 @@ const router = createRouter({
         { path: 'contestants', component: () => import('../views/admin/ContestantsView.vue') },
         { path: 'episodes', component: () => import('../views/admin/EpisodesView.vue') },
         { path: 'episodes/:episodeId/actions', component: () => import('../views/admin/ActionEntryView.vue') },
+        { path: 'action-types', component: () => import('../views/admin/ActionTypesView.vue') },
         { path: 'settings', component: () => import('../views/admin/SettingsView.vue') },
       ],
     },
