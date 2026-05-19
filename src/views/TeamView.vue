@@ -3,11 +3,13 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../stores/auth'
+import TeamCreateWizard from '../components/TeamCreateWizard.vue'
+import { useToast } from '../composables/useToast'
 
-type Season = { id: string; name: string }
+type Season = { id: string; name: string; status: string; current_episode_id: string | null }
 type Contestant = { id: string; name: string; tribe: string }
 type TeamPlayer = { contestant_id: string; role: string; effective_from_episode: number; effective_to_episode: number | null }
-type ActivePlayer = { contestant_id: string; role: 'mvp' | 'player' }
+type ActivePlayer = { contestant_id: string; role: 'mvp' | 'player'; effective_from_episode: number }
 type EpisodeInfo = { id: string; number: number; status: string }
 type BountyPick = { contestant_id: string; effective_from_episode: number }
 type SeasonConfig = {
@@ -20,22 +22,18 @@ type SeasonConfig = {
 
 const auth = useAuthStore()
 const router = useRouter()
+const toast = useToast()
 
 const seasons = ref<Season[]>([])
 const selectedSeasonId = ref('')
 const allContestants = ref<Contestant[]>([])
+const allEpisodes = ref<EpisodeInfo[]>([])
 const existingTeam = ref<{ id: string; team_name: string | null } | null>(null)
 const activePlayers = ref<ActivePlayer[]>([])
 const droppedContestantIds = ref<Set<string>>(new Set())
 const loading = ref(true)
 const saving = ref(false)
 const errorMsg = ref('')
-
-// Team creation
-const teamName = ref('')
-const selectedIds = ref<string[]>([])
-const mvpId = ref<string | null>(null)
-const bountyContestantId = ref<string | null>(null)
 
 // Episode + bounty state
 const nextUpcomingEpisode = ref<EpisodeInfo | null>(null)
@@ -52,23 +50,6 @@ const swapSearch = ref('')
 const selectedReplacementId = ref<string | null>(null)
 const savingSwap = ref(false)
 const roleChangeTargetId = ref<string | null>(null)
-
-const byTribe = computed(() => {
-  const map: Record<string, Contestant[]> = {}
-  for (const c of allContestants.value) {
-    if (!map[c.tribe]) map[c.tribe] = []
-    map[c.tribe]!.push(c)
-  }
-  return Object.fromEntries(Object.entries(map).sort(([a], [b]) => a.localeCompare(b)))
-})
-
-const canSave = computed(() =>
-  selectedIds.value.length === 4 &&
-  mvpId.value !== null &&
-  teamName.value.trim() !== '' &&
-  bountyContestantId.value !== null &&
-  !existingTeam.value
-)
 
 const atMaxSwaps = computed(() =>
   seasonConfig.value.max_swaps !== null && swapsUsed.value >= seasonConfig.value.max_swaps
@@ -95,6 +76,13 @@ const availableContestants = computed(() => {
   )
 })
 
+async function onTeamCreated() {
+  loading.value = true
+  await loadMyTeam()
+  await Promise.all([loadEpisodesAndBounty(), loadSeasonConfig()])
+  loading.value = false
+}
+
 const swappingContestantName = computed(() =>
   allContestants.value.find(c => c.id === swappingPlayer.value?.contestant_id)?.name ?? ''
 )
@@ -108,29 +96,18 @@ const currentMvpName = computed(() => {
   return allContestants.value.find(c => c.id === mvpPlayer?.contestant_id)?.name ?? ''
 })
 
-function contestantName(id: string) {
-  return allContestants.value.find(c => c.id === id)?.name ?? '?'
-}
+const currentSeason = computed(() => seasons.value.find(s => s.id === selectedSeasonId.value) ?? null)
 
-function toggle(id: string) {
-  if (existingTeam.value) return
-  const idx = selectedIds.value.indexOf(id)
-  if (idx >= 0) {
-    selectedIds.value.splice(idx, 1)
-    if (mvpId.value === id) mvpId.value = null
-  } else if (selectedIds.value.length < 4) {
-    selectedIds.value.push(id)
-  }
-}
-
-function setMvp(id: string) {
-  mvpId.value = mvpId.value === id ? null : id
-}
+const currentEpisodeNumber = computed(() => {
+  const epId = currentSeason.value?.current_episode_id
+  if (!epId) return null
+  return allEpisodes.value.find(e => e.id === epId)?.number ?? null
+})
 
 async function loadSeasons() {
   const { data } = await supabase
     .from('seasons')
-    .select('id, name')
+    .select('id, name, status, current_episode_id')
     .in('status', ['upcoming', 'active'])
     .order('created_at', { ascending: false })
   seasons.value = data ?? []
@@ -166,18 +143,12 @@ async function loadMyTeam() {
     existingTeam.value = { id: data.id, team_name: data.team_name }
     const allTp = data.team_players as TeamPlayer[]
     const currentTp = allTp.filter(p => p.effective_to_episode === null)
-    activePlayers.value = currentTp.map(p => ({ contestant_id: p.contestant_id, role: p.role as 'mvp' | 'player' }))
-    selectedIds.value = currentTp.map(p => p.contestant_id)
-    mvpId.value = currentTp.find(p => p.role === 'mvp')?.contestant_id ?? null
+    activePlayers.value = currentTp.map(p => ({ contestant_id: p.contestant_id, role: p.role as 'mvp' | 'player', effective_from_episode: p.effective_from_episode }))
     droppedContestantIds.value = new Set(allTp.filter(p => p.effective_to_episode !== null).map(p => p.contestant_id))
-    teamName.value = data.team_name ?? ''
   } else {
     existingTeam.value = null
     activePlayers.value = []
-    selectedIds.value = []
-    mvpId.value = null
     droppedContestantIds.value = new Set()
-    teamName.value = ''
   }
 }
 
@@ -189,6 +160,7 @@ async function loadEpisodesAndBounty() {
     .eq('season_id', selectedSeasonId.value)
     .order('number')
 
+  allEpisodes.value = eps ?? []
   nextUpcomingEpisode.value = (eps ?? []).find(e => e.status === 'upcoming') ?? null
 
   if (!existingTeam.value) return
@@ -225,40 +197,6 @@ async function loadSeasonConfig() {
   swapsUsed.value = count ?? 0
 }
 
-async function saveTeam() {
-  if (!canSave.value || !auth.user) return
-  saving.value = true
-  errorMsg.value = ''
-
-  const { data: team, error: teamErr } = await supabase
-    .from('teams')
-    .insert({ user_id: auth.user.id, season_id: selectedSeasonId.value, team_name: teamName.value || null })
-    .select('id')
-    .single()
-  if (teamErr) { errorMsg.value = teamErr.message; saving.value = false; return }
-
-  const players = selectedIds.value.map(id => ({
-    team_id: team.id,
-    contestant_id: id,
-    role: id === mvpId.value ? 'mvp' : 'player',
-    effective_from_episode: 1,
-  }))
-  const { error: playersErr } = await supabase.from('team_players').insert(players)
-  if (playersErr) { errorMsg.value = playersErr.message; saving.value = false; return }
-
-  const { error: bountyErr } = await supabase.from('bounty_picks').insert({
-    team_id: team.id,
-    season_id: selectedSeasonId.value,
-    contestant_id: bountyContestantId.value,
-    effective_from_episode: 1,
-  })
-  if (bountyErr) { errorMsg.value = bountyErr.message; saving.value = false; return }
-
-  await loadMyTeam()
-  await Promise.all([loadEpisodesAndBounty(), loadSeasonConfig()])
-  saving.value = false
-}
-
 async function saveBountyChange() {
   if (!nextUpcomingEpisode.value || !newBountyContestantId.value || !existingTeam.value) return
   savingBounty.value = true
@@ -275,6 +213,10 @@ async function saveBountyChange() {
   changingBounty.value = false
   await loadEpisodesAndBounty()
   savingBounty.value = false
+}
+
+function contestantName(id: string) {
+  return allContestants.value.find(c => c.id === id)?.name ?? '?'
 }
 
 function openSwapModal(player: ActivePlayer) {
@@ -371,6 +313,13 @@ async function confirmRoleChange() {
   savingSwap.value = false
 }
 
+async function copyInviteLink() {
+  const { data: code } = await supabase.rpc('get_registration_code')
+  if (!code) return
+  await navigator.clipboard.writeText(`${window.location.origin}/login?mode=signup&code=${code}`)
+  toast.success('Invite link copied to clipboard')
+}
+
 async function handleSignOut() {
   await supabase.auth.signOut()
   router.push('/login')
@@ -397,14 +346,17 @@ onMounted(async () => {
       <h1 class="text-xl font-bold">The Ultimate Survivor Game</h1>
       <div class="flex items-center gap-4 text-sm">
         <RouterLink to="/leaderboard" class="text-blue-600 hover:text-blue-800">Leaderboard</RouterLink>
+        <button @click="copyInviteLink" class="text-blue-600 hover:text-blue-800">Copy invite link</button>
         <RouterLink v-if="auth.isAdmin" to="/admin" class="text-blue-600 hover:text-blue-800">Admin</RouterLink>
-        <span class="text-gray-400">{{ auth.user?.email }}</span>
+        <span class="text-gray-400">
+          {{ (auth.firstName || auth.lastName) ? `${auth.firstName} ${auth.lastName}`.trim() : auth.user?.email }}
+        </span>
         <button @click="handleSignOut" class="text-red-500 hover:text-red-700">Sign out</button>
       </div>
     </header>
 
     <div class="max-w-3xl mx-auto px-6 py-8">
-      <div v-if="loading" class="text-gray-400 text-sm">Loading…</div>
+<div v-if="loading" class="text-gray-400 text-sm">Loading…</div>
 
       <template v-else>
         <div v-if="seasons.length === 0" class="text-gray-500 text-sm">
@@ -414,15 +366,41 @@ onMounted(async () => {
         <template v-else>
           <!-- Season selector -->
           <div class="mb-6">
-            <div v-if="seasons.length === 1">
+            <div v-if="seasons.length === 1" class="flex items-center gap-3 flex-wrap">
               <h2 class="text-2xl font-bold">{{ seasons[0]?.name }}</h2>
+              <span v-if="currentSeason" :class="[
+                'px-2.5 py-1 rounded-full text-xs font-semibold',
+                currentSeason.status === 'active'    ? 'bg-green-100 text-green-800' :
+                currentSeason.status === 'upcoming'  ? 'bg-yellow-100 text-yellow-800' :
+                                                       'bg-gray-100 text-gray-600'
+              ]">
+                {{ currentSeason.status === 'active' && currentEpisodeNumber
+                    ? `Active · Episode ${currentEpisodeNumber}`
+                    : currentSeason.status === 'active' ? 'Active'
+                    : currentSeason.status === 'upcoming' ? 'Upcoming'
+                    : 'Completed' }}
+              </span>
             </div>
             <div v-else>
               <label class="block text-sm font-medium text-gray-700 mb-1">Season</label>
-              <select v-model="selectedSeasonId"
-                class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <option v-for="s in seasons" :key="s.id" :value="s.id">{{ s.name }}</option>
-              </select>
+              <div class="flex items-center gap-3">
+                <select v-model="selectedSeasonId"
+                  class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <option v-for="s in seasons" :key="s.id" :value="s.id">{{ s.name }}</option>
+                </select>
+                <span v-if="currentSeason" :class="[
+                  'px-2.5 py-1 rounded-full text-xs font-semibold',
+                  currentSeason.status === 'active'    ? 'bg-green-100 text-green-800' :
+                  currentSeason.status === 'upcoming'  ? 'bg-yellow-100 text-yellow-800' :
+                                                         'bg-gray-100 text-gray-600'
+                ]">
+                  {{ currentSeason.status === 'active' && currentEpisodeNumber
+                      ? `Active · Episode ${currentEpisodeNumber}`
+                      : currentSeason.status === 'active' ? 'Active'
+                      : currentSeason.status === 'upcoming' ? 'Upcoming'
+                      : 'Completed' }}
+                </span>
+              </div>
             </div>
           </div>
 
@@ -482,6 +460,7 @@ onMounted(async () => {
               <div>
                 <span class="font-medium text-sm">{{ contestantName(player.contestant_id) }}</span>
                 <span v-if="player.role === 'mvp'" class="ml-1 text-yellow-400">★</span>
+                <span v-if="player.effective_from_episode > 1" class="ml-2 text-xs text-gray-400">joined ep. {{ player.effective_from_episode }}</span>
               </div>
               <div v-if="nextUpcomingEpisode && !atMaxSwaps" class="flex gap-3">
                 <button v-if="player.role === 'player'" @click="roleChangeTargetId = player.contestant_id"
@@ -500,70 +479,15 @@ onMounted(async () => {
             </div>
           </div>
 
-          <!-- Team name (creation) -->
-          <div v-if="!existingTeam" class="mb-5">
-            <label class="block text-sm font-medium text-gray-700 mb-1">Team name</label>
-            <input v-model="teamName" type="text" placeholder="e.g. The Fire Starters"
-              class="w-full max-w-xs border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-          </div>
-
-          <!-- Instructions -->
-          <div v-if="!existingTeam" class="mb-5 text-sm text-gray-600">
-            Pick 4 contestants. Then tap <span class="text-yellow-500 font-bold">★</span> on one to make them your MVP
-            <span class="text-gray-400">(earns 1.5× points)</span>.
-            <span class="ml-2 font-semibold text-blue-700">{{ selectedIds.length }}/4 selected</span>
-            <span v-if="mvpId" class="ml-2 font-semibold text-yellow-600">· MVP set</span>
-          </div>
-
-          <!-- Contestants by tribe -->
-          <div v-for="(members, tribe) in byTribe" :key="tribe" class="mb-8">
-            <h3 class="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3">{{ tribe }}</h3>
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div v-for="c in members" :key="c.id" @click="toggle(c.id)" :class="[
-                'relative rounded-xl border-2 p-3 transition-all select-none',
-                selectedIds.includes(c.id) ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-white',
-                !existingTeam && !selectedIds.includes(c.id) && selectedIds.length >= 4
-                  ? 'opacity-35 cursor-not-allowed'
-                  : existingTeam ? 'cursor-default' : 'cursor-pointer hover:border-gray-300',
-              ]">
-                <p class="font-semibold text-sm pr-5">{{ c.name }}</p>
-                <button v-if="selectedIds.includes(c.id) && !existingTeam" @click.stop="setMvp(c.id)"
-                  class="absolute top-2 right-2 text-base leading-none"
-                  :class="mvpId === c.id ? 'text-yellow-400' : 'text-gray-200 hover:text-yellow-300'"
-                  title="Set as MVP">★</button>
-                <span v-if="existingTeam && mvpId === c.id"
-                  class="absolute top-2 right-2 text-yellow-400 text-base leading-none">★</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Bounty pick (creation) -->
-          <div v-if="!existingTeam" class="mb-6">
-            <label class="block text-sm font-medium text-gray-700 mb-1">Bounty Pick</label>
-            <p class="text-xs text-gray-500 mb-2">
-              Who gets voted out Episode 1? Your pick carries forward each week — swap it before any episode starts.
-            </p>
-            <select v-model="bountyContestantId"
-              class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-              <option :value="null">Select a contestant…</option>
-              <option v-for="c in allContestants" :key="c.id" :value="c.id">{{ c.name }}</option>
-            </select>
-          </div>
-
-          <!-- Save (creation) -->
-          <div v-if="!existingTeam">
-            <p v-if="errorMsg" class="text-red-600 text-sm mb-3">{{ errorMsg }}</p>
-            <button @click="saveTeam" :disabled="!canSave || saving"
-              class="bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold px-6 py-2.5 rounded-lg">
-              {{ saving ? 'Saving…' : 'Lock in my team' }}
-            </button>
-            <p v-if="!teamName.trim()" class="text-xs text-gray-400 mt-2">Enter a team name</p>
-            <p v-else-if="selectedIds.length < 4" class="text-xs text-gray-400 mt-2">
-              Select {{ 4 - selectedIds.length }} more contestant{{ 4 - selectedIds.length === 1 ? '' : 's' }}
-            </p>
-            <p v-else-if="!mvpId" class="text-xs text-gray-400 mt-2">Tap ★ on a contestant to set your MVP</p>
-            <p v-else-if="!bountyContestantId" class="text-xs text-gray-400 mt-2">Set your bounty pick</p>
-          </div>
+          <!-- Team creation wizard -->
+          <TeamCreateWizard
+            v-if="!existingTeam"
+            :season-id="selectedSeasonId"
+            :season-name="seasons.find(s => s.id === selectedSeasonId)?.name ?? ''"
+            :contestants="allContestants"
+            :user-id="auth.user!.id"
+            @created="onTeamCreated"
+          />
 
           <p v-if="existingTeam && errorMsg" class="text-red-600 text-sm mt-4">{{ errorMsg }}</p>
         </template>

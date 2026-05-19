@@ -7,6 +7,7 @@ const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     { path: '/login', component: LoginView },
+    { path: '/reset-password', component: () => import('../views/ResetPasswordView.vue') },
     { path: '/', redirect: '/my-team' },
     { path: '/my-team', component: () => import('../views/TeamView.vue'), meta: { requiresAuth: true } },
     { path: '/leaderboard', component: () => import('../views/LeaderboardView.vue'), meta: { requiresAuth: true } },
@@ -20,6 +21,7 @@ const router = createRouter({
         { path: 'contestants', component: () => import('../views/admin/ContestantsView.vue') },
         { path: 'episodes', component: () => import('../views/admin/EpisodesView.vue') },
         { path: 'episodes/:episodeId/actions', component: () => import('../views/admin/ActionEntryView.vue') },
+        { path: 'settings', component: () => import('../views/admin/SettingsView.vue') },
       ],
     },
   ],
