@@ -1,0 +1,29 @@
+name: Supabase Keepalive
+
+on:
+  schedule:
+    # Runs every Monday and Thursday at 9am UTC — well within the 7-day pause window
+    - cron: '0 9 * * 1'
+    - cron: '0 9 * * 4'
+  workflow_dispatch: # allow manual trigger to test
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          echo "Pinging Supabase at $(date -u)"
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            "$SUPABASE_URL/rest/v1/action_types?select=id&limit=1" \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY")
+          echo "Response status: $HTTP_STATUS"
+          if [ "$HTTP_STATUS" -lt 200 ] || [ "$HTTP_STATUS" -ge 300 ]; then
+            echo "ERROR: Supabase ping returned non-2xx status $HTTP_STATUS"
+            exit 1
+          fi
+          echo "Supabase is alive."
