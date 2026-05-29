@@ -1,19 +1,22 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { supabase } from '../lib/supabase'
-
-type Contestant = { id: string; name: string; tribe: string }
+import type { ContestantFull } from '../types/contestant'
+import { getTribeColors } from '../utils/tribeColors'
+import ContestantCard from './ContestantCard.vue'
+import ContestantDetailModal from './ContestantDetailModal.vue'
 
 const props = defineProps<{
   seasonId: string
   seasonName: string
-  contestants: Contestant[]
+  contestants: ContestantFull[]
   userId: string
 }>()
 
 const emit = defineEmits<{ created: [] }>()
 
-const TOTAL_STEPS = 5
+const TOTAL_STEPS = 6
+const STEP_LABELS = ['League Code', 'Team Name', 'Pick Players', 'Declare MVP', 'Bounty Pick', 'Review']
 
 const step = ref(1)
 const leagueCode = ref('')
@@ -23,9 +26,15 @@ const mvpId = ref<string | null>(null)
 const bountyId = ref<string | null>(null)
 const loading = ref(false)
 const errorMsg = ref('')
+const detailContestant = ref<ContestantFull | null>(null)
+const carouselRef = ref<HTMLElement | null>(null)
+
+function scrollCarousel(direction: 'left' | 'right') {
+  carouselRef.value?.scrollBy({ left: direction === 'right' ? 780 : -780, behavior: 'smooth' })
+}
 
 const byTribe = computed(() => {
-  const map: Record<string, Contestant[]> = {}
+  const map: Record<string, ContestantFull[]> = {}
   for (const c of props.contestants) {
     if (!map[c.tribe]) map[c.tribe] = []
     map[c.tribe]!.push(c)
@@ -33,14 +42,18 @@ const byTribe = computed(() => {
   return Object.fromEntries(Object.entries(map).sort(([a], [b]) => a.localeCompare(b)))
 })
 
+const selectedContestants = computed(() =>
+  selectedIds.value.map(id => props.contestants.find(c => c.id === id)!).filter(Boolean)
+)
+
+const bountyContestant = computed(() =>
+  props.contestants.find(c => c.id === bountyId.value) ?? null
+)
+
 onMounted(() => {
   const saved = sessionStorage.getItem('pending_league_code')
   if (saved) leagueCode.value = saved
 })
-
-function contestantName(id: string) {
-  return props.contestants.find(c => c.id === id)?.name ?? '?'
-}
 
 function toggle(id: string) {
   const idx = selectedIds.value.indexOf(id)
@@ -65,8 +78,9 @@ async function nextStep() {
   }
 
   if (step.value === 2 && !teamName.value.trim()) { errorMsg.value = 'Enter a team name'; return }
-  if (step.value === 3 && (selectedIds.value.length < 4 || !mvpId.value)) return
-  if (step.value === 4 && !bountyId.value) { errorMsg.value = 'Choose a bounty pick'; return }
+  if (step.value === 3 && selectedIds.value.length < 4) return
+  if (step.value === 4 && !mvpId.value) { errorMsg.value = 'Choose your MVP'; return }
+  if (step.value === 5 && !bountyId.value) { errorMsg.value = 'Choose a bounty pick'; return }
 
   step.value++
 }
@@ -106,156 +120,359 @@ async function lockIn() {
 </script>
 
 <template>
-  <div class="max-w-2xl">
-    <!-- Step indicator -->
-    <div class="flex items-center mb-8">
-      <template v-for="n in TOTAL_STEPS" :key="n">
-        <div :class="[
-          'w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold shrink-0 transition-colors',
-          step > n ? 'bg-blue-600 text-white' : step === n ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-400'
-        ]">
-          <span v-if="step > n">✓</span>
-          <span v-else>{{ n }}</span>
+  <div class="bg-stone-950">
+    <div class="px-8 sm:px-12 lg:px-20 pt-8 pb-16">
+
+      <!-- Header -->
+      <div class="text-center mb-10">
+        <h1 class="text-3xl font-bold tracking-tight text-white">Build Your Tribe</h1>
+        <p class="text-stone-400 mt-1 text-sm">{{ seasonName }}</p>
+      </div>
+
+      <!-- Step indicator: circles + lines -->
+      <div class="flex items-center max-w-2xl mx-auto mb-2">
+        <template v-for="n in TOTAL_STEPS" :key="n">
+          <div
+            class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-all duration-300"
+            :class="[
+              step > n  ? 'bg-orange-600 text-white' :
+              step === n ? 'bg-orange-500 text-white ring-4 ring-orange-500/20' :
+                           'bg-stone-800 text-stone-500 border border-stone-700'
+            ]"
+          >
+            <span v-if="step > n">✓</span>
+            <span v-else>{{ n }}</span>
+          </div>
+          <div
+            v-if="n < TOTAL_STEPS"
+            class="flex-1 h-px transition-colors duration-300"
+            :class="step > n ? 'bg-orange-600' : 'bg-stone-700'"
+          />
+        </template>
+      </div>
+      <!-- Step labels -->
+      <div class="flex max-w-2xl mx-auto mb-10">
+        <div
+          v-for="(label, i) in STEP_LABELS"
+          :key="i"
+          class="flex-1 text-center"
+        >
+          <p
+            class="text-xs mt-1 transition-colors duration-200 hidden sm:block"
+            :class="[
+              step === i + 1 ? 'text-orange-400 font-semibold' :
+              step > i + 1  ? 'text-stone-500' :
+                               'text-stone-700'
+            ]"
+          >{{ label }}</p>
         </div>
-        <div v-if="n < TOTAL_STEPS" :class="['flex-1 h-0.5 mx-2 transition-colors', step > n ? 'bg-blue-600' : 'bg-gray-200']" />
-      </template>
-    </div>
-
-    <!-- Step 1: League Code -->
-    <template v-if="step === 1">
-      <h2 class="text-xl font-bold mb-1">Enter League Code</h2>
-      <p class="text-sm text-gray-500 mb-6">Ask your league admin for the code to join {{ seasonName }}.</p>
-      <div class="space-y-4 max-w-sm">
-        <input v-model="leagueCode" type="text" placeholder="Enter code…"
-          @keyup.enter="nextStep"
-          class="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-        <p v-if="errorMsg" class="text-sm text-red-600">{{ errorMsg }}</p>
-        <button @click="nextStep" :disabled="loading || !leagueCode.trim()"
-          class="bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white font-semibold px-6 py-2.5 rounded-lg text-sm">
-          {{ loading ? 'Checking…' : 'Continue' }}
-        </button>
-      </div>
-    </template>
-
-    <!-- Step 2: Team Name -->
-    <template v-else-if="step === 2">
-      <h2 class="text-xl font-bold mb-1">Name Your Team</h2>
-      <p class="text-sm text-gray-500 mb-6">This is how you'll appear on the leaderboard.</p>
-      <div class="space-y-4 max-w-sm">
-        <input v-model="teamName" type="text" placeholder="e.g. The Fire Starters"
-          @keyup.enter="nextStep"
-          class="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-        <p v-if="errorMsg" class="text-sm text-red-600">{{ errorMsg }}</p>
-        <div class="flex gap-3">
-          <button @click="step--" class="text-sm text-gray-500 hover:text-gray-700 px-4 py-2.5 border border-gray-200 rounded-lg">Back</button>
-          <button @click="nextStep" :disabled="!teamName.trim()"
-            class="bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white font-semibold px-6 py-2.5 rounded-lg text-sm">
-            Continue
-          </button>
-        </div>
-      </div>
-    </template>
-
-    <!-- Step 3: Pick Roster + MVP -->
-    <template v-else-if="step === 3">
-      <h2 class="text-xl font-bold mb-1">Pick Your Roster</h2>
-      <p class="text-sm text-gray-500 mb-3">
-        Choose 4 contestants. Tap <span class="text-yellow-500 font-bold">★</span> on one to make them your MVP
-        <span class="text-gray-400">(earns 1.5× points)</span>.
-      </p>
-      <div class="flex gap-4 mb-5 text-sm">
-        <span :class="selectedIds.length === 4 ? 'text-green-600 font-semibold' : 'text-blue-600 font-semibold'">
-          {{ selectedIds.length }}/4 selected
-        </span>
-        <span v-if="mvpId" class="text-yellow-600 font-semibold">· MVP set ★</span>
-        <span v-else-if="selectedIds.length === 4" class="text-gray-400">· Tap ★ to set MVP</span>
       </div>
 
-      <div v-for="(members, tribe) in byTribe" :key="tribe" class="mb-6">
-        <h3 class="text-xs font-bold uppercase tracking-widest text-gray-400 mb-2">{{ tribe }}</h3>
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          <div v-for="c in members" :key="c.id" @click="toggle(c.id)" :class="[
-            'relative rounded-xl border-2 p-3 transition-all select-none',
-            selectedIds.includes(c.id)
-              ? 'border-blue-500 bg-blue-50 cursor-pointer'
-              : selectedIds.length >= 4
-                ? 'border-gray-200 bg-white opacity-35 cursor-not-allowed'
-                : 'border-gray-200 bg-white cursor-pointer hover:border-gray-300',
-          ]">
-            <p class="font-semibold text-sm pr-5 leading-snug">{{ c.name }}</p>
-            <button v-if="selectedIds.includes(c.id)" @click.stop="mvpId = mvpId === c.id ? null : c.id"
-              :class="['absolute top-2 right-2 text-base leading-none', mvpId === c.id ? 'text-yellow-400' : 'text-gray-200 hover:text-yellow-300']">
-              ★
+      <!-- ── Step 1: League Code ── -->
+      <template v-if="step === 1">
+        <div class="max-w-sm mx-auto">
+          <h2 class="text-xl font-bold text-white mb-1">Enter League Code</h2>
+          <p class="text-stone-400 text-sm mb-6">Ask your league admin for the code to join {{ seasonName }}.</p>
+          <div class="space-y-4">
+            <input
+              v-model="leagueCode"
+              type="text"
+              placeholder="Enter code…"
+              @keyup.enter="nextStep"
+              class="w-full bg-stone-800 border border-stone-600 text-stone-100 placeholder-stone-500 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500 transition-colors"
+            />
+            <p v-if="errorMsg" class="text-sm text-red-400">{{ errorMsg }}</p>
+            <button
+              @click="nextStep"
+              :disabled="loading || !leagueCode.trim()"
+              class="w-full bg-orange-600 hover:bg-orange-500 disabled:opacity-40 text-white font-bold px-6 py-3 rounded-xl text-sm transition-colors"
+            >
+              {{ loading ? 'Checking…' : 'Continue' }}
             </button>
           </div>
         </div>
-      </div>
+      </template>
 
-      <div class="flex gap-3 mt-2">
-        <button @click="step--" class="text-sm text-gray-500 hover:text-gray-700 px-4 py-2.5 border border-gray-200 rounded-lg">Back</button>
-        <button @click="nextStep" :disabled="selectedIds.length < 4 || !mvpId"
-          class="bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white font-semibold px-6 py-2.5 rounded-lg text-sm">
-          Continue
-        </button>
-      </div>
-    </template>
-
-    <!-- Step 4: Bounty Pick -->
-    <template v-else-if="step === 4">
-      <h2 class="text-xl font-bold mb-1">Bounty Pick</h2>
-      <p class="text-sm text-gray-500 mb-6">
-        Who gets voted out first? Your pick carries forward each week — you can change it before any episode airs.
-      </p>
-      <div class="space-y-4 max-w-sm">
-        <select v-model="bountyId"
-          class="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-          <option :value="null">Select a contestant…</option>
-          <option v-for="c in contestants" :key="c.id" :value="c.id">{{ c.name }}</option>
-        </select>
-        <p v-if="errorMsg" class="text-sm text-red-600">{{ errorMsg }}</p>
-        <div class="flex gap-3">
-          <button @click="step--" class="text-sm text-gray-500 hover:text-gray-700 px-4 py-2.5 border border-gray-200 rounded-lg">Back</button>
-          <button @click="nextStep" :disabled="!bountyId"
-            class="bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white font-semibold px-6 py-2.5 rounded-lg text-sm">
-            Continue
-          </button>
-        </div>
-      </div>
-    </template>
-
-    <!-- Step 5: Review -->
-    <template v-else-if="step === 5">
-      <h2 class="text-xl font-bold mb-1">Review Your Team</h2>
-      <p class="text-sm text-gray-500 mb-6">Once locked in, you can swap players between episodes.</p>
-
-      <div class="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100 mb-6 max-w-sm">
-        <div class="px-4 py-3">
-          <p class="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Team name</p>
-          <p class="font-semibold">{{ teamName }}</p>
-        </div>
-        <div class="px-4 py-3">
-          <p class="text-xs text-gray-400 uppercase tracking-wide mb-2">Roster</p>
-          <div class="space-y-1.5">
-            <div v-for="id in selectedIds" :key="id" class="flex items-center gap-2">
-              <span class="text-sm font-medium">{{ contestantName(id) }}</span>
-              <span v-if="id === mvpId" class="text-yellow-400 text-sm">★ MVP</span>
+      <!-- ── Step 2: Team Name ── -->
+      <template v-else-if="step === 2">
+        <div class="max-w-sm mx-auto">
+          <h2 class="text-xl font-bold text-white mb-1">Name Your Tribe</h2>
+          <p class="text-stone-400 text-sm mb-6">This is how you'll appear on the leaderboard.</p>
+          <div class="space-y-4">
+            <input
+              v-model="teamName"
+              type="text"
+              placeholder="e.g. The Fire Starters"
+              @keyup.enter="nextStep"
+              class="w-full bg-stone-800 border border-stone-600 text-stone-100 placeholder-stone-500 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500 transition-colors"
+            />
+            <p v-if="errorMsg" class="text-sm text-red-400">{{ errorMsg }}</p>
+            <div class="flex gap-3">
+              <button
+                @click="step--"
+                class="bg-stone-800 hover:bg-stone-700 border border-stone-600 text-stone-300 font-medium px-5 py-3 rounded-xl text-sm transition-colors"
+              >Back</button>
+              <button
+                @click="nextStep"
+                :disabled="!teamName.trim()"
+                class="flex-1 bg-orange-600 hover:bg-orange-500 disabled:opacity-40 text-white font-bold px-6 py-3 rounded-xl text-sm transition-colors"
+              >Continue</button>
             </div>
           </div>
         </div>
-        <div class="px-4 py-3">
-          <p class="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Bounty pick</p>
-          <p class="font-medium text-sm">{{ contestantName(bountyId!) }}</p>
-        </div>
-      </div>
+      </template>
 
-      <p v-if="errorMsg" class="text-sm text-red-600 mb-3">{{ errorMsg }}</p>
-      <div class="flex gap-3">
-        <button @click="step--" class="text-sm text-gray-500 hover:text-gray-700 px-4 py-2.5 border border-gray-200 rounded-lg">Back</button>
-        <button @click="lockIn" :disabled="loading"
-          class="bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white font-bold px-6 py-2.5 rounded-lg text-sm">
-          {{ loading ? 'Saving…' : 'Lock in my team' }}
-        </button>
-      </div>
-    </template>
+      <!-- ── Step 3: Pick 4 Players ── -->
+      <template v-else-if="step === 3">
+        <div class="flex items-start justify-between mb-6 flex-wrap gap-4">
+          <div>
+            <h2 class="text-xl font-bold text-white mb-0.5">Pick Your Survivors</h2>
+            <p class="text-stone-400 text-sm">Choose 4 castaways for your tribe.</p>
+          </div>
+          <!-- Selection progress -->
+          <div class="flex gap-3 shrink-0">
+            <div v-for="i in 4" :key="i" class="flex flex-col items-center gap-1">
+              <template v-if="selectedContestants[i - 1]">
+                <div
+                  class="w-12 h-12 rounded-full overflow-hidden border-2 transition-all duration-300"
+                  :style="{ borderColor: getTribeColors(selectedContestants[i - 1]!.tribe).primary, boxShadow: `0 0 8px ${getTribeColors(selectedContestants[i - 1]!.tribe).primary}60` }"
+                >
+                  <img
+                    v-if="selectedContestants[i - 1]!.photo_url"
+                    :src="selectedContestants[i - 1]!.photo_url ?? undefined"
+                    :alt="selectedContestants[i - 1]!.name"
+                    class="w-full h-full object-cover object-top"
+                  />
+                  <div v-else class="w-full h-full bg-stone-700 flex items-center justify-center">
+                    <svg class="w-6 h-6 text-stone-500" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
+                    </svg>
+                  </div>
+                </div>
+                <span class="text-xs text-white font-medium w-12 text-center truncate leading-tight">
+                  {{ selectedContestants[i - 1]!.name.split(' ')[0] }}
+                </span>
+              </template>
+              <template v-else>
+                <div class="w-12 h-12 rounded-full border-2 border-dashed border-stone-700 bg-stone-800/40 flex items-center justify-center transition-all duration-300">
+                  <span class="text-stone-600 text-xs font-bold">{{ i }}</span>
+                </div>
+                <span class="text-xs text-stone-700 w-12 text-center">—</span>
+              </template>
+            </div>
+          </div>
+        </div>
+
+        <!-- Full-bleed carousel -->
+        <div class="relative -mx-8 sm:-mx-12 lg:-mx-20 mb-8">
+          <!-- Edge fade — left -->
+          <div class="absolute left-0 top-0 bottom-4 w-20 bg-gradient-to-r from-stone-950 to-transparent z-10 pointer-events-none" />
+          <!-- Edge fade — right -->
+          <div class="absolute right-0 top-0 bottom-4 w-20 bg-gradient-to-l from-stone-950 to-transparent z-10 pointer-events-none" />
+
+          <!-- Scroll button — left -->
+          <button
+            @click="scrollCarousel('left')"
+            class="absolute left-4 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full bg-stone-800/90 hover:bg-stone-700 border border-stone-600 hover:border-stone-500 flex items-center justify-center text-white shadow-lg backdrop-blur-sm transition-all duration-200 hover:scale-110"
+          >
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+
+          <!-- Scroll button — right -->
+          <button
+            @click="scrollCarousel('right')"
+            class="absolute right-4 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full bg-stone-800/90 hover:bg-stone-700 border border-stone-600 hover:border-stone-500 flex items-center justify-center text-white shadow-lg backdrop-blur-sm transition-all duration-200 hover:scale-110"
+          >
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+
+          <div ref="carouselRef" class="flex gap-8 overflow-x-auto scrollbar-hide px-8 sm:px-12 lg:px-20 pb-4">
+            <template v-for="(members, tribe) in byTribe" :key="tribe">
+              <!-- Tribe group -->
+              <div class="flex flex-col gap-2 shrink-0">
+                <!-- Tribe label -->
+                <div class="flex items-center gap-1.5 pl-0.5">
+                  <div class="w-1.5 h-1.5 rounded-full" :style="{ backgroundColor: getTribeColors(tribe as string).primary }" />
+                  <span
+                    class="text-xs font-bold uppercase tracking-widest"
+                    :style="{ color: getTribeColors(tribe as string).text }"
+                  >{{ tribe }}</span>
+                </div>
+                <!-- Cards row -->
+                <div class="flex gap-3">
+                  <div v-for="c in members" :key="c.id" class="w-60 shrink-0">
+                    <ContestantCard
+                      :contestant="c"
+                      :selected="selectedIds.includes(c.id)"
+                      :disabled="selectedIds.length >= 4 && !selectedIds.includes(c.id)"
+                      @select="toggle(c.id)"
+                      @view-details="detailContestant = c"
+                    />
+                  </div>
+                </div>
+              </div>
+              <!-- Tribe divider -->
+              <div class="w-px bg-stone-800 self-stretch shrink-0 mx-2" />
+            </template>
+          </div>
+        </div>
+
+        <div class="flex gap-3">
+          <button
+            @click="step--"
+            class="bg-stone-800 hover:bg-stone-700 border border-stone-600 text-stone-300 font-medium px-5 py-3 rounded-xl text-sm transition-colors"
+          >Back</button>
+          <button
+            @click="nextStep"
+            :disabled="selectedIds.length < 4"
+            class="bg-orange-600 hover:bg-orange-500 disabled:opacity-40 text-white font-bold px-8 py-3 rounded-xl text-sm transition-colors"
+          >Continue</button>
+        </div>
+      </template>
+
+      <!-- ── Step 4: Declare MVP ── -->
+      <template v-else-if="step === 4">
+        <div class="text-center mb-8">
+          <h2 class="text-xl font-bold text-white mb-1">Crown Your Champion</h2>
+          <p class="text-stone-400 text-sm">Your MVP earns 1.5× points each episode. Choose wisely.</p>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-xl mx-auto mb-8">
+          <ContestantCard
+            v-for="c in selectedContestants"
+            :key="c.id"
+            :contestant="c"
+            :selected="c.id === mvpId"
+            :disabled="false"
+            :show-crown="true"
+            @select="mvpId = mvpId === c.id ? null : c.id"
+            @view-details="detailContestant = c"
+          />
+        </div>
+
+        <p v-if="errorMsg" class="text-sm text-red-400 text-center mb-4">{{ errorMsg }}</p>
+
+        <div class="flex gap-3 justify-center">
+          <button
+            @click="step--"
+            class="bg-stone-800 hover:bg-stone-700 border border-stone-600 text-stone-300 font-medium px-5 py-3 rounded-xl text-sm transition-colors"
+          >Back</button>
+          <button
+            @click="nextStep"
+            :disabled="!mvpId"
+            class="bg-orange-600 hover:bg-orange-500 disabled:opacity-40 text-white font-bold px-8 py-3 rounded-xl text-sm transition-colors"
+          >Continue</button>
+        </div>
+      </template>
+
+      <!-- ── Step 5: Bounty Pick ── -->
+      <template v-else-if="step === 5">
+        <div class="max-w-sm mx-auto">
+          <h2 class="text-xl font-bold text-white mb-1">Set Your Bounty</h2>
+          <p class="text-stone-400 text-sm mb-6">
+            Who gets voted out first? Your pick carries forward each week — change it before any episode airs.
+          </p>
+          <div class="space-y-4">
+            <select
+              v-model="bountyId"
+              class="w-full bg-stone-800 border border-stone-600 text-stone-100 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500 transition-colors appearance-none"
+            >
+              <option :value="null" disabled class="text-stone-500">Select a castaway…</option>
+              <optgroup
+                v-for="(members, tribe) in byTribe"
+                :key="tribe"
+                :label="tribe as string"
+                class="text-stone-400"
+              >
+                <option v-for="c in members" :key="c.id" :value="c.id" class="text-stone-100">
+                  {{ c.name }}
+                </option>
+              </optgroup>
+            </select>
+            <p v-if="errorMsg" class="text-sm text-red-400">{{ errorMsg }}</p>
+            <div class="flex gap-3">
+              <button
+                @click="step--"
+                class="bg-stone-800 hover:bg-stone-700 border border-stone-600 text-stone-300 font-medium px-5 py-3 rounded-xl text-sm transition-colors"
+              >Back</button>
+              <button
+                @click="nextStep"
+                :disabled="!bountyId"
+                class="flex-1 bg-orange-600 hover:bg-orange-500 disabled:opacity-40 text-white font-bold px-6 py-3 rounded-xl text-sm transition-colors"
+              >Continue</button>
+            </div>
+          </div>
+        </div>
+      </template>
+
+      <!-- ── Step 6: Review ── -->
+      <template v-else-if="step === 6">
+        <div class="max-w-md mx-auto">
+          <h2 class="text-xl font-bold text-white mb-1">Review Your Tribe</h2>
+          <p class="text-stone-400 text-sm mb-6">Once locked in, you can swap players between episodes.</p>
+
+          <!-- Team name -->
+          <div class="bg-stone-800 rounded-xl border border-stone-700 px-4 py-3 mb-4">
+            <p class="text-xs text-stone-500 uppercase tracking-wide mb-0.5">Tribe Name</p>
+            <p class="font-bold text-white">{{ teamName }}</p>
+          </div>
+
+          <!-- Roster cards -->
+          <p class="text-xs text-stone-500 uppercase tracking-wide mb-3">Your Roster</p>
+          <div class="grid grid-cols-4 gap-2 mb-4">
+            <ContestantCard
+              v-for="c in selectedContestants"
+              :key="c.id"
+              :contestant="c"
+              :selected="c.id === mvpId"
+              :disabled="false"
+              :show-crown="true"
+              @select="() => {}"
+              @view-details="detailContestant = c"
+            />
+          </div>
+
+          <!-- Bounty pick -->
+          <div v-if="bountyContestant" class="bg-stone-800 rounded-xl border border-stone-700 px-4 py-3 mb-6">
+            <p class="text-xs text-stone-500 uppercase tracking-wide mb-0.5">Bounty Pick</p>
+            <div class="flex items-center gap-2">
+              <span class="font-semibold text-white text-sm">{{ bountyContestant.name }}</span>
+              <span class="text-xs" :style="{ color: getTribeColors(bountyContestant.tribe).text }">
+                {{ bountyContestant.tribe }}
+              </span>
+            </div>
+          </div>
+
+          <p v-if="errorMsg" class="text-sm text-red-400 mb-4">{{ errorMsg }}</p>
+
+          <div class="flex gap-3">
+            <button
+              @click="step--"
+              class="bg-stone-800 hover:bg-stone-700 border border-stone-600 text-stone-300 font-medium px-5 py-3 rounded-xl text-sm transition-colors"
+            >Back</button>
+            <button
+              @click="lockIn"
+              :disabled="loading"
+              class="flex-1 bg-orange-600 hover:bg-orange-500 disabled:opacity-40 text-white font-bold px-6 py-3 rounded-xl text-sm transition-colors"
+            >
+              {{ loading ? 'Locking in…' : 'Lock In My Tribe 🔥' }}
+            </button>
+          </div>
+        </div>
+      </template>
+
+    </div>
   </div>
+
+  <!-- Contestant detail modal (teleported to body) -->
+  <ContestantDetailModal
+    :contestant="detailContestant"
+    :show="!!detailContestant"
+    :season-name="seasonName"
+    @close="detailContestant = null"
+  />
 </template>

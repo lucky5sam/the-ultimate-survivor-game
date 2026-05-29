@@ -7,7 +7,9 @@
       "mcp__plugin_playwright_playwright__browser_click",
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
-      "mcp__figma__use_figma"
+      "mcp__figma__use_figma",
+      "mcp__plugin_playwright_playwright__browser_snapshot",
+      "Bash(npm run *)"
     ]
   }
 }

@@ -1,0 +1,56 @@
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - heading "The Ultimate Survivor Game" [level=1] [ref=e5]
+      - generic [ref=e6]:
+        - link "Leaderboard" [ref=e7] [cursor=pointer]:
+          - /url: /leaderboard
+        - button "Copy invite link" [ref=e8]
+        - generic [ref=e9]: sam+test@cerkl.com
+        - button "Sign out" [ref=e10]
+    - generic [ref=e11]:
+      - generic [ref=e13]:
+        - generic [ref=e14]: Season
+        - generic [ref=e15]:
+          - combobox [active] [ref=e16]:
+            - option "Testing" [selected]
+            - 'option "Survivor 50: In the Hands of the Fans"'
+          - generic [ref=e17]: Active · Episode 1
+      - generic [ref=e18]:
+        - paragraph [ref=e19]: "Your team is locked in: Sam-I-ams"
+        - paragraph [ref=e20]: 4 contestants selected. Your MVP is marked with a star.
+      - generic [ref=e21]:
+        - generic [ref=e22]:
+          - generic [ref=e23]:
+            - heading "Bounty Pick — Episode 2" [level=3] [ref=e24]
+            - paragraph [ref=e25]: Who gets voted out this episode?
+          - button "Change" [ref=e26]
+        - paragraph [ref=e28]: Kelley Wentworth
+      - generic [ref=e29]:
+        - generic [ref=e30]:
+          - heading "My Roster" [level=3] [ref=e31]
+          - generic [ref=e32]: 0 swaps used
+        - generic [ref=e33]:
+          - generic [ref=e34]: Jeremy Collins
+          - generic [ref=e35]:
+            - button "Make MVP" [ref=e36]
+            - button "Swap" [ref=e37]
+        - generic [ref=e38]:
+          - generic [ref=e39]: Cirie Fields
+          - generic [ref=e40]:
+            - button "Make MVP" [ref=e41]
+            - button "Swap" [ref=e42]
+        - generic [ref=e43]:
+          - generic [ref=e44]: Ozzy Lusth★
+          - button "Swap" [ref=e46]
+        - generic [ref=e47]:
+          - generic [ref=e48]: Tony Vlachos
+          - generic [ref=e49]:
+            - button "Make MVP" [ref=e50]
+            - button "Swap" [ref=e51]
+        - paragraph [ref=e53]: Free swap window active (through Episode 2)
+  - generic [ref=e54]:
+    - generic "Toggle devtools panel" [ref=e55] [cursor=pointer]:
+      - img [ref=e56]
+    - generic "Toggle Component Inspector" [ref=e61] [cursor=pointer]:
+      - img [ref=e62]

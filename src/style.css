@@ -1,1 +1,17 @@
 @import "tailwindcss";
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+@theme {
+  --color-survivor-fire: #f97316;
+  --color-survivor-ember: #78350f;
+  --color-survivor-torch: #dc2626;
+  --color-survivor-jungle: #14532d;
+  --color-survivor-sand: #d4a857;
+}

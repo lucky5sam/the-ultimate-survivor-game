@@ -5,9 +5,10 @@ import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../stores/auth'
 import TeamCreateWizard from '../components/TeamCreateWizard.vue'
 import { useToast } from '../composables/useToast'
+import type { ContestantFull } from '../types/contestant'
 
 type Season = { id: string; name: string; status: string; current_episode_id: string | null }
-type Contestant = { id: string; name: string; tribe: string }
+type Contestant = ContestantFull
 type TeamPlayer = { contestant_id: string; role: string; effective_from_episode: number; effective_to_episode: number | null }
 type ActivePlayer = { contestant_id: string; role: 'mvp' | 'player'; effective_from_episode: number }
 type EpisodeInfo = { id: string; number: number; status: string }
@@ -120,13 +121,18 @@ async function loadContestants() {
   if (!selectedSeasonId.value) return
   const { data } = await supabase
     .from('contestants')
-    .select('id, name, contestant_tribe_assignments(tribe, effective_from_episode)')
+    .select('id, name, photo_url, bio, age, hometown, occupation, contestant_tribe_assignments(tribe, effective_from_episode)')
     .eq('season_id', selectedSeasonId.value)
     .order('name')
   allContestants.value = (data ?? []).map((c: any) => ({
     id: c.id,
     name: c.name,
     tribe: (c.contestant_tribe_assignments as any[]).find(a => a.effective_from_episode === 1)?.tribe ?? 'Unknown',
+    photo_url: c.photo_url ?? null,
+    bio: c.bio ?? null,
+    age: c.age ?? null,
+    hometown: c.hometown ?? null,
+    occupation: c.occupation ?? null,
   }))
 }
 
@@ -341,8 +347,8 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-50">
-    <header class="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+  <div class="min-h-screen bg-gray-50 flex flex-col">
+    <header class="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shrink-0">
       <h1 class="text-xl font-bold">The Ultimate Survivor Game</h1>
       <div class="flex items-center gap-4 text-sm">
         <RouterLink to="/leaderboard" class="text-blue-600 hover:text-blue-800">Leaderboard</RouterLink>
@@ -355,19 +361,64 @@ onMounted(async () => {
       </div>
     </header>
 
-    <div class="max-w-3xl mx-auto px-6 py-8">
-<div v-if="loading" class="text-gray-400 text-sm">Loading…</div>
+    <!-- Loading -->
+    <div v-if="loading" class="max-w-3xl mx-auto px-6 py-8 text-gray-400 text-sm">Loading…</div>
 
-      <template v-else>
-        <div v-if="seasons.length === 0" class="text-gray-500 text-sm">
-          No active seasons right now. Check back soon!
+    <template v-else-if="seasons.length === 0">
+      <div class="max-w-3xl mx-auto px-6 py-8 text-gray-500 text-sm">
+        No active seasons right now. Check back soon!
+      </div>
+    </template>
+
+    <!-- Full-page wizard when user has no team -->
+    <template v-else-if="!existingTeam">
+      <!-- Season selector bar (only shown when multiple seasons) -->
+      <div v-if="seasons.length > 1" class="bg-stone-900 border-b border-stone-800 px-6 py-3 shrink-0">
+        <div class="flex items-center gap-3">
+          <label class="text-xs text-stone-400 font-medium uppercase tracking-wide">Season</label>
+          <select v-model="selectedSeasonId"
+            class="bg-stone-800 border border-stone-600 text-stone-100 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/40">
+            <option v-for="s in seasons" :key="s.id" :value="s.id">{{ s.name }}</option>
+          </select>
         </div>
+      </div>
+      <TeamCreateWizard
+        class="flex-1"
+        :season-id="selectedSeasonId"
+        :season-name="seasons.find(s => s.id === selectedSeasonId)?.name ?? ''"
+        :contestants="allContestants"
+        :user-id="auth.user!.id"
+        @created="onTeamCreated"
+      />
+    </template>
 
-        <template v-else>
-          <!-- Season selector -->
-          <div class="mb-6">
-            <div v-if="seasons.length === 1" class="flex items-center gap-3 flex-wrap">
-              <h2 class="text-2xl font-bold">{{ seasons[0]?.name }}</h2>
+    <!-- Constrained team management view when team exists -->
+    <div v-else class="max-w-3xl mx-auto px-6 py-8 w-full">
+      <template v-if="seasons.length > 0">
+        <!-- Season selector -->
+        <div class="mb-6">
+          <div v-if="seasons.length === 1" class="flex items-center gap-3 flex-wrap">
+            <h2 class="text-2xl font-bold">{{ seasons[0]?.name }}</h2>
+            <span v-if="currentSeason" :class="[
+              'px-2.5 py-1 rounded-full text-xs font-semibold',
+              currentSeason.status === 'active'    ? 'bg-green-100 text-green-800' :
+              currentSeason.status === 'upcoming'  ? 'bg-yellow-100 text-yellow-800' :
+                                                     'bg-gray-100 text-gray-600'
+            ]">
+              {{ currentSeason.status === 'active' && currentEpisodeNumber
+                  ? `Active · Episode ${currentEpisodeNumber}`
+                  : currentSeason.status === 'active' ? 'Active'
+                  : currentSeason.status === 'upcoming' ? 'Upcoming'
+                  : 'Completed' }}
+            </span>
+          </div>
+          <div v-else>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Season</label>
+            <div class="flex items-center gap-3">
+              <select v-model="selectedSeasonId"
+                class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option v-for="s in seasons" :key="s.id" :value="s.id">{{ s.name }}</option>
+              </select>
               <span v-if="currentSeason" :class="[
                 'px-2.5 py-1 rounded-full text-xs font-semibold',
                 currentSeason.status === 'active'    ? 'bg-green-100 text-green-800' :
@@ -381,116 +432,85 @@ onMounted(async () => {
                     : 'Completed' }}
               </span>
             </div>
-            <div v-else>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Season</label>
-              <div class="flex items-center gap-3">
-                <select v-model="selectedSeasonId"
-                  class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                  <option v-for="s in seasons" :key="s.id" :value="s.id">{{ s.name }}</option>
-                </select>
-                <span v-if="currentSeason" :class="[
-                  'px-2.5 py-1 rounded-full text-xs font-semibold',
-                  currentSeason.status === 'active'    ? 'bg-green-100 text-green-800' :
-                  currentSeason.status === 'upcoming'  ? 'bg-yellow-100 text-yellow-800' :
-                                                         'bg-gray-100 text-gray-600'
-                ]">
-                  {{ currentSeason.status === 'active' && currentEpisodeNumber
-                      ? `Active · Episode ${currentEpisodeNumber}`
-                      : currentSeason.status === 'active' ? 'Active'
-                      : currentSeason.status === 'upcoming' ? 'Upcoming'
-                      : 'Completed' }}
-                </span>
-              </div>
-            </div>
           </div>
+        </div>
 
-          <!-- Locked team banner -->
-          <div v-if="existingTeam" class="bg-green-50 border border-green-200 rounded-xl p-4 mb-4">
-            <p class="font-semibold text-green-800">
-              Your team is locked in{{ existingTeam.team_name ? ': ' + existingTeam.team_name : '' }}
+        <!-- Locked team banner -->
+        <div v-if="existingTeam" class="bg-green-50 border border-green-200 rounded-xl p-4 mb-4">
+          <p class="font-semibold text-green-800">
+            Your team is locked in{{ existingTeam.team_name ? ': ' + existingTeam.team_name : '' }}
+          </p>
+          <p class="text-sm text-green-700 mt-0.5">4 contestants selected. Your MVP is marked with a star.</p>
+        </div>
+
+        <!-- Bounty pick management -->
+        <div v-if="existingTeam" class="bg-white rounded-xl border border-gray-200 p-4 mb-4">
+          <div class="flex items-center justify-between mb-2">
+            <div>
+              <h3 class="text-sm font-semibold text-gray-700">
+                Bounty Pick
+                <span v-if="nextUpcomingEpisode" class="text-xs text-gray-400 font-normal ml-1">— Episode {{ nextUpcomingEpisode.number }}</span>
+              </h3>
+              <p class="text-xs text-gray-400 mt-0.5">Who gets voted out this episode?</p>
+            </div>
+            <button v-if="nextUpcomingEpisode && !changingBounty" @click="changingBounty = true"
+              class="text-xs text-blue-600 hover:text-blue-800 font-medium">Change</button>
+          </div>
+          <div v-if="!changingBounty">
+            <p v-if="currentBountyPick" class="text-sm font-medium">
+              {{ allContestants.find(c => c.id === currentBountyPick?.contestant_id)?.name ?? '?' }}
             </p>
-            <p class="text-sm text-green-700 mt-0.5">4 contestants selected. Your MVP is marked with a star.</p>
+            <p v-else class="text-sm text-gray-400">No pick set</p>
+            <p v-if="!nextUpcomingEpisode" class="text-xs text-gray-400 mt-1">Locked — no upcoming episodes</p>
           </div>
-
-          <!-- Bounty pick management -->
-          <div v-if="existingTeam" class="bg-white rounded-xl border border-gray-200 p-4 mb-4">
-            <div class="flex items-center justify-between mb-2">
-              <div>
-                <h3 class="text-sm font-semibold text-gray-700">
-                  Bounty Pick
-                  <span v-if="nextUpcomingEpisode" class="text-xs text-gray-400 font-normal ml-1">— Episode {{ nextUpcomingEpisode.number }}</span>
-                </h3>
-                <p class="text-xs text-gray-400 mt-0.5">Who gets voted out this episode?</p>
-              </div>
-              <button v-if="nextUpcomingEpisode && !changingBounty" @click="changingBounty = true"
-                class="text-xs text-blue-600 hover:text-blue-800 font-medium">Change</button>
-            </div>
-            <div v-if="!changingBounty">
-              <p v-if="currentBountyPick" class="text-sm font-medium">
-                {{ allContestants.find(c => c.id === currentBountyPick?.contestant_id)?.name ?? '?' }}
-              </p>
-              <p v-else class="text-sm text-gray-400">No pick set</p>
-              <p v-if="!nextUpcomingEpisode" class="text-xs text-gray-400 mt-1">Locked — no upcoming episodes</p>
-            </div>
-            <div v-else class="flex gap-2 items-center mt-1">
-              <select v-model="newBountyContestantId"
-                class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <option :value="null">Select contestant…</option>
-                <option v-for="c in allContestants" :key="c.id" :value="c.id">{{ c.name }}</option>
-              </select>
-              <button @click="saveBountyChange" :disabled="!newBountyContestantId || savingBounty"
-                class="bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-sm font-semibold px-3 py-2 rounded-lg">
-                {{ savingBounty ? '…' : 'Save' }}
-              </button>
-              <button @click="changingBounty = false" class="text-sm text-gray-500 hover:text-gray-700 px-2">Cancel</button>
-            </div>
+          <div v-else class="flex gap-2 items-center mt-1">
+            <select v-model="newBountyContestantId"
+              class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option :value="null">Select contestant…</option>
+              <option v-for="c in allContestants" :key="c.id" :value="c.id">{{ c.name }}</option>
+            </select>
+            <button @click="saveBountyChange" :disabled="!newBountyContestantId || savingBounty"
+              class="bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-sm font-semibold px-3 py-2 rounded-lg">
+              {{ savingBounty ? '…' : 'Save' }}
+            </button>
+            <button @click="changingBounty = false" class="text-sm text-gray-500 hover:text-gray-700 px-2">Cancel</button>
           </div>
+        </div>
 
-          <!-- Roster management -->
-          <div v-if="existingTeam" class="bg-white rounded-xl border border-gray-200 overflow-hidden mb-6">
-            <div class="px-4 py-3 flex items-center justify-between bg-gray-50 border-b border-gray-100">
-              <h3 class="text-sm font-semibold text-gray-700">My Roster</h3>
-              <span class="text-xs text-gray-400">
-                {{ swapsUsed }} swap{{ swapsUsed !== 1 ? 's' : '' }} used
-                <template v-if="seasonConfig.max_swaps !== null"> · {{ seasonConfig.max_swaps - swapsUsed }} remaining</template>
-              </span>
+        <!-- Roster management -->
+        <div v-if="existingTeam" class="bg-white rounded-xl border border-gray-200 overflow-hidden mb-6">
+          <div class="px-4 py-3 flex items-center justify-between bg-gray-50 border-b border-gray-100">
+            <h3 class="text-sm font-semibold text-gray-700">My Roster</h3>
+            <span class="text-xs text-gray-400">
+              {{ swapsUsed }} swap{{ swapsUsed !== 1 ? 's' : '' }} used
+              <template v-if="seasonConfig.max_swaps !== null"> · {{ seasonConfig.max_swaps - swapsUsed }} remaining</template>
+            </span>
+          </div>
+          <div v-for="player in activePlayers" :key="player.contestant_id"
+            class="flex items-center justify-between px-4 py-3 border-b last:border-0 border-gray-100">
+            <div>
+              <span class="font-medium text-sm">{{ contestantName(player.contestant_id) }}</span>
+              <span v-if="player.role === 'mvp'" class="ml-1 text-yellow-400">★</span>
+              <span v-if="player.effective_from_episode > 1" class="ml-2 text-xs text-gray-400">joined ep. {{ player.effective_from_episode }}</span>
             </div>
-            <div v-for="player in activePlayers" :key="player.contestant_id"
-              class="flex items-center justify-between px-4 py-3 border-b last:border-0 border-gray-100">
-              <div>
-                <span class="font-medium text-sm">{{ contestantName(player.contestant_id) }}</span>
-                <span v-if="player.role === 'mvp'" class="ml-1 text-yellow-400">★</span>
-                <span v-if="player.effective_from_episode > 1" class="ml-2 text-xs text-gray-400">joined ep. {{ player.effective_from_episode }}</span>
-              </div>
-              <div v-if="nextUpcomingEpisode && !atMaxSwaps" class="flex gap-3">
-                <button v-if="player.role === 'player'" @click="roleChangeTargetId = player.contestant_id"
-                  class="text-xs text-purple-600 hover:text-purple-800 font-medium">Make MVP</button>
-                <button @click="openSwapModal(player)"
-                  class="text-xs text-blue-600 hover:text-blue-800 font-medium">Swap</button>
-              </div>
-            </div>
-            <div v-if="!nextUpcomingEpisode" class="px-4 py-3 text-xs text-gray-400">Locked — no upcoming episodes</div>
-            <div v-else-if="atMaxSwaps" class="px-4 py-3 text-xs text-gray-400">Maximum swaps reached for this season</div>
-            <div v-if="nextUpcomingEpisode && !atMaxSwaps" class="px-4 py-2 bg-gray-50 border-t border-gray-100">
-              <p class="text-xs text-gray-400">
-                <template v-if="isGracePeriod">Free swap window active (through Episode {{ seasonConfig.grace_period_through_episode }})</template>
-                <template v-else>Swap cost: −{{ seasonConfig.swap_penalty_player }} pts (player) · −{{ seasonConfig.swap_penalty_mvp }} pts (MVP) · −{{ seasonConfig.swap_penalty_role_change }} pts (role change)</template>
-              </p>
+            <div v-if="nextUpcomingEpisode && !atMaxSwaps" class="flex gap-3">
+              <button v-if="player.role === 'player'" @click="roleChangeTargetId = player.contestant_id"
+                class="text-xs text-purple-600 hover:text-purple-800 font-medium">Make MVP</button>
+              <button @click="openSwapModal(player)"
+                class="text-xs text-blue-600 hover:text-blue-800 font-medium">Swap</button>
             </div>
           </div>
+          <div v-if="!nextUpcomingEpisode" class="px-4 py-3 text-xs text-gray-400">Locked — no upcoming episodes</div>
+          <div v-else-if="atMaxSwaps" class="px-4 py-3 text-xs text-gray-400">Maximum swaps reached for this season</div>
+          <div v-if="nextUpcomingEpisode && !atMaxSwaps" class="px-4 py-2 bg-gray-50 border-t border-gray-100">
+            <p class="text-xs text-gray-400">
+              <template v-if="isGracePeriod">Free swap window active (through Episode {{ seasonConfig.grace_period_through_episode }})</template>
+              <template v-else>Swap cost: −{{ seasonConfig.swap_penalty_player }} pts (player) · −{{ seasonConfig.swap_penalty_mvp }} pts (MVP) · −{{ seasonConfig.swap_penalty_role_change }} pts (role change)</template>
+            </p>
+          </div>
+        </div>
 
-          <!-- Team creation wizard -->
-          <TeamCreateWizard
-            v-if="!existingTeam"
-            :season-id="selectedSeasonId"
-            :season-name="seasons.find(s => s.id === selectedSeasonId)?.name ?? ''"
-            :contestants="allContestants"
-            :user-id="auth.user!.id"
-            @created="onTeamCreated"
-          />
-
-          <p v-if="existingTeam && errorMsg" class="text-red-600 text-sm mt-4">{{ errorMsg }}</p>
-        </template>
+        <p v-if="existingTeam && errorMsg" class="text-red-600 text-sm mt-4">{{ errorMsg }}</p>
       </template>
     </div>
 
