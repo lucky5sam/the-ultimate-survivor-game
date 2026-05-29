@@ -1,32 +1,37 @@
 ---
 name: Build progress (Survivor Fantasy app)
-description: Where Sam is in the build plan — what's done and what's next
-type: project
+description: Current build state — what's fully working vs still to do
+metadata:
+  type: project
 ---
-**Build plan (high level):**
-1. Plan project architecture ✅
-2. Set up dev environment (Node, git, GitHub repo) ✅
-3. Scaffold Vue 3 + Vite + TS app ✅
-4. Deploy first version to Vercel ✅
-5. Create Supabase project + run schema.sql (11 tables) ✅
-6. Profile auto-create trigger + RLS policies + seed 32 action_types for Survivor 50 ✅
-7. Wire Supabase + auth into Vue app:
-   - 7a: Install @supabase/supabase-js + .env.local with VITE_SUPABASE_URL/ANON_KEY ✅
-   - 7b: Create src/lib/supabase.ts singleton client ✅
-   - 7c: Build login page (email/password) ✅
-   - 7d: Auth state (Pinia store) + route guards ✅
-   - 7e: Add env vars to Vercel ✅
-8. Build admin shell + Seasons CRUD as first feature
-   - 8a: Admin shell (layout, routing, isAdmin guard) ✅
-   - 8b: Seasons CRUD (list, create, edit, delete) ✅
-9. Team creation + MVP designation ⬅️ CURRENT
-10. Episode workflow + action entry
-11. Scoring view + leaderboard
-12. Bounties
-13. Swaps with penalties
-14. Polish
 
-**Project location:** ~/lucky-5-projects/survivor-fantasy
-**Supabase project ref:** ahxxekjyadqlowwbocoi
-**GitHub repo:** lucky5sam/the-ultimate-survivor-game (deployed via Vercel auto-deploy)
-**Admin user:** sam@cerkl.com (is_admin = true in profiles table)
+The app is functionally complete for running a season. All core admin and player-facing views are built and deployed.
+
+**Why:** Learning project ported from Google Sheet. Built feature by feature.
+
+**How to apply:** Don't suggest re-building things that are already done. Focus on polish, bugs, or new features layered on top.
+
+---
+
+## Completed
+
+- Auth (email/password + Google OAuth), route guards, Pinia auth store
+- Admin shell (sidebar nav, admin-only guard)
+- Seasons CRUD — full config (bounty pts, swap penalties, grace period, max swaps)
+- Season action types — global catalog + per-season enable/disable + point overrides
+- Contestants CRUD per season
+- Episodes — create, start, end, merge/finale flags, bounty result
+- Action entry per episode (ActionEntryView) — multi-select contestants + actions, tribe grouping, tribe quick-add
+- Global action type catalog (ActionTypesView) — inline edit, bulk delete
+- Leaderboard with real-time scoring
+- Team creation wizard (5 steps)
+- TeamView — roster display, swaps, bounty picks, MVP designation
+- Deployed to Vercel with auto-deploy on push
+- Supabase keepalive GitHub Actions cron (Mon + Thu at 9am UTC)
+- Google OAuth redirect URLs configured for both localhost and production
+
+## Known gaps / future work
+
+- SettingsView is a stub (registration code/invite link UI exists but may need wiring)
+- No automated tests
+- Schema.sql may be slightly behind actual Supabase schema (migrations applied manually via SQL editor)
