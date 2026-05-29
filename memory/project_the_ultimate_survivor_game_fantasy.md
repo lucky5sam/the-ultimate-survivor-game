@@ -45,7 +45,7 @@ Sam is porting his Survivor Fantasy Game from a Google Sheet to a web app. ~72 p
 |-------|---------|
 | `profiles` | Users — `is_admin`, `first_name`, `last_name` (FK to auth.users) |
 | `seasons` | Season config — `status` (upcoming/active/completed), `bounty_points_pre_merge`, `bounty_points_post_merge`, `bounty_points_finale`, `swap_penalty_mvp`, `swap_penalty_player`, `swap_penalty_role_change`, `grace_period_through_episode`, `max_swaps`, `current_episode_id`, `merge_episode_id` |
-| `contestants` | Season FK, `name`, `photo_url`, `eliminated_episode_id` |
+| `contestants` | Season FK, `name`, `photo_url`, `bio`, `age`, `hometown`, `occupation`, `eliminated_episode_id` |
 | `episodes` | Season FK, `number`, `title`, `air_date`, `status`, `is_merge`, `is_finale`, `bounty_contestant_id` |
 | `contestant_tribe_assignments` | Versioned tribe assignments — `effective_from_episode`, `effective_to_episode` |
 | `action_types` | Global catalog (~32 types) — `type`, `category`, `points`, `sort_order`. No season_id. |
@@ -83,8 +83,14 @@ src/
   router/index.ts             — all routes; requiresAuth + requiresAdmin guards
   lib/supabase.ts             — Supabase singleton client
   components/
-    TeamCreateWizard.vue      — 5-step team creation flow
+    TeamCreateWizard.vue      — 6-step team creation flow (Code → Name → Pick Players → Declare MVP → Bounty → Review). Survivor dark theme, full-page layout.
+    ContestantCard.vue        — luxury trading card component; tribe-colored glow border, photo fill, hover info button, selected/crown states
+    ContestantDetailModal.vue — full-detail modal; photo header, tribe/season, age/hometown/occupation grid, bio
     ToastContainer.vue
+  types/
+    contestant.ts             — shared ContestantFull type (id, name, tribe, photo_url, bio, age, hometown, occupation)
+  utils/
+    tribeColors.ts            — deterministic tribe → hex color mapping (6-slot palette, hash by char codes)
   composables/
     useToast.ts
 ```

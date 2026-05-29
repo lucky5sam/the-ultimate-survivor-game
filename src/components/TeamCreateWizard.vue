@@ -120,13 +120,13 @@ async function lockIn() {
 </script>
 
 <template>
-  <div class="bg-stone-950">
+  <div class="bg-surface-page">
     <div class="px-8 sm:px-12 lg:px-20 pt-8 pb-16">
 
       <!-- Header -->
       <div class="text-center mb-10">
-        <h1 class="text-3xl font-bold tracking-tight text-white">Build Your Tribe</h1>
-        <p class="text-stone-400 mt-1 text-sm">{{ seasonName }}</p>
+        <h1 class="text-3xl font-bold tracking-tight text-text-default">Build Your Tribe</h1>
+        <p class="text-text-subtle mt-1 text-sm">{{ seasonName }}</p>
       </div>
 
       <!-- Step indicator: circles + lines -->
@@ -135,9 +135,9 @@ async function lockIn() {
           <div
             class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-all duration-300"
             :class="[
-              step > n  ? 'bg-orange-600 text-white' :
-              step === n ? 'bg-orange-500 text-white ring-4 ring-orange-500/20' :
-                           'bg-stone-800 text-stone-500 border border-stone-700'
+              step > n  ? 'bg-interactive-accent text-text-on-accent' :
+              step === n ? 'bg-interactive-accent text-text-on-accent ring-4 ring-interactive-accent/20' :
+                           'bg-surface-subtle text-text-muted border border-border-subtle'
             ]"
           >
             <span v-if="step > n">✓</span>
@@ -146,7 +146,7 @@ async function lockIn() {
           <div
             v-if="n < TOTAL_STEPS"
             class="flex-1 h-px transition-colors duration-300"
-            :class="step > n ? 'bg-orange-600' : 'bg-stone-700'"
+            :class="step > n ? 'bg-interactive-accent' : 'bg-surface-strong'"
           />
         </template>
       </div>
@@ -160,9 +160,9 @@ async function lockIn() {
           <p
             class="text-xs mt-1 transition-colors duration-200 hidden sm:block"
             :class="[
-              step === i + 1 ? 'text-orange-400 font-semibold' :
-              step > i + 1  ? 'text-stone-500' :
-                               'text-stone-700'
+              step === i + 1 ? 'text-text-accent font-semibold' :
+              step > i + 1  ? 'text-text-subtle' :
+                               'text-text-muted'
             ]"
           >{{ label }}</p>
         </div>
@@ -171,21 +171,21 @@ async function lockIn() {
       <!-- ── Step 1: League Code ── -->
       <template v-if="step === 1">
         <div class="max-w-sm mx-auto">
-          <h2 class="text-xl font-bold text-white mb-1">Enter League Code</h2>
-          <p class="text-stone-400 text-sm mb-6">Ask your league admin for the code to join {{ seasonName }}.</p>
+          <h2 class="text-xl font-bold text-text-default mb-1">Enter League Code</h2>
+          <p class="text-text-subtle text-sm mb-6">Ask your league admin for the code to join {{ seasonName }}.</p>
           <div class="space-y-4">
             <input
               v-model="leagueCode"
               type="text"
               placeholder="Enter code…"
               @keyup.enter="nextStep"
-              class="w-full bg-stone-800 border border-stone-600 text-stone-100 placeholder-stone-500 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500 transition-colors"
+              class="w-full bg-interactive-input border border-interactive-input-border text-text-default placeholder-text-muted rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-interactive-input-border-focus/40 focus:border-interactive-input-border-focus transition-colors"
             />
-            <p v-if="errorMsg" class="text-sm text-red-400">{{ errorMsg }}</p>
+            <p v-if="errorMsg" class="text-sm text-status-error">{{ errorMsg }}</p>
             <button
               @click="nextStep"
               :disabled="loading || !leagueCode.trim()"
-              class="w-full bg-orange-600 hover:bg-orange-500 disabled:opacity-40 text-white font-bold px-6 py-3 rounded-xl text-sm transition-colors"
+              class="w-full bg-interactive-accent hover:bg-interactive-accent-hover disabled:opacity-40 text-text-on-accent font-bold px-6 py-3 rounded-xl text-sm transition-colors"
             >
               {{ loading ? 'Checking…' : 'Continue' }}
             </button>
@@ -196,26 +196,26 @@ async function lockIn() {
       <!-- ── Step 2: Team Name ── -->
       <template v-else-if="step === 2">
         <div class="max-w-sm mx-auto">
-          <h2 class="text-xl font-bold text-white mb-1">Name Your Tribe</h2>
-          <p class="text-stone-400 text-sm mb-6">This is how you'll appear on the leaderboard.</p>
+          <h2 class="text-xl font-bold text-text-default mb-1">Name Your Tribe</h2>
+          <p class="text-text-subtle text-sm mb-6">This is how you'll appear on the leaderboard.</p>
           <div class="space-y-4">
             <input
               v-model="teamName"
               type="text"
               placeholder="e.g. The Fire Starters"
               @keyup.enter="nextStep"
-              class="w-full bg-stone-800 border border-stone-600 text-stone-100 placeholder-stone-500 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500 transition-colors"
+              class="w-full bg-interactive-input border border-interactive-input-border text-text-default placeholder-text-muted rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-interactive-input-border-focus/40 focus:border-interactive-input-border-focus transition-colors"
             />
-            <p v-if="errorMsg" class="text-sm text-red-400">{{ errorMsg }}</p>
+            <p v-if="errorMsg" class="text-sm text-status-error">{{ errorMsg }}</p>
             <div class="flex gap-3">
               <button
                 @click="step--"
-                class="bg-stone-800 hover:bg-stone-700 border border-stone-600 text-stone-300 font-medium px-5 py-3 rounded-xl text-sm transition-colors"
+                class="bg-interactive-neutral hover:bg-interactive-neutral-hover border border-border-default text-text-subtle font-medium px-5 py-3 rounded-xl text-sm transition-colors"
               >Back</button>
               <button
                 @click="nextStep"
                 :disabled="!teamName.trim()"
-                class="flex-1 bg-orange-600 hover:bg-orange-500 disabled:opacity-40 text-white font-bold px-6 py-3 rounded-xl text-sm transition-colors"
+                class="flex-1 bg-interactive-accent hover:bg-interactive-accent-hover disabled:opacity-40 text-text-on-accent font-bold px-6 py-3 rounded-xl text-sm transition-colors"
               >Continue</button>
             </div>
           </div>
@@ -226,8 +226,8 @@ async function lockIn() {
       <template v-else-if="step === 3">
         <div class="flex items-start justify-between mb-6 flex-wrap gap-4">
           <div>
-            <h2 class="text-xl font-bold text-white mb-0.5">Pick Your Survivors</h2>
-            <p class="text-stone-400 text-sm">Choose 4 castaways for your tribe.</p>
+            <h2 class="text-xl font-bold text-text-default mb-0.5">Pick Your Survivors</h2>
+            <p class="text-text-subtle text-sm">Choose 4 castaways for your tribe.</p>
           </div>
           <!-- Selection progress -->
           <div class="flex gap-3 shrink-0">
@@ -243,21 +243,21 @@ async function lockIn() {
                     :alt="selectedContestants[i - 1]!.name"
                     class="w-full h-full object-cover object-top"
                   />
-                  <div v-else class="w-full h-full bg-stone-700 flex items-center justify-center">
-                    <svg class="w-6 h-6 text-stone-500" fill="currentColor" viewBox="0 0 24 24">
+                  <div v-else class="w-full h-full bg-surface-strong flex items-center justify-center">
+                    <svg class="w-6 h-6 text-icon-subtle" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
                     </svg>
                   </div>
                 </div>
-                <span class="text-xs text-white font-medium w-12 text-center truncate leading-tight">
+                <span class="text-xs text-text-default font-medium w-12 text-center truncate leading-tight">
                   {{ selectedContestants[i - 1]!.name.split(' ')[0] }}
                 </span>
               </template>
               <template v-else>
-                <div class="w-12 h-12 rounded-full border-2 border-dashed border-stone-700 bg-stone-800/40 flex items-center justify-center transition-all duration-300">
-                  <span class="text-stone-600 text-xs font-bold">{{ i }}</span>
+                <div class="w-12 h-12 rounded-full border-2 border-dashed border-border-subtle bg-surface-subtle/40 flex items-center justify-center transition-all duration-300">
+                  <span class="text-text-muted text-xs font-bold">{{ i }}</span>
                 </div>
-                <span class="text-xs text-stone-700 w-12 text-center">—</span>
+                <span class="text-xs text-text-muted w-12 text-center">—</span>
               </template>
             </div>
           </div>
@@ -266,14 +266,14 @@ async function lockIn() {
         <!-- Full-bleed carousel -->
         <div class="relative -mx-8 sm:-mx-12 lg:-mx-20 mb-8">
           <!-- Edge fade — left -->
-          <div class="absolute left-0 top-0 bottom-4 w-20 bg-gradient-to-r from-stone-950 to-transparent z-10 pointer-events-none" />
+          <div class="absolute left-0 top-0 bottom-4 w-20 bg-gradient-to-r from-surface-page to-transparent z-10 pointer-events-none" />
           <!-- Edge fade — right -->
-          <div class="absolute right-0 top-0 bottom-4 w-20 bg-gradient-to-l from-stone-950 to-transparent z-10 pointer-events-none" />
+          <div class="absolute right-0 top-0 bottom-4 w-20 bg-gradient-to-l from-surface-page to-transparent z-10 pointer-events-none" />
 
           <!-- Scroll button — left -->
           <button
             @click="scrollCarousel('left')"
-            class="absolute left-4 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full bg-stone-800/90 hover:bg-stone-700 border border-stone-600 hover:border-stone-500 flex items-center justify-center text-white shadow-lg backdrop-blur-sm transition-all duration-200 hover:scale-110"
+            class="absolute left-4 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full bg-surface-subtle/90 hover:bg-surface-strong border border-border-default hover:border-border-strong flex items-center justify-center text-text-default shadow-lg backdrop-blur-sm transition-all duration-200 hover:scale-110"
           >
             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
               <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
@@ -283,7 +283,7 @@ async function lockIn() {
           <!-- Scroll button — right -->
           <button
             @click="scrollCarousel('right')"
-            class="absolute right-4 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full bg-stone-800/90 hover:bg-stone-700 border border-stone-600 hover:border-stone-500 flex items-center justify-center text-white shadow-lg backdrop-blur-sm transition-all duration-200 hover:scale-110"
+            class="absolute right-4 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full bg-surface-subtle/90 hover:bg-surface-strong border border-border-default hover:border-border-strong flex items-center justify-center text-text-default shadow-lg backdrop-blur-sm transition-all duration-200 hover:scale-110"
           >
             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
               <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
@@ -316,7 +316,7 @@ async function lockIn() {
                 </div>
               </div>
               <!-- Tribe divider -->
-              <div class="w-px bg-stone-800 self-stretch shrink-0 mx-2" />
+              <div class="w-px bg-border-subtle self-stretch shrink-0 mx-2" />
             </template>
           </div>
         </div>
@@ -324,12 +324,12 @@ async function lockIn() {
         <div class="flex gap-3">
           <button
             @click="step--"
-            class="bg-stone-800 hover:bg-stone-700 border border-stone-600 text-stone-300 font-medium px-5 py-3 rounded-xl text-sm transition-colors"
+            class="bg-interactive-neutral hover:bg-interactive-neutral-hover border border-border-default text-text-subtle font-medium px-5 py-3 rounded-xl text-sm transition-colors"
           >Back</button>
           <button
             @click="nextStep"
             :disabled="selectedIds.length < 4"
-            class="bg-orange-600 hover:bg-orange-500 disabled:opacity-40 text-white font-bold px-8 py-3 rounded-xl text-sm transition-colors"
+            class="bg-interactive-accent hover:bg-interactive-accent-hover disabled:opacity-40 text-text-on-accent font-bold px-8 py-3 rounded-xl text-sm transition-colors"
           >Continue</button>
         </div>
       </template>
@@ -337,8 +337,8 @@ async function lockIn() {
       <!-- ── Step 4: Declare MVP ── -->
       <template v-else-if="step === 4">
         <div class="text-center mb-8">
-          <h2 class="text-xl font-bold text-white mb-1">Crown Your Champion</h2>
-          <p class="text-stone-400 text-sm">Your MVP earns 1.5× points each episode. Choose wisely.</p>
+          <h2 class="text-xl font-bold text-text-default mb-1">Crown Your Champion</h2>
+          <p class="text-text-subtle text-sm">Your MVP earns 1.5× points each episode. Choose wisely.</p>
         </div>
 
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-xl mx-auto mb-8">
@@ -354,17 +354,17 @@ async function lockIn() {
           />
         </div>
 
-        <p v-if="errorMsg" class="text-sm text-red-400 text-center mb-4">{{ errorMsg }}</p>
+        <p v-if="errorMsg" class="text-sm text-status-error text-center mb-4">{{ errorMsg }}</p>
 
         <div class="flex gap-3 justify-center">
           <button
             @click="step--"
-            class="bg-stone-800 hover:bg-stone-700 border border-stone-600 text-stone-300 font-medium px-5 py-3 rounded-xl text-sm transition-colors"
+            class="bg-interactive-neutral hover:bg-interactive-neutral-hover border border-border-default text-text-subtle font-medium px-5 py-3 rounded-xl text-sm transition-colors"
           >Back</button>
           <button
             @click="nextStep"
             :disabled="!mvpId"
-            class="bg-orange-600 hover:bg-orange-500 disabled:opacity-40 text-white font-bold px-8 py-3 rounded-xl text-sm transition-colors"
+            class="bg-interactive-accent hover:bg-interactive-accent-hover disabled:opacity-40 text-text-on-accent font-bold px-8 py-3 rounded-xl text-sm transition-colors"
           >Continue</button>
         </div>
       </template>
@@ -372,37 +372,37 @@ async function lockIn() {
       <!-- ── Step 5: Bounty Pick ── -->
       <template v-else-if="step === 5">
         <div class="max-w-sm mx-auto">
-          <h2 class="text-xl font-bold text-white mb-1">Set Your Bounty</h2>
-          <p class="text-stone-400 text-sm mb-6">
+          <h2 class="text-xl font-bold text-text-default mb-1">Set Your Bounty</h2>
+          <p class="text-text-subtle text-sm mb-6">
             Who gets voted out first? Your pick carries forward each week — change it before any episode airs.
           </p>
           <div class="space-y-4">
             <select
               v-model="bountyId"
-              class="w-full bg-stone-800 border border-stone-600 text-stone-100 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500 transition-colors appearance-none"
+              class="w-full bg-interactive-input border border-interactive-input-border text-text-default rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-interactive-input-border-focus/40 focus:border-interactive-input-border-focus transition-colors appearance-none"
             >
-              <option :value="null" disabled class="text-stone-500">Select a castaway…</option>
+              <option :value="null" disabled class="text-text-muted">Select a castaway…</option>
               <optgroup
                 v-for="(members, tribe) in byTribe"
                 :key="tribe"
                 :label="tribe as string"
-                class="text-stone-400"
+                class="text-text-subtle"
               >
-                <option v-for="c in members" :key="c.id" :value="c.id" class="text-stone-100">
+                <option v-for="c in members" :key="c.id" :value="c.id" class="text-text-default">
                   {{ c.name }}
                 </option>
               </optgroup>
             </select>
-            <p v-if="errorMsg" class="text-sm text-red-400">{{ errorMsg }}</p>
+            <p v-if="errorMsg" class="text-sm text-status-error">{{ errorMsg }}</p>
             <div class="flex gap-3">
               <button
                 @click="step--"
-                class="bg-stone-800 hover:bg-stone-700 border border-stone-600 text-stone-300 font-medium px-5 py-3 rounded-xl text-sm transition-colors"
+                class="bg-interactive-neutral hover:bg-interactive-neutral-hover border border-border-default text-text-subtle font-medium px-5 py-3 rounded-xl text-sm transition-colors"
               >Back</button>
               <button
                 @click="nextStep"
                 :disabled="!bountyId"
-                class="flex-1 bg-orange-600 hover:bg-orange-500 disabled:opacity-40 text-white font-bold px-6 py-3 rounded-xl text-sm transition-colors"
+                class="flex-1 bg-interactive-accent hover:bg-interactive-accent-hover disabled:opacity-40 text-text-on-accent font-bold px-6 py-3 rounded-xl text-sm transition-colors"
               >Continue</button>
             </div>
           </div>
@@ -412,17 +412,17 @@ async function lockIn() {
       <!-- ── Step 6: Review ── -->
       <template v-else-if="step === 6">
         <div class="max-w-md mx-auto">
-          <h2 class="text-xl font-bold text-white mb-1">Review Your Tribe</h2>
-          <p class="text-stone-400 text-sm mb-6">Once locked in, you can swap players between episodes.</p>
+          <h2 class="text-xl font-bold text-text-default mb-1">Review Your Tribe</h2>
+          <p class="text-text-subtle text-sm mb-6">Once locked in, you can swap players between episodes.</p>
 
           <!-- Team name -->
-          <div class="bg-stone-800 rounded-xl border border-stone-700 px-4 py-3 mb-4">
-            <p class="text-xs text-stone-500 uppercase tracking-wide mb-0.5">Tribe Name</p>
-            <p class="font-bold text-white">{{ teamName }}</p>
+          <div class="bg-surface-subtle rounded-xl border border-border-subtle px-4 py-3 mb-4">
+            <p class="text-xs text-text-muted uppercase tracking-wide mb-0.5">Tribe Name</p>
+            <p class="font-bold text-text-default">{{ teamName }}</p>
           </div>
 
           <!-- Roster cards -->
-          <p class="text-xs text-stone-500 uppercase tracking-wide mb-3">Your Roster</p>
+          <p class="text-xs text-text-muted uppercase tracking-wide mb-3">Your Roster</p>
           <div class="grid grid-cols-4 gap-2 mb-4">
             <ContestantCard
               v-for="c in selectedContestants"
@@ -437,27 +437,27 @@ async function lockIn() {
           </div>
 
           <!-- Bounty pick -->
-          <div v-if="bountyContestant" class="bg-stone-800 rounded-xl border border-stone-700 px-4 py-3 mb-6">
-            <p class="text-xs text-stone-500 uppercase tracking-wide mb-0.5">Bounty Pick</p>
+          <div v-if="bountyContestant" class="bg-surface-subtle rounded-xl border border-border-subtle px-4 py-3 mb-6">
+            <p class="text-xs text-text-muted uppercase tracking-wide mb-0.5">Bounty Pick</p>
             <div class="flex items-center gap-2">
-              <span class="font-semibold text-white text-sm">{{ bountyContestant.name }}</span>
+              <span class="font-semibold text-text-default text-sm">{{ bountyContestant.name }}</span>
               <span class="text-xs" :style="{ color: getTribeColors(bountyContestant.tribe).text }">
                 {{ bountyContestant.tribe }}
               </span>
             </div>
           </div>
 
-          <p v-if="errorMsg" class="text-sm text-red-400 mb-4">{{ errorMsg }}</p>
+          <p v-if="errorMsg" class="text-sm text-status-error mb-4">{{ errorMsg }}</p>
 
           <div class="flex gap-3">
             <button
               @click="step--"
-              class="bg-stone-800 hover:bg-stone-700 border border-stone-600 text-stone-300 font-medium px-5 py-3 rounded-xl text-sm transition-colors"
+              class="bg-interactive-neutral hover:bg-interactive-neutral-hover border border-border-default text-text-subtle font-medium px-5 py-3 rounded-xl text-sm transition-colors"
             >Back</button>
             <button
               @click="lockIn"
               :disabled="loading"
-              class="flex-1 bg-orange-600 hover:bg-orange-500 disabled:opacity-40 text-white font-bold px-6 py-3 rounded-xl text-sm transition-colors"
+              class="flex-1 bg-interactive-accent hover:bg-interactive-accent-hover disabled:opacity-40 text-text-on-accent font-bold px-6 py-3 rounded-xl text-sm transition-colors"
             >
               {{ loading ? 'Locking in…' : 'Lock In My Tribe 🔥' }}
             </button>
