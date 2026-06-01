@@ -179,13 +179,13 @@ async function lockIn() {
               type="text"
               placeholder="Enter code…"
               @keyup.enter="nextStep"
-              class="w-full bg-interactive-input border border-interactive-input-border text-text-default placeholder-text-muted rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-interactive-input-border-focus/40 focus:border-interactive-input-border-focus transition-colors"
+              class="w-full bg-interactive-input border border-interactive-input-border text-text-default placeholder-text-muted rounded-md px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-interactive-input-border-focus/40 focus:border-interactive-input-border-focus transition-colors"
             />
             <p v-if="errorMsg" class="text-sm text-status-error">{{ errorMsg }}</p>
             <button
               @click="nextStep"
               :disabled="loading || !leagueCode.trim()"
-              class="w-full bg-interactive-accent hover:bg-interactive-accent-hover disabled:opacity-40 text-text-on-accent font-bold px-6 py-3 rounded-xl text-sm transition-colors"
+              class="w-full bg-interactive-accent hover:bg-interactive-accent-hover disabled:opacity-40 text-text-on-accent font-bold px-6 py-3 rounded-md text-sm transition-colors"
             >
               {{ loading ? 'Checking…' : 'Continue' }}
             </button>
@@ -204,18 +204,18 @@ async function lockIn() {
               type="text"
               placeholder="e.g. The Fire Starters"
               @keyup.enter="nextStep"
-              class="w-full bg-interactive-input border border-interactive-input-border text-text-default placeholder-text-muted rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-interactive-input-border-focus/40 focus:border-interactive-input-border-focus transition-colors"
+              class="w-full bg-interactive-input border border-interactive-input-border text-text-default placeholder-text-muted rounded-md px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-interactive-input-border-focus/40 focus:border-interactive-input-border-focus transition-colors"
             />
             <p v-if="errorMsg" class="text-sm text-status-error">{{ errorMsg }}</p>
             <div class="flex gap-3">
               <button
                 @click="step--"
-                class="bg-interactive-neutral hover:bg-interactive-neutral-hover border border-border-default text-text-subtle font-medium px-5 py-3 rounded-xl text-sm transition-colors"
+                class="bg-interactive-neutral hover:bg-interactive-neutral-hover border border-border-default text-text-subtle font-medium px-5 py-3 rounded-md text-sm transition-colors"
               >Back</button>
               <button
                 @click="nextStep"
                 :disabled="!teamName.trim()"
-                class="flex-1 bg-interactive-accent hover:bg-interactive-accent-hover disabled:opacity-40 text-text-on-accent font-bold px-6 py-3 rounded-xl text-sm transition-colors"
+                class="flex-1 bg-interactive-accent hover:bg-interactive-accent-hover disabled:opacity-40 text-text-on-accent font-bold px-6 py-3 rounded-md text-sm transition-colors"
               >Continue</button>
             </div>
           </div>
@@ -324,12 +324,12 @@ async function lockIn() {
         <div class="flex gap-3">
           <button
             @click="step--"
-            class="bg-interactive-neutral hover:bg-interactive-neutral-hover border border-border-default text-text-subtle font-medium px-5 py-3 rounded-xl text-sm transition-colors"
+            class="bg-interactive-neutral hover:bg-interactive-neutral-hover border border-border-default text-text-subtle font-medium px-5 py-3 rounded-md text-sm transition-colors"
           >Back</button>
           <button
             @click="nextStep"
             :disabled="selectedIds.length < 4"
-            class="bg-interactive-accent hover:bg-interactive-accent-hover disabled:opacity-40 text-text-on-accent font-bold px-8 py-3 rounded-xl text-sm transition-colors"
+            class="bg-interactive-accent hover:bg-interactive-accent-hover disabled:opacity-40 text-text-on-accent font-bold px-8 py-3 rounded-md text-sm transition-colors"
           >Continue</button>
         </div>
       </template>
@@ -359,12 +359,12 @@ async function lockIn() {
         <div class="flex gap-3 justify-center">
           <button
             @click="step--"
-            class="bg-interactive-neutral hover:bg-interactive-neutral-hover border border-border-default text-text-subtle font-medium px-5 py-3 rounded-xl text-sm transition-colors"
+            class="bg-interactive-neutral hover:bg-interactive-neutral-hover border border-border-default text-text-subtle font-medium px-5 py-3 rounded-md text-sm transition-colors"
           >Back</button>
           <button
             @click="nextStep"
             :disabled="!mvpId"
-            class="bg-interactive-accent hover:bg-interactive-accent-hover disabled:opacity-40 text-text-on-accent font-bold px-8 py-3 rounded-xl text-sm transition-colors"
+            class="bg-interactive-accent hover:bg-interactive-accent-hover disabled:opacity-40 text-text-on-accent font-bold px-8 py-3 rounded-md text-sm transition-colors"
           >Continue</button>
         </div>
       </template>
@@ -379,7 +379,7 @@ async function lockIn() {
           <div class="space-y-4">
             <select
               v-model="bountyId"
-              class="w-full bg-interactive-input border border-interactive-input-border text-text-default rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-interactive-input-border-focus/40 focus:border-interactive-input-border-focus transition-colors appearance-none"
+              class="w-full bg-interactive-input border border-interactive-input-border text-text-default rounded-md px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-interactive-input-border-focus/40 focus:border-interactive-input-border-focus transition-colors appearance-none"
             >
               <option :value="null" disabled class="text-text-muted">Select a castaway…</option>
               <optgroup
@@ -397,12 +397,12 @@ async function lockIn() {
             <div class="flex gap-3">
               <button
                 @click="step--"
-                class="bg-interactive-neutral hover:bg-interactive-neutral-hover border border-border-default text-text-subtle font-medium px-5 py-3 rounded-xl text-sm transition-colors"
+                class="bg-interactive-neutral hover:bg-interactive-neutral-hover border border-border-default text-text-subtle font-medium px-5 py-3 rounded-md text-sm transition-colors"
               >Back</button>
               <button
                 @click="nextStep"
                 :disabled="!bountyId"
-                class="flex-1 bg-interactive-accent hover:bg-interactive-accent-hover disabled:opacity-40 text-text-on-accent font-bold px-6 py-3 rounded-xl text-sm transition-colors"
+                class="flex-1 bg-interactive-accent hover:bg-interactive-accent-hover disabled:opacity-40 text-text-on-accent font-bold px-6 py-3 rounded-md text-sm transition-colors"
               >Continue</button>
             </div>
           </div>
@@ -416,7 +416,7 @@ async function lockIn() {
           <p class="text-text-subtle text-sm mb-6">Once locked in, you can swap players between episodes.</p>
 
           <!-- Team name -->
-          <div class="bg-surface-subtle rounded-xl border border-border-subtle px-4 py-3 mb-4">
+          <div class="bg-surface-subtle rounded-md border border-border-subtle px-4 py-3 mb-4">
             <p class="text-xs text-text-muted uppercase tracking-wide mb-0.5">Tribe Name</p>
             <p class="font-bold text-text-default">{{ teamName }}</p>
           </div>
@@ -437,7 +437,7 @@ async function lockIn() {
           </div>
 
           <!-- Bounty pick -->
-          <div v-if="bountyContestant" class="bg-surface-subtle rounded-xl border border-border-subtle px-4 py-3 mb-6">
+          <div v-if="bountyContestant" class="bg-surface-subtle rounded-md border border-border-subtle px-4 py-3 mb-6">
             <p class="text-xs text-text-muted uppercase tracking-wide mb-0.5">Bounty Pick</p>
             <div class="flex items-center gap-2">
               <span class="font-semibold text-text-default text-sm">{{ bountyContestant.name }}</span>
@@ -452,12 +452,12 @@ async function lockIn() {
           <div class="flex gap-3">
             <button
               @click="step--"
-              class="bg-interactive-neutral hover:bg-interactive-neutral-hover border border-border-default text-text-subtle font-medium px-5 py-3 rounded-xl text-sm transition-colors"
+              class="bg-interactive-neutral hover:bg-interactive-neutral-hover border border-border-default text-text-subtle font-medium px-5 py-3 rounded-md text-sm transition-colors"
             >Back</button>
             <button
               @click="lockIn"
               :disabled="loading"
-              class="flex-1 bg-interactive-accent hover:bg-interactive-accent-hover disabled:opacity-40 text-text-on-accent font-bold px-6 py-3 rounded-xl text-sm transition-colors"
+              class="flex-1 bg-interactive-accent hover:bg-interactive-accent-hover disabled:opacity-40 text-text-on-accent font-bold px-6 py-3 rounded-md text-sm transition-colors"
             >
               {{ loading ? 'Locking in…' : 'Lock In My Tribe 🔥' }}
             </button>

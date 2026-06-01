@@ -62,6 +62,14 @@
   --color-interactive-input-border:       #d6d3d1;
   --color-interactive-input-border-focus: #ea580c;
 
+  /* radius — proportional rounding: larger elements use larger values */
+  --radius-xs:   4px;    /* tags, badges, small indicators        */
+  --radius-sm:   8px;    /* compact or inline elements            */
+  --radius-md:   12px;   /* buttons, inputs, form controls        */
+  --radius-lg:   16px;   /* cards, dropdowns, info panels         */
+  --radius-xl:   24px;   /* modals, side sheets, large containers */
+  --radius-full: 9999px; /* avatars, pill shapes, toggle buttons  */
+
   /* status — semantic feedback */
   --color-status-success:         #16a34a;
   --color-status-warning:         #d97706;
