@@ -2,9 +2,8 @@ name: Supabase Keepalive
 
 on:
   schedule:
-    # Runs every Monday and Thursday at 9am UTC — well within the 7-day pause window
-    - cron: '0 9 * * 1'
-    - cron: '0 9 * * 4'
+    # Runs every 2 days at 9am UTC — gives plenty of margin for Supabase's 7-day pause window
+    - cron: '0 9 */2 * *'
   workflow_dispatch: # allow manual trigger to test
 
 jobs:
