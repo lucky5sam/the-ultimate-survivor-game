@@ -347,25 +347,25 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-50 flex flex-col">
-    <header class="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shrink-0">
-      <h1 class="text-xl font-bold">The Ultimate Survivor Game</h1>
+  <div class="min-h-screen bg-surface-page flex flex-col">
+    <header class="bg-surface-default border-b border-border-subtle px-6 py-4 flex items-center justify-between shrink-0">
+      <h1 class="text-xl font-bold text-text-default">The Ultimate Survivor Game</h1>
       <div class="flex items-center gap-4 text-sm">
-        <RouterLink to="/leaderboard" class="text-blue-600 hover:text-blue-800">Leaderboard</RouterLink>
-        <button @click="copyInviteLink" class="text-blue-600 hover:text-blue-800">Copy invite link</button>
-        <RouterLink v-if="auth.isAdmin" to="/admin" class="text-blue-600 hover:text-blue-800">Admin</RouterLink>
-        <span class="text-gray-400">
+        <RouterLink to="/leaderboard" class="text-text-accent hover:text-interactive-accent-hover">Leaderboard</RouterLink>
+        <button @click="copyInviteLink" class="text-text-accent hover:text-interactive-accent-hover">Copy invite link</button>
+        <RouterLink v-if="auth.isAdmin" to="/admin" class="text-text-accent hover:text-interactive-accent-hover">Admin</RouterLink>
+        <span class="text-text-muted">
           {{ (auth.firstName || auth.lastName) ? `${auth.firstName} ${auth.lastName}`.trim() : auth.user?.email }}
         </span>
-        <button @click="handleSignOut" class="text-red-500 hover:text-red-700">Sign out</button>
+        <button @click="handleSignOut" class="text-status-error hover:opacity-80">Sign out</button>
       </div>
     </header>
 
     <!-- Loading -->
-    <div v-if="loading" class="max-w-3xl mx-auto px-6 py-8 text-gray-400 text-sm">Loading…</div>
+    <div v-if="loading" class="max-w-3xl mx-auto px-6 py-8 text-text-muted text-sm">Loading…</div>
 
     <template v-else-if="seasons.length === 0">
-      <div class="max-w-3xl mx-auto px-6 py-8 text-gray-500 text-sm">
+      <div class="max-w-3xl mx-auto px-6 py-8 text-text-subtle text-sm">
         No active seasons right now. Check back soon!
       </div>
     </template>
@@ -373,11 +373,11 @@ onMounted(async () => {
     <!-- Full-page wizard when user has no team -->
     <template v-else-if="!existingTeam">
       <!-- Season selector bar (only shown when multiple seasons) -->
-      <div v-if="seasons.length > 1" class="bg-stone-900 border-b border-stone-800 px-6 py-3 shrink-0">
+      <div v-if="seasons.length > 1" class="bg-surface-subtle border-b border-border-subtle px-6 py-3 shrink-0">
         <div class="flex items-center gap-3">
-          <label class="text-xs text-stone-400 font-medium uppercase tracking-wide">Season</label>
+          <label class="text-xs text-text-muted font-medium uppercase tracking-wide">Season</label>
           <select v-model="selectedSeasonId"
-            class="bg-stone-800 border border-stone-600 text-stone-100 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/40">
+            class="bg-interactive-input border border-interactive-input-border text-text-default rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-border-accent">
             <option v-for="s in seasons" :key="s.id" :value="s.id">{{ s.name }}</option>
           </select>
         </div>

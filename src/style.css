@@ -82,6 +82,107 @@
 }
 
 /* ─────────────────────────────────────────────────────────────
+   Material Tokens — physical, theme-independent surfaces.
+   Wood/parchment/frond are real materials, so their color is the
+   same in light or dark mode. Used by the .material-* utilities below.
+   ───────────────────────────────────────────────────────────── */
+
+@theme {
+  --color-material-wood:          #4a2f1a;
+  --color-material-wood-dark:     #2c1a0e;
+  --color-material-wood-edge:     #6b4426;
+  --color-material-parchment:     #e8d9b5;
+  --color-material-parchment-ink: #4a2f1a;
+  --color-material-frond:         #14532d;
+  --color-fire-glow:              #f97316;
+}
+
+/* ═════════════════════════════════════════════════════════════
+   SKIN: "raw" — weathered wood / parchment / fire material theme.
+
+   DORMANT by default. Everything in this section only takes effect
+   under <html data-skin="raw">. The app ships flat; flip the attribute
+   to activate. Textures are procedural inline-SVG feTurbulence filters
+   (rasterized once, cached) — a few KB of CSS, ZERO image requests.
+
+   How surfaces opt in:
+     • a card carries the hook class `surface-card` (BaseCard adds it)
+     • add data-material="parchment" to a card for the parchment variant
+     • decor lives inside `.theme-atmosphere` (ThemeAtmosphere.vue)
+   Because `[data-skin="raw"] .surface-card` is more specific than a
+   single Tailwind utility, it overrides the flat look with no !important.
+   ═════════════════════════════════════════════════════════════ */
+
+/* Atmosphere (fire glow + fronds) is hidden until the raw skin is on. */
+.theme-atmosphere {
+  display: none;
+}
+[data-skin='raw'] .theme-atmosphere {
+  display: block;
+}
+
+/* Weathered tiki wood — horizontal grain + carved plank seams. */
+[data-skin='raw'] .surface-card {
+  background-color: var(--color-material-wood);
+  border-color: var(--color-material-wood-edge);
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='w'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.012 0.16' numOctaves='4' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23w)' opacity='0.6'/%3E%3C/svg%3E"),
+    repeating-linear-gradient(
+      90deg,
+      transparent 0 78px,
+      rgba(0, 0, 0, 0.45) 78px 80px,
+      rgba(255, 255, 255, 0.05) 80px 82px
+    ),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(0, 0, 0, 0.28));
+  background-blend-mode: multiply, normal, normal;
+}
+
+/* Aged parchment variant — fine fiber noise + warm top light + vignette. */
+[data-skin='raw'] .surface-card[data-material='parchment'] {
+  background-color: var(--color-material-parchment);
+  border-color: rgba(74, 47, 26, 0.35);
+  color: var(--color-material-parchment-ink);
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='p'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23p)' opacity='0.35'/%3E%3C/svg%3E"),
+    radial-gradient(120% 120% at 50% 0%, rgba(255, 255, 255, 0.35), transparent 55%),
+    radial-gradient(140% 130% at 50% 55%, transparent 55%, rgba(74, 47, 26, 0.22));
+  background-blend-mode: multiply, screen, normal;
+}
+
+/* Fire glow — soft ember light. Flicker is opacity-only (GPU compositor,
+   no repaint) and disabled for reduced-motion users. */
+.fire-glow {
+  position: absolute;
+  border-radius: 9999px;
+  background: radial-gradient(
+    circle,
+    var(--color-fire-glow) 0%,
+    rgba(249, 115, 22, 0.35) 35%,
+    transparent 70%
+  );
+  filter: blur(40px);
+  opacity: 0.5;
+  will-change: opacity;
+}
+@media (prefers-reduced-motion: no-preference) {
+  [data-skin='raw'] .fire-glow {
+    animation: fire-flicker 6s ease-in-out infinite;
+  }
+}
+@keyframes fire-flicker {
+  0%,
+  100% {
+    opacity: 0.42;
+  }
+  45% {
+    opacity: 0.6;
+  }
+  70% {
+    opacity: 0.5;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────
    Color Tokens — dark theme  (add class="dark" to <html>)
    ───────────────────────────────────────────────────────────── */
 

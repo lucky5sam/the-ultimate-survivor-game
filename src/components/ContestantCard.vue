@@ -29,13 +29,13 @@ const cardStyle = computed(() => ({
 
 <template>
   <div
-    class="relative rounded-2xl overflow-hidden border-2 select-none transition-all duration-300 ease-out group"
+    class="relative rounded-2xl overflow-hidden border-2 select-none transition-all duration-300 ease-out group aspect-square sm:aspect-[2/3]"
     :class="[
       isInteractive ? 'cursor-pointer' : 'cursor-not-allowed',
       disabled ? 'opacity-30' : '',
       isHighlighted ? 'scale-[1.04]' : 'scale-100',
     ]"
-    :style="[cardStyle, { aspectRatio: '2/3' }]"
+    :style="cardStyle"
     @mouseenter="hovered = true"
     @mouseleave="hovered = false"
     @click="isInteractive && emit('select')"
