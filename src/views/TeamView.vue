@@ -183,16 +183,28 @@ const mergeEpNumber = computed(() => allEpisodes.value.find(e => e.is_merge)?.nu
 
 type BountyState = { kind: 'hit'; points: number } | { kind: 'missed' } | { kind: 'upcoming' }
 
+// Episodes that have at least one recorded elimination (bounty is resolved).
+const episodesWithEliminations = computed(
+  () => new Set(Object.values(eliminatedEpisodeIdByContestant.value).filter(Boolean) as string[]),
+)
+
 // Per-episode bounty history: the locked-in pick and whether it hit, newest first.
 // Includes completed episodes plus the next upcoming one (still editable).
+// Regular episodes resolve from eliminations; the finale resolves from the winner.
 const bountyHistory = computed(() =>
   allEpisodes.value
     .filter(e => e.status === 'completed' || e.id === nextUpcomingEpisode.value?.id)
     .map(ep => {
       const contestantId = pickForEpisode(ep.number)?.contestant_id ?? null
+      const resolved =
+        ep.status === 'completed' &&
+        (ep.is_finale ? !!ep.bounty_contestant_id : episodesWithEliminations.value.has(ep.id))
       let state: BountyState
-      if (ep.status === 'completed' && ep.bounty_contestant_id) {
-        if (contestantId && contestantId === ep.bounty_contestant_id) {
+      if (resolved) {
+        const hit = ep.is_finale
+          ? !!contestantId && contestantId === ep.bounty_contestant_id
+          : !!contestantId && eliminatedEpisodeIdByContestant.value[contestantId] === ep.id
+        if (hit) {
           const points = ep.is_finale
             ? seasonConfig.value.bounty_points_finale
             : ep.number >= mergeEpNumber.value
@@ -683,16 +695,16 @@ onMounted(async () => {
                 :name="contestantName(player.contestant_id)"
               />
               <div>
-                <p class="font-medium text-sm text-text-default leading-tight">{{ contestantName(player.contestant_id) }}</p>
-                <div class="mt-0.5 flex items-center gap-1.5 text-xs text-text-muted">
+                <div class="flex items-center gap-1.5">
+                  <p class="font-medium text-sm text-text-default leading-tight">{{ contestantName(player.contestant_id) }}</p>
                   <span
-                    class="font-medium"
-                    :style="{ color: getTribeColors(contestantTribe(player.contestant_id)).text }"
-                  >{{ contestantTribe(player.contestant_id) }}</span>
-                  <template v-if="player.effective_from_episode > 1">
-                    <span>•</span>
-                    <span>joined ep. {{ player.effective_from_episode }}</span>
-                  </template>
+                    class="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-[10px] font-bold text-white"
+                    :style="{ backgroundColor: getTribeColors(contestantTribe(player.contestant_id)).primary }"
+                    :title="contestantTribe(player.contestant_id)"
+                  >{{ contestantTribe(player.contestant_id).charAt(0).toUpperCase() }}</span>
+                </div>
+                <div class="mt-0.5 text-xs text-text-muted">
+                  Ep {{ player.effective_from_episode }}–now
                 </div>
               </div>
             </div>
@@ -820,12 +832,30 @@ onMounted(async () => {
           </div>
         </template>
 
-        <!-- Penalties -->
-        <template v-if="breakdown.swapPenalty !== 0">
-          <p class="mb-1 mt-4 text-xs font-semibold uppercase tracking-wide text-text-muted">Penalties</p>
-          <div class="flex items-center justify-between gap-3 py-2">
-            <p class="text-sm font-medium text-text-default">Swap penalties</p>
-            <span class="shrink-0 text-sm font-semibold tabular-nums text-status-error">{{ fmtPts(breakdown.swapPenalty) }}</span>
+        <!-- Swaps -->
+        <template v-if="breakdown.swaps.length">
+          <p class="mb-1 mt-4 text-xs font-semibold uppercase tracking-wide text-text-muted">Swaps</p>
+          <div class="divide-y divide-border-subtle">
+            <div
+              v-for="(sw, i) in breakdown.swaps"
+              :key="i"
+              class="flex items-center justify-between gap-3 py-2"
+            >
+              <div class="min-w-0">
+                <p class="truncate text-sm font-medium text-text-default">
+                  {{ sw.type === 'role_change' ? 'MVP change' : 'Roster swap' }}
+                </p>
+                <p class="truncate text-xs text-text-muted">
+                  {{ sw.type === 'role_change'
+                      ? `Made ${sw.addedName} MVP before Ep ${sw.episode}`
+                      : `Swapped ${sw.removedName} for ${sw.addedName} before Ep ${sw.episode}` }}
+                </p>
+              </div>
+              <span
+                class="shrink-0 text-sm font-semibold tabular-nums"
+                :class="sw.penalty === 0 ? 'text-text-muted' : 'text-status-error'"
+              >{{ sw.penalty === 0 ? 'Free' : fmtPts(sw.penalty) }}</span>
+            </div>
           </div>
         </template>
 

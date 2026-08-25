@@ -8,7 +8,7 @@ type Episode = {
   id: string; number: number; title: string | null; air_date: string | null
   status: string; is_merge: boolean; is_finale: boolean; bounty_contestant_id: string | null
 }
-type Contestant = { id: string; name: string }
+type Contestant = { id: string; name: string; eliminated_episode_id: string | null }
 
 const router = useRouter()
 const seasons = ref<Season[]>([])
@@ -26,10 +26,24 @@ const nextNumber = computed(() =>
   episodes.value.length > 0 ? Math.max(...episodes.value.map(e => e.number)) + 1 : 1
 )
 
-const form = ref({ number: 1, title: '', air_date: '', is_merge: false, is_finale: false, bounty_contestant_id: '' })
+const form = ref({ number: 1, title: '', air_date: '', is_merge: false, is_finale: false, bounty_contestant_id: '', eliminatedIds: [] as string[] })
 
 const contestantMap = computed(() =>
   Object.fromEntries(contestants.value.map(c => [c.id, c.name]))
+)
+
+const eliminatedByEpisode = computed<Record<string, string[]>>(() => {
+  const map: Record<string, string[]> = {}
+  for (const c of contestants.value) {
+    if (c.eliminated_episode_id) (map[c.eliminated_episode_id] ??= []).push(c.name)
+  }
+  return map
+})
+
+// Contestants eligible to mark eliminated in the episode being edited: still in
+// the game, or already eliminated in THIS episode.
+const selectableForElimination = computed(() =>
+  contestants.value.filter(c => !c.eliminated_episode_id || c.eliminated_episode_id === editingId.value),
 )
 
 async function loadSeasons() {
@@ -61,7 +75,7 @@ async function loadContestants() {
   if (!selectedSeasonId.value) return
   const { data } = await supabase
     .from('contestants')
-    .select('id, name')
+    .select('id, name, eliminated_episode_id')
     .eq('season_id', selectedSeasonId.value)
     .order('name')
   contestants.value = data ?? []
@@ -78,9 +92,31 @@ async function saveEpisode() {
       air_date: form.value.air_date || null,
       is_merge: form.value.is_merge,
       is_finale: form.value.is_finale,
-      bounty_contestant_id: form.value.bounty_contestant_id || null,
+      // bounty_contestant_id is only meaningful for the finale (the winner).
+      bounty_contestant_id: form.value.is_finale ? (form.value.bounty_contestant_id || null) : null,
     }).eq('id', editingId.value)
     if (error) { errorMsg.value = error.message; saving.value = false; return }
+
+    // Eliminations are the source of truth on contestants. Sync this episode's set.
+    const prevElim = contestants.value
+      .filter(c => c.eliminated_episode_id === editingId.value)
+      .map(c => c.id)
+    const selected = form.value.eliminatedIds
+    const toRemove = prevElim.filter(id => !selected.includes(id))
+    if (toRemove.length) {
+      const { error: rErr } = await supabase
+        .from('contestants')
+        .update({ eliminated_episode_id: null })
+        .in('id', toRemove)
+      if (rErr) { errorMsg.value = rErr.message; saving.value = false; return }
+    }
+    if (selected.length) {
+      const { error: aErr } = await supabase
+        .from('contestants')
+        .update({ eliminated_episode_id: editingId.value })
+        .in('id', selected)
+      if (aErr) { errorMsg.value = aErr.message; saving.value = false; return }
+    }
   } else {
     const { error } = await supabase.from('episodes').insert({
       number: form.value.number,
@@ -96,7 +132,7 @@ async function saveEpisode() {
 
   showForm.value = false
   resetForm()
-  await loadEpisodes()
+  await Promise.all([loadEpisodes(), loadContestants()])
   saving.value = false
 }
 
@@ -124,7 +160,7 @@ async function deleteEpisode(id: string, number: number) {
 
 function openCreate() {
   editingId.value = null
-  form.value = { number: nextNumber.value, title: '', air_date: '', is_merge: false, is_finale: false, bounty_contestant_id: '' }
+  form.value = { number: nextNumber.value, title: '', air_date: '', is_merge: false, is_finale: false, bounty_contestant_id: '', eliminatedIds: [] }
   showForm.value = true
 }
 
@@ -137,12 +173,13 @@ function openEdit(ep: Episode) {
     is_merge: ep.is_merge,
     is_finale: ep.is_finale,
     bounty_contestant_id: ep.bounty_contestant_id ?? '',
+    eliminatedIds: contestants.value.filter(c => c.eliminated_episode_id === ep.id).map(c => c.id),
   }
   showForm.value = true
 }
 
 function resetForm() {
-  form.value = { number: nextNumber.value, title: '', air_date: '', is_merge: false, is_finale: false, bounty_contestant_id: '' }
+  form.value = { number: nextNumber.value, title: '', air_date: '', is_merge: false, is_finale: false, bounty_contestant_id: '', eliminatedIds: [] }
 }
 
 const statusColor: Record<string, string> = {
@@ -199,7 +236,7 @@ onMounted(async () => {
           <th class="px-4 py-3">Title</th>
           <th class="px-4 py-3">Air Date</th>
           <th class="px-4 py-3">Status</th>
-          <th class="px-4 py-3">Bounty Result</th>
+          <th class="px-4 py-3">Eliminated / Winner</th>
           <th class="px-4 py-3"></th>
         </tr>
       </thead>
@@ -219,7 +256,9 @@ onMounted(async () => {
             </span>
           </td>
           <td class="px-4 py-3 text-xs text-gray-500">
-            {{ ep.bounty_contestant_id ? (contestantMap[ep.bounty_contestant_id] ?? '—') : '—' }}
+            <template v-if="ep.is_finale && ep.bounty_contestant_id">Winner: {{ contestantMap[ep.bounty_contestant_id] ?? '—' }}</template>
+            <template v-else-if="eliminatedByEpisode[ep.id]?.length">{{ eliminatedByEpisode[ep.id]?.join(', ') }}</template>
+            <template v-else>—</template>
           </td>
           <td class="px-4 py-3 text-right space-x-3">
             <button @click="router.push(`/admin/episodes/${ep.id}/actions`)" class="text-blue-600 hover:text-blue-800 text-xs font-medium">Actions</button>
@@ -275,10 +314,25 @@ onMounted(async () => {
             </label>
           </div>
 
-          <!-- Bounty result — only on edit, set after episode airs -->
+          <!-- Eliminated this episode — the source of truth (only on edit) -->
           <div v-if="editingId">
             <label class="block text-sm font-medium text-gray-700 mb-1">
-              Bounty result <span class="text-gray-400 font-normal">(voted out / winner)</span>
+              Eliminated this episode <span class="text-gray-400 font-normal">(voted out)</span>
+            </label>
+            <div class="max-h-44 overflow-y-auto rounded-lg border border-gray-300 divide-y divide-gray-100">
+              <label v-for="c in selectableForElimination" :key="c.id"
+                class="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer">
+                <input type="checkbox" :value="c.id" v-model="form.eliminatedIds" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                {{ c.name }}
+              </label>
+              <p v-if="selectableForElimination.length === 0" class="px-3 py-2 text-sm text-gray-400">No contestants available</p>
+            </div>
+          </div>
+
+          <!-- Winner — finale only -->
+          <div v-if="editingId && form.is_finale">
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              Winner <span class="text-gray-400 font-normal">(finale bounty target)</span>
             </label>
             <select v-model="form.bounty_contestant_id"
               class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
