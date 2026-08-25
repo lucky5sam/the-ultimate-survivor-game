@@ -181,7 +181,11 @@ const inGameContestants = computed(() =>
 
 const mergeEpNumber = computed(() => allEpisodes.value.find(e => e.is_merge)?.number ?? Infinity)
 
-type BountyState = { kind: 'hit'; points: number } | { kind: 'missed' } | { kind: 'upcoming' }
+type BountyState =
+  | { kind: 'hit'; points: number }
+  | { kind: 'missed' }
+  | { kind: 'upcoming' }
+  | { kind: 'locked' }
 
 // Episodes that have at least one recorded elimination (bounty is resolved).
 const episodesWithEliminations = computed(
@@ -193,9 +197,15 @@ const episodesWithEliminations = computed(
 // Regular episodes resolve from eliminations; the finale resolves from the winner.
 const bountyHistory = computed(() =>
   allEpisodes.value
-    .filter(e => e.status === 'completed' || e.id === nextUpcomingEpisode.value?.id)
+    .filter(
+      e =>
+        e.status === 'completed' ||
+        e.status === 'active' ||
+        e.id === nextUpcomingEpisode.value?.id,
+    )
     .map(ep => {
       const contestantId = pickForEpisode(ep.number)?.contestant_id ?? null
+      const isUpcoming = ep.id === nextUpcomingEpisode.value?.id
       const resolved =
         ep.status === 'completed' &&
         (ep.is_finale ? !!ep.bounty_contestant_id : episodesWithEliminations.value.has(ep.id))
@@ -214,16 +224,14 @@ const bountyHistory = computed(() =>
         } else {
           state = { kind: 'missed' }
         }
-      } else {
+      } else if (isUpcoming) {
+        // Next episode, still editable
         state = { kind: 'upcoming' }
+      } else {
+        // Active/current (airing) or awaiting results — pick is locked
+        state = { kind: 'locked' }
       }
-      return {
-        episodeId: ep.id,
-        number: ep.number,
-        contestantId,
-        state,
-        isUpcoming: ep.id === nextUpcomingEpisode.value?.id,
-      }
+      return { episodeId: ep.id, number: ep.number, contestantId, state, isUpcoming }
     })
     .sort((a, b) => b.number - a.number),
 )
@@ -766,6 +774,15 @@ onMounted(async () => {
                     v-else-if="row.state.kind === 'missed'"
                     class="rounded-full bg-surface-subtle px-2 py-0.5 text-xs font-semibold text-text-muted"
                   >Missed</span>
+                  <span
+                    v-else-if="row.state.kind === 'locked'"
+                    class="inline-flex items-center gap-1 rounded-full bg-surface-subtle px-2 py-0.5 text-xs font-semibold text-text-muted"
+                  >
+                    <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                    Locked
+                  </span>
                   <BaseButton
                     v-if="row.isUpcoming"
                     variant="secondary"
