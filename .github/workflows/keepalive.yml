@@ -2,27 +2,44 @@ name: Supabase Keepalive
 
 on:
   schedule:
-    # Runs every 2 days at 9am UTC — gives plenty of margin for Supabase's 7-day pause window
+    # Runs every 2 days at 9am UTC — well inside Supabase's 7-day pause window
     - cron: '0 9 */2 * *'
   workflow_dispatch: # allow manual trigger to test
 
 jobs:
-  ping:
+  keepalive:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping Supabase
+      - name: Authenticated write to keepalive table
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
-          echo "Pinging Supabase at $(date -u)"
-          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-            "$SUPABASE_URL/rest/v1/action_types?select=id&limit=1" \
-            -H "apikey: $SUPABASE_ANON_KEY" \
-            -H "Authorization: Bearer $SUPABASE_ANON_KEY")
+          NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          echo "Writing keepalive ping at $NOW"
+
+          # Real DB write (UPDATE) using the service_role key, which bypasses RLS.
+          # A write is far more likely to count as project activity than an anon read.
+          HTTP_STATUS=$(curl -s -o /tmp/resp.txt -w "%{http_code}" \
+            -X PATCH "$SUPABASE_URL/rest/v1/keepalive?id=eq.1" \
+            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Content-Type: application/json" \
+            -H "Prefer: return=representation" \
+            -d "{\"last_ping\":\"$NOW\"}")
+
           echo "Response status: $HTTP_STATUS"
+          echo "Response body: $(cat /tmp/resp.txt)"
+
           if [ "$HTTP_STATUS" -lt 200 ] || [ "$HTTP_STATUS" -ge 300 ]; then
-            echo "ERROR: Supabase ping returned non-2xx status $HTTP_STATUS"
+            echo "ERROR: keepalive write returned non-2xx status $HTTP_STATUS"
             exit 1
           fi
-          echo "Supabase is alive."
+
+          # An empty [] means the id=1 row is missing — the write hit nothing.
+          if [ "$(cat /tmp/resp.txt)" = "[]" ]; then
+            echo "ERROR: no keepalive row was updated (is the id=1 seed row present?)"
+            exit 1
+          fi
+
+          echo "Supabase keepalive write succeeded."
