@@ -35,16 +35,6 @@ const sortedContestants = computed(() =>
   [...props.contestants].sort((a, b) => a.name.localeCompare(b.name)),
 )
 
-// Still used to group the bounty-pick dropdown in step 5.
-const byTribe = computed(() => {
-  const map: Record<string, ContestantFull[]> = {}
-  for (const c of props.contestants) {
-    if (!map[c.tribe]) map[c.tribe] = []
-    map[c.tribe]!.push(c)
-  }
-  return Object.fromEntries(Object.entries(map).sort(([a], [b]) => a.localeCompare(b)))
-})
-
 const selectedContestants = computed(() =>
   selectedIds.value.map(id => props.contestants.find(c => c.id === id)!).filter(Boolean)
 )
@@ -323,33 +313,36 @@ async function lockIn() {
 
       <!-- ── Step 5: Bounty Pick ── -->
       <template v-else-if="step === 5">
-        <div class="max-w-sm mx-auto">
-          <h2 class="text-xl font-bold text-text-default mb-1">Set Your Bounty</h2>
-          <p class="text-text-subtle text-sm mb-6">
+        <div class="mb-6">
+          <h2 class="text-xl font-bold text-text-default mb-0.5">Set Your Bounty</h2>
+          <p class="text-text-subtle text-sm">
             Who gets voted out first? Your pick carries forward each week — change it before any episode airs.
           </p>
-          <div class="space-y-4">
-            <select
-              v-model="bountyId"
-              class="w-full bg-interactive-input border border-interactive-input-border text-text-default rounded-md px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-interactive-input-border-focus/40 focus:border-interactive-input-border-focus transition-colors appearance-none"
-            >
-              <option :value="null" disabled class="text-text-muted">Select a castaway…</option>
-              <optgroup
-                v-for="(members, tribe) in byTribe"
-                :key="tribe"
-                :label="tribe as string"
-                class="text-text-subtle"
-              >
-                <option v-for="c in members" :key="c.id" :value="c.id" class="text-text-default">
-                  {{ c.name }}
-                </option>
-              </optgroup>
-            </select>
-            <p v-if="errorMsg" class="text-sm text-status-error">{{ errorMsg }}</p>
+        </div>
+
+        <!-- Same reflowing grid as Pick Players, but a single target selection -->
+        <div class="mx-auto mb-8 grid max-w-5xl grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+          <ContestantCard
+            v-for="c in sortedContestants"
+            :key="c.id"
+            :contestant="c"
+            :selected="c.id === bountyId"
+            :disabled="false"
+            @select="bountyId = bountyId === c.id ? null : c.id"
+            @view-details="detailContestant = c"
+          />
+        </div>
+
+        <!-- Sticky action bar -->
+        <div
+          class="sticky bottom-0 z-30 -mx-8 mt-4 border-t border-border-subtle bg-surface-page/95 px-8 py-3 backdrop-blur sm:-mx-12 sm:px-12 lg:-mx-20 lg:px-20"
+        >
+          <div class="mx-auto max-w-2xl">
+            <p v-if="errorMsg" class="mb-2 text-sm text-status-error">{{ errorMsg }}</p>
             <div class="flex gap-3">
               <BaseButton variant="secondary" size="lg" @click="step--">Back</BaseButton>
               <BaseButton size="lg" class="flex-1" :disabled="!bountyId" @click="nextStep">
-                Continue
+                {{ bountyId ? 'Continue' : 'Pick a target' }}
               </BaseButton>
             </div>
           </div>

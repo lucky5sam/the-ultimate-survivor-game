@@ -4,14 +4,29 @@ import { useRouter } from 'vue-router'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../stores/auth'
 import TeamCreateWizard from '../components/TeamCreateWizard.vue'
+import ContestantAvatar from '../components/ContestantAvatar.vue'
+import ContestantSelect from '../components/ContestantSelect.vue'
+import ContestantCard from '../components/ContestantCard.vue'
+import BaseButton from '../components/base/BaseButton.vue'
+import BaseCard from '../components/base/BaseCard.vue'
+import BaseModal from '../components/base/BaseModal.vue'
 import { useToast } from '../composables/useToast'
+import { computeLeaderboard } from '../composables/useLeaderboard'
+import { getTribeColors } from '../utils/tribeColors'
 import type { ContestantFull } from '../types/contestant'
 
 type Season = { id: string; name: string; status: string; current_episode_id: string | null }
 type Contestant = ContestantFull
 type TeamPlayer = { contestant_id: string; role: string; effective_from_episode: number; effective_to_episode: number | null }
 type ActivePlayer = { contestant_id: string; role: 'mvp' | 'player'; effective_from_episode: number }
-type EpisodeInfo = { id: string; number: number; status: string }
+type EpisodeInfo = {
+  id: string
+  number: number
+  status: string
+  is_merge: boolean
+  is_finale: boolean
+  bounty_contestant_id: string | null
+}
 type BountyPick = { contestant_id: string; effective_from_episode: number }
 type SeasonConfig = {
   grace_period_through_episode: number
@@ -19,6 +34,9 @@ type SeasonConfig = {
   swap_penalty_mvp: number
   swap_penalty_player: number
   swap_penalty_role_change: number
+  bounty_points_pre_merge: number
+  bounty_points_post_merge: number
+  bounty_points_finale: number
 }
 
 const auth = useAuthStore()
@@ -28,6 +46,7 @@ const toast = useToast()
 const seasons = ref<Season[]>([])
 const selectedSeasonId = ref('')
 const allContestants = ref<Contestant[]>([])
+const eliminatedEpisodeIdByContestant = ref<Record<string, string | null>>({})
 const allEpisodes = ref<EpisodeInfo[]>([])
 const existingTeam = ref<{ id: string; team_name: string | null } | null>(null)
 const activePlayers = ref<ActivePlayer[]>([])
@@ -36,18 +55,34 @@ const loading = ref(true)
 const saving = ref(false)
 const errorMsg = ref('')
 
+// My standing on the leaderboard (rank + score)
+const myRank = ref<number | null>(null)
+const myScore = ref<number | null>(null)
+const myPlayerPoints = ref<Record<string, number>>({})
+
+function fmtPts(n: number) {
+  return Number.isInteger(n) ? String(n) : n.toFixed(1)
+}
+
+function ordinal(n: number) {
+  const suffixes = ['th', 'st', 'nd', 'rd']
+  const v = n % 100
+  return `${n}${suffixes[(v - 20) % 10] ?? suffixes[v] ?? suffixes[0]}`
+}
+
 // Episode + bounty state
 const nextUpcomingEpisode = ref<EpisodeInfo | null>(null)
 const currentBountyPick = ref<BountyPick | null>(null)
+const allBountyPicks = ref<BountyPick[]>([])
 const changingBounty = ref(false)
+const confirmingBounty = ref(false)
 const newBountyContestantId = ref<string | null>(null)
 const savingBounty = ref(false)
 
 // Swap state
-const seasonConfig = ref<SeasonConfig>({ grace_period_through_episode: 1, max_swaps: null, swap_penalty_mvp: 15, swap_penalty_player: 10, swap_penalty_role_change: 5 })
+const seasonConfig = ref<SeasonConfig>({ grace_period_through_episode: 1, max_swaps: null, swap_penalty_mvp: 15, swap_penalty_player: 10, swap_penalty_role_change: 5, bounty_points_pre_merge: 10, bounty_points_post_merge: 15, bounty_points_finale: 20 })
 const swapsUsed = ref(0)
 const swappingPlayer = ref<ActivePlayer | null>(null)
-const swapSearch = ref('')
 const selectedReplacementId = ref<string | null>(null)
 const savingSwap = ref(false)
 const roleChangeTargetId = ref<string | null>(null)
@@ -55,6 +90,48 @@ const roleChangeTargetId = ref<string | null>(null)
 const atMaxSwaps = computed(() =>
   seasonConfig.value.max_swaps !== null && swapsUsed.value >= seasonConfig.value.max_swaps
 )
+
+// Roster ordered MVP-first, with fixed position labels (MVP, P1, P2, P3).
+const rosterSorted = computed(() =>
+  [...activePlayers.value].sort((a, b) => (a.role === 'mvp' ? 0 : 1) - (b.role === 'mvp' ? 0 : 1)),
+)
+const positionLabel = computed<Record<string, string>>(() => {
+  const map: Record<string, string> = {}
+  let n = 0
+  for (const pl of rosterSorted.value) {
+    if (pl.role === 'mvp') map[pl.contestant_id] = 'MVP'
+    else map[pl.contestant_id] = `P${++n}`
+  }
+  return map
+})
+
+// Roster edits are only allowed with an upcoming episode and swaps remaining.
+const canManageRoster = computed(() => !!nextUpcomingEpisode.value && !atMaxSwaps.value)
+
+// Position-chip action menu (teleported so the card's overflow can't clip it).
+const openMenuId = ref<string | null>(null)
+const menuPos = ref({ x: 0, y: 0 })
+const openMenuPlayer = computed(
+  () => rosterSorted.value.find(p => p.contestant_id === openMenuId.value) ?? null,
+)
+function toggleMenu(player: ActivePlayer, event: MouseEvent) {
+  if (!canManageRoster.value) return
+  if (openMenuId.value === player.contestant_id) {
+    openMenuId.value = null
+    return
+  }
+  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+  menuPos.value = { x: rect.left, y: rect.bottom + 4 }
+  openMenuId.value = player.contestant_id
+}
+function menuMakeMvp() {
+  if (openMenuId.value) roleChangeTargetId.value = openMenuId.value
+  openMenuId.value = null
+}
+function menuSwap() {
+  if (openMenuPlayer.value) openSwapModal(openMenuPlayer.value)
+  openMenuId.value = null
+}
 
 const isGracePeriod = computed(() =>
   !!nextUpcomingEpisode.value && nextUpcomingEpisode.value.number <= seasonConfig.value.grace_period_through_episode
@@ -69,24 +146,78 @@ const roleChangeCost = computed(() => isGracePeriod.value ? 0 : seasonConfig.val
 
 const availableContestants = computed(() => {
   const activeIds = new Set(activePlayers.value.map(p => p.contestant_id))
-  const q = swapSearch.value.toLowerCase()
-  return allContestants.value.filter(c =>
-    !activeIds.has(c.id) &&
-    !droppedContestantIds.value.has(c.id) &&
-    (!q || c.name.toLowerCase().includes(q))
+  return allContestants.value.filter(
+    c => !activeIds.has(c.id) && !droppedContestantIds.value.has(c.id),
   )
 })
+
+// The 4 active roster players as full contestant records (for the swap-out select).
+const activeRosterContestants = computed(() =>
+  activePlayers.value
+    .map(p => allContestants.value.find(c => c.id === p.contestant_id))
+    .filter((c): c is ContestantFull => !!c),
+)
+
+// Two-way binding for the swap-out side: reads/writes swappingPlayer by contestant id.
+const swapOutId = computed<string | null>({
+  get: () => swappingPlayer.value?.contestant_id ?? null,
+  set: (id) => {
+    swappingPlayer.value = activePlayers.value.find(a => a.contestant_id === id) ?? null
+    if (selectedReplacementId.value === id) selectedReplacementId.value = null
+  },
+})
+
+// Contestants still in the game (not voted out) — the only valid bounty targets.
+const inGameContestants = computed(() =>
+  [...allContestants.value]
+    .filter(c => !eliminatedEpisodeIdByContestant.value[c.id])
+    .sort((a, b) => a.name.localeCompare(b.name)),
+)
+
+const mergeEpNumber = computed(() => allEpisodes.value.find(e => e.is_merge)?.number ?? Infinity)
+
+type BountyState = { kind: 'hit'; points: number } | { kind: 'missed' } | { kind: 'upcoming' }
+
+// Per-episode bounty history: the locked-in pick and whether it hit, newest first.
+// Includes completed episodes plus the next upcoming one (still editable).
+const bountyHistory = computed(() =>
+  allEpisodes.value
+    .filter(e => e.status === 'completed' || e.id === nextUpcomingEpisode.value?.id)
+    .map(ep => {
+      const contestantId = pickForEpisode(ep.number)?.contestant_id ?? null
+      let state: BountyState
+      if (ep.status === 'completed' && ep.bounty_contestant_id) {
+        if (contestantId && contestantId === ep.bounty_contestant_id) {
+          const points = ep.is_finale
+            ? seasonConfig.value.bounty_points_finale
+            : ep.number >= mergeEpNumber.value
+              ? seasonConfig.value.bounty_points_post_merge
+              : seasonConfig.value.bounty_points_pre_merge
+          state = { kind: 'hit', points }
+        } else {
+          state = { kind: 'missed' }
+        }
+      } else {
+        state = { kind: 'upcoming' }
+      }
+      return {
+        episodeId: ep.id,
+        number: ep.number,
+        contestantId,
+        state,
+        isUpcoming: ep.id === nextUpcomingEpisode.value?.id,
+      }
+    })
+    .sort((a, b) => b.number - a.number),
+)
 
 async function onTeamCreated() {
   loading.value = true
   await loadMyTeam()
   await Promise.all([loadEpisodesAndBounty(), loadSeasonConfig()])
+  await loadMyStanding()
   loading.value = false
 }
-
-const swappingContestantName = computed(() =>
-  allContestants.value.find(c => c.id === swappingPlayer.value?.contestant_id)?.name ?? ''
-)
 
 const roleChangeTargetName = computed(() =>
   allContestants.value.find(c => c.id === roleChangeTargetId.value)?.name ?? ''
@@ -105,6 +236,25 @@ const currentEpisodeNumber = computed(() => {
   return allEpisodes.value.find(e => e.id === epId)?.number ?? null
 })
 
+const ownerName = computed(() =>
+  auth.firstName || auth.lastName
+    ? `${auth.firstName} ${auth.lastName}`.trim()
+    : (auth.user?.email ?? ''),
+)
+
+const seasonStatusBadge = computed(() => {
+  const s = currentSeason.value
+  if (!s) return null
+  if (s.status === 'active')
+    return {
+      label: currentEpisodeNumber.value ? `Active · Episode ${currentEpisodeNumber.value}` : 'Active',
+      classes: 'bg-status-success-surface text-status-success',
+    }
+  if (s.status === 'upcoming')
+    return { label: 'Upcoming', classes: 'bg-status-warning-surface text-status-warning' }
+  return { label: 'Completed', classes: 'bg-surface-subtle text-text-subtle' }
+})
+
 async function loadSeasons() {
   const { data } = await supabase
     .from('seasons')
@@ -121,7 +271,7 @@ async function loadContestants() {
   if (!selectedSeasonId.value) return
   const { data } = await supabase
     .from('contestants')
-    .select('id, name, photo_url, bio, age, hometown, occupation, contestant_tribe_assignments(tribe, effective_from_episode)')
+    .select('id, name, photo_url, bio, age, hometown, occupation, eliminated_episode_id, contestant_tribe_assignments(tribe, effective_from_episode)')
     .eq('season_id', selectedSeasonId.value)
     .order('name')
   allContestants.value = (data ?? []).map((c: any) => ({
@@ -134,6 +284,9 @@ async function loadContestants() {
     hometown: c.hometown ?? null,
     occupation: c.occupation ?? null,
   }))
+  eliminatedEpisodeIdByContestant.value = Object.fromEntries(
+    (data ?? []).map((c: any) => [c.id, c.eliminated_episode_id ?? null]),
+  )
 }
 
 async function loadMyTeam() {
@@ -162,35 +315,45 @@ async function loadEpisodesAndBounty() {
   if (!selectedSeasonId.value) return
   const { data: eps } = await supabase
     .from('episodes')
-    .select('id, number, status')
+    .select('id, number, status, is_merge, is_finale, bounty_contestant_id')
     .eq('season_id', selectedSeasonId.value)
     .order('number')
 
   allEpisodes.value = eps ?? []
   nextUpcomingEpisode.value = (eps ?? []).find(e => e.status === 'upcoming') ?? null
 
-  if (!existingTeam.value) return
-
-  const epNums = (eps ?? []).map(e => e.number)
-  const targetEpNum = nextUpcomingEpisode.value?.number ?? (epNums.length > 0 ? Math.max(...epNums) : 1)
+  if (!existingTeam.value) {
+    allBountyPicks.value = []
+    currentBountyPick.value = null
+    return
+  }
 
   const { data: picks } = await supabase
     .from('bounty_picks')
     .select('contestant_id, effective_from_episode')
     .eq('team_id', existingTeam.value.id)
-    .lte('effective_from_episode', targetEpNum)
-    .order('effective_from_episode', { ascending: false })
-    .limit(1)
+    .order('effective_from_episode', { ascending: true })
+  allBountyPicks.value = picks ?? []
 
-  currentBountyPick.value = picks?.[0] ?? null
+  const epNums = allEpisodes.value.map(e => e.number)
+  const targetEpNum = nextUpcomingEpisode.value?.number ?? (epNums.length > 0 ? Math.max(...epNums) : 1)
+  currentBountyPick.value = pickForEpisode(targetEpNum)
   newBountyContestantId.value = currentBountyPick.value?.contestant_id ?? null
+}
+
+// The bounty pick locked in for a given episode: the most recent pick that took
+// effect on or before it (append-only versioning carries picks forward).
+function pickForEpisode(n: number): BountyPick | null {
+  const eligible = allBountyPicks.value.filter(p => p.effective_from_episode <= n)
+  if (eligible.length === 0) return null
+  return eligible.reduce((a, b) => (b.effective_from_episode > a.effective_from_episode ? b : a))
 }
 
 async function loadSeasonConfig() {
   if (!selectedSeasonId.value) return
   const { data } = await supabase
     .from('seasons')
-    .select('grace_period_through_episode, max_swaps, swap_penalty_mvp, swap_penalty_player, swap_penalty_role_change')
+    .select('grace_period_through_episode, max_swaps, swap_penalty_mvp, swap_penalty_player, swap_penalty_role_change, bounty_points_pre_merge, bounty_points_post_merge, bounty_points_finale')
     .eq('id', selectedSeasonId.value)
     .single()
   if (data) seasonConfig.value = data as SeasonConfig
@@ -201,6 +364,31 @@ async function loadSeasonConfig() {
     .select('*', { count: 'exact', head: true })
     .eq('team_id', existingTeam.value.id)
   swapsUsed.value = count ?? 0
+}
+
+async function loadMyStanding() {
+  myRank.value = null
+  myScore.value = null
+  myPlayerPoints.value = {}
+  if (!selectedSeasonId.value || !existingTeam.value) return
+  try {
+    const board = await computeLeaderboard(selectedSeasonId.value)
+    const idx = board.findIndex(r => r.teamId === existingTeam.value!.id)
+    if (idx >= 0) {
+      myRank.value = idx + 1
+      myScore.value = board[idx]!.totalPoints
+      myPlayerPoints.value = Object.fromEntries(
+        board[idx]!.players.map(p => [p.contestantId, p.points]),
+      )
+    }
+  } catch {
+    // Standing is a nice-to-have; failure shouldn't block the page.
+  }
+}
+
+function openBountyModal() {
+  newBountyContestantId.value = currentBountyPick.value?.contestant_id ?? null
+  changingBounty.value = true
 }
 
 async function saveBountyChange() {
@@ -216,18 +404,33 @@ async function saveBountyChange() {
   }, { onConflict: 'team_id,effective_from_episode' })
 
   if (error) { errorMsg.value = error.message; savingBounty.value = false; return }
+  confirmingBounty.value = false
   changingBounty.value = false
   await loadEpisodesAndBounty()
   savingBounty.value = false
+  toast.success('Bounty pick updated')
 }
 
 function contestantName(id: string) {
   return allContestants.value.find(c => c.id === id)?.name ?? '?'
 }
 
+function contestantPhoto(id: string) {
+  return allContestants.value.find(c => c.id === id)?.photo_url ?? null
+}
+
+function contestantTribe(id: string) {
+  return allContestants.value.find(c => c.id === id)?.tribe ?? ''
+}
+
+function playerStatus(id: string): { out: boolean; ep: number | null } {
+  const epId = eliminatedEpisodeIdByContestant.value[id]
+  if (!epId) return { out: false, ep: null }
+  return { out: true, ep: allEpisodes.value.find(e => e.id === epId)?.number ?? null }
+}
+
 function openSwapModal(player: ActivePlayer) {
   swappingPlayer.value = player
-  swapSearch.value = ''
   selectedReplacementId.value = null
 }
 
@@ -335,6 +538,7 @@ watch(selectedSeasonId, async () => {
   loading.value = true
   await Promise.all([loadContestants(), loadMyTeam()])
   await Promise.all([loadEpisodesAndBounty(), loadSeasonConfig()])
+  await loadMyStanding()
   loading.value = false
 })
 
@@ -342,6 +546,7 @@ onMounted(async () => {
   await loadSeasons()
   await Promise.all([loadContestants(), loadMyTeam()])
   await Promise.all([loadEpisodesAndBounty(), loadSeasonConfig()])
+  await loadMyStanding()
   loading.value = false
 })
 </script>
@@ -354,9 +559,7 @@ onMounted(async () => {
         <RouterLink to="/leaderboard" class="text-text-accent hover:text-interactive-accent-hover">Leaderboard</RouterLink>
         <button @click="copyInviteLink" class="text-text-accent hover:text-interactive-accent-hover">Copy invite link</button>
         <RouterLink v-if="auth.isAdmin" to="/admin" class="text-text-accent hover:text-interactive-accent-hover">Admin</RouterLink>
-        <span class="text-text-muted">
-          {{ (auth.firstName || auth.lastName) ? `${auth.firstName} ${auth.lastName}`.trim() : auth.user?.email }}
-        </span>
+        <span class="text-text-muted">{{ ownerName }}</span>
         <button @click="handleSignOut" class="text-status-error hover:opacity-80">Sign out</button>
       </div>
     </header>
@@ -395,169 +598,278 @@ onMounted(async () => {
     <!-- Constrained team management view when team exists -->
     <div v-else class="max-w-3xl mx-auto px-6 py-8 w-full">
       <template v-if="seasons.length > 0">
-        <!-- Season selector -->
+        <!-- Team header — team name is the primary identity -->
         <div class="mb-6">
-          <div v-if="seasons.length === 1" class="flex items-center gap-3 flex-wrap">
-            <h2 class="text-2xl font-bold">{{ seasons[0]?.name }}</h2>
-            <span v-if="currentSeason" :class="[
-              'px-2.5 py-1 rounded-full text-xs font-semibold',
-              currentSeason.status === 'active'    ? 'bg-green-100 text-green-800' :
-              currentSeason.status === 'upcoming'  ? 'bg-yellow-100 text-yellow-800' :
-                                                     'bg-gray-100 text-gray-600'
-            ]">
-              {{ currentSeason.status === 'active' && currentEpisodeNumber
-                  ? `Active · Episode ${currentEpisodeNumber}`
-                  : currentSeason.status === 'active' ? 'Active'
-                  : currentSeason.status === 'upcoming' ? 'Upcoming'
-                  : 'Completed' }}
-            </span>
-          </div>
-          <div v-else>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Season</label>
-            <div class="flex items-center gap-3">
-              <select v-model="selectedSeasonId"
-                class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <option v-for="s in seasons" :key="s.id" :value="s.id">{{ s.name }}</option>
-              </select>
-              <span v-if="currentSeason" :class="[
-                'px-2.5 py-1 rounded-full text-xs font-semibold',
-                currentSeason.status === 'active'    ? 'bg-green-100 text-green-800' :
-                currentSeason.status === 'upcoming'  ? 'bg-yellow-100 text-yellow-800' :
-                                                       'bg-gray-100 text-gray-600'
-              ]">
-                {{ currentSeason.status === 'active' && currentEpisodeNumber
-                    ? `Active · Episode ${currentEpisodeNumber}`
-                    : currentSeason.status === 'active' ? 'Active'
-                    : currentSeason.status === 'upcoming' ? 'Upcoming'
-                    : 'Completed' }}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Locked team banner -->
-        <div v-if="existingTeam" class="bg-green-50 border border-green-200 rounded-xl p-4 mb-4">
-          <p class="font-semibold text-green-800">
-            Your team is locked in{{ existingTeam.team_name ? ': ' + existingTeam.team_name : '' }}
-          </p>
-          <p class="text-sm text-green-700 mt-0.5">4 contestants selected. Your MVP is marked with a star.</p>
-        </div>
-
-        <!-- Bounty pick management -->
-        <div v-if="existingTeam" class="bg-white rounded-xl border border-gray-200 p-4 mb-4">
-          <div class="flex items-center justify-between mb-2">
-            <div>
-              <h3 class="text-sm font-semibold text-gray-700">
-                Bounty Pick
-                <span v-if="nextUpcomingEpisode" class="text-xs text-gray-400 font-normal ml-1">— Episode {{ nextUpcomingEpisode.number }}</span>
-              </h3>
-              <p class="text-xs text-gray-400 mt-0.5">Who gets voted out this episode?</p>
-            </div>
-            <button v-if="nextUpcomingEpisode && !changingBounty" @click="changingBounty = true"
-              class="text-xs text-blue-600 hover:text-blue-800 font-medium">Change</button>
-          </div>
-          <div v-if="!changingBounty">
-            <p v-if="currentBountyPick" class="text-sm font-medium">
-              {{ allContestants.find(c => c.id === currentBountyPick?.contestant_id)?.name ?? '?' }}
-            </p>
-            <p v-else class="text-sm text-gray-400">No pick set</p>
-            <p v-if="!nextUpcomingEpisode" class="text-xs text-gray-400 mt-1">Locked — no upcoming episodes</p>
-          </div>
-          <div v-else class="flex gap-2 items-center mt-1">
-            <select v-model="newBountyContestantId"
-              class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-              <option :value="null">Select contestant…</option>
-              <option v-for="c in allContestants" :key="c.id" :value="c.id">{{ c.name }}</option>
+          <h2 class="text-2xl font-bold text-text-default">{{ existingTeam?.team_name || 'My Team' }}</h2>
+          <p v-if="ownerName" class="text-sm text-text-muted">{{ ownerName }}</p>
+          <div class="mt-1 flex items-center gap-2 flex-wrap">
+            <span v-if="seasons.length === 1" class="text-sm text-text-subtle">{{ seasons[0]?.name }}</span>
+            <select
+              v-else
+              v-model="selectedSeasonId"
+              class="bg-interactive-input border border-interactive-input-border text-text-default rounded-md px-2.5 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-border-accent"
+            >
+              <option v-for="s in seasons" :key="s.id" :value="s.id">{{ s.name }}</option>
             </select>
-            <button @click="saveBountyChange" :disabled="!newBountyContestantId || savingBounty"
-              class="bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-sm font-semibold px-3 py-2 rounded-lg">
-              {{ savingBounty ? '…' : 'Save' }}
-            </button>
-            <button @click="changingBounty = false" class="text-sm text-gray-500 hover:text-gray-700 px-2">Cancel</button>
+            <span
+              v-if="seasonStatusBadge"
+              :class="['px-2.5 py-1 rounded-full text-xs font-semibold', seasonStatusBadge.classes]"
+            >{{ seasonStatusBadge.label }}</span>
           </div>
+        </div>
+
+        <!-- My standing: rank + score -->
+        <div v-if="myRank !== null" class="mb-6 grid grid-cols-2 gap-3">
+          <BaseCard padding="sm" class="text-center">
+            <p class="text-xs text-text-muted uppercase tracking-wide">Place</p>
+            <p class="mt-0.5 text-2xl font-bold text-text-default">{{ ordinal(myRank ?? 0) }}</p>
+          </BaseCard>
+          <BaseCard padding="sm" class="text-center">
+            <p class="text-xs text-text-muted uppercase tracking-wide">Score</p>
+            <p class="mt-0.5 text-2xl font-bold text-text-default">{{ fmtPts(myScore ?? 0) }}</p>
+          </BaseCard>
         </div>
 
         <!-- Roster management -->
-        <div v-if="existingTeam" class="bg-white rounded-xl border border-gray-200 overflow-hidden mb-6">
-          <div class="px-4 py-3 flex items-center justify-between bg-gray-50 border-b border-gray-100">
-            <h3 class="text-sm font-semibold text-gray-700">My Roster</h3>
-            <span class="text-xs text-gray-400">
+        <BaseCard v-if="existingTeam" padding="none" class="overflow-hidden mb-6">
+          <div class="px-4 py-3 flex items-center justify-between bg-surface-subtle border-b border-border-subtle">
+            <h3 class="text-sm font-semibold text-text-default">My Roster</h3>
+            <span class="text-xs text-text-muted">
               {{ swapsUsed }} swap{{ swapsUsed !== 1 ? 's' : '' }} used
               <template v-if="seasonConfig.max_swaps !== null"> · {{ seasonConfig.max_swaps - swapsUsed }} remaining</template>
             </span>
           </div>
-          <div v-for="player in activePlayers" :key="player.contestant_id"
-            class="flex items-center justify-between px-4 py-3 border-b last:border-0 border-gray-100">
-            <div>
-              <span class="font-medium text-sm">{{ contestantName(player.contestant_id) }}</span>
-              <span v-if="player.role === 'mvp'" class="ml-1 text-yellow-400">★</span>
-              <span v-if="player.effective_from_episode > 1" class="ml-2 text-xs text-gray-400">joined ep. {{ player.effective_from_episode }}</span>
+          <div v-for="player in rosterSorted" :key="player.contestant_id"
+            class="flex items-center justify-between px-4 py-3 border-b last:border-0 border-border-subtle">
+            <div class="flex items-center gap-3">
+              <button
+                @click="toggleMenu(player, $event)"
+                :class="[
+                  'w-11 shrink-0 rounded-md py-1 text-center text-[10px] font-bold uppercase tracking-wide transition-colors',
+                  player.role === 'mvp' ? 'bg-survivor-sand/20 text-survivor-sand' : 'bg-surface-subtle text-text-subtle',
+                  canManageRoster ? 'cursor-pointer hover:opacity-80' : 'cursor-default',
+                ]"
+              >{{ positionLabel[player.contestant_id] }}</button>
+              <ContestantAvatar
+                :photo-url="contestantPhoto(player.contestant_id)"
+                :name="contestantName(player.contestant_id)"
+              />
+              <div>
+                <p class="font-medium text-sm text-text-default leading-tight">{{ contestantName(player.contestant_id) }}</p>
+                <div class="mt-0.5 flex items-center gap-1.5 text-xs text-text-muted">
+                  <span
+                    class="font-medium"
+                    :style="{ color: getTribeColors(contestantTribe(player.contestant_id)).text }"
+                  >{{ contestantTribe(player.contestant_id) }}</span>
+                  <template v-if="player.effective_from_episode > 1">
+                    <span>•</span>
+                    <span>joined ep. {{ player.effective_from_episode }}</span>
+                  </template>
+                </div>
+              </div>
             </div>
-            <div v-if="nextUpcomingEpisode && !atMaxSwaps" class="flex gap-3">
-              <button v-if="player.role === 'player'" @click="roleChangeTargetId = player.contestant_id"
-                class="text-xs text-purple-600 hover:text-purple-800 font-medium">Make MVP</button>
-              <button @click="openSwapModal(player)"
-                class="text-xs text-blue-600 hover:text-blue-800 font-medium">Swap</button>
+            <div class="text-right">
+              <p class="text-sm font-semibold text-text-default tabular-nums">
+                {{ fmtPts(myPlayerPoints[player.contestant_id] ?? 0) }}<span class="font-normal text-text-muted"> pts</span>
+              </p>
+              <p
+                class="mt-0.5 text-xs"
+                :class="playerStatus(player.contestant_id).out ? 'text-status-error' : 'text-text-muted'"
+              >
+                {{ playerStatus(player.contestant_id).out
+                    ? `Voted Out Ep. ${playerStatus(player.contestant_id).ep}`
+                    : 'In the Game' }}
+              </p>
             </div>
           </div>
-          <div v-if="!nextUpcomingEpisode" class="px-4 py-3 text-xs text-gray-400">Locked — no upcoming episodes</div>
-          <div v-else-if="atMaxSwaps" class="px-4 py-3 text-xs text-gray-400">Maximum swaps reached for this season</div>
-          <div v-if="nextUpcomingEpisode && !atMaxSwaps" class="px-4 py-2 bg-gray-50 border-t border-gray-100">
-            <p class="text-xs text-gray-400">
+          <div v-if="!nextUpcomingEpisode" class="px-4 py-3 text-xs text-text-muted">Locked — no upcoming episodes</div>
+          <div v-else-if="atMaxSwaps" class="px-4 py-3 text-xs text-text-muted">Maximum swaps reached for this season</div>
+          <div v-if="nextUpcomingEpisode && !atMaxSwaps" class="px-4 py-2 bg-surface-subtle border-t border-border-subtle">
+            <p class="text-xs text-text-muted">
               <template v-if="isGracePeriod">Free swap window active (through Episode {{ seasonConfig.grace_period_through_episode }})</template>
               <template v-else>Swap cost: −{{ seasonConfig.swap_penalty_player }} pts (player) · −{{ seasonConfig.swap_penalty_mvp }} pts (MVP) · −{{ seasonConfig.swap_penalty_role_change }} pts (role change)</template>
             </p>
           </div>
-        </div>
+        </BaseCard>
 
-        <p v-if="existingTeam && errorMsg" class="text-red-600 text-sm mt-4">{{ errorMsg }}</p>
+        <!-- Bounty pick management -->
+        <BaseCard v-if="existingTeam" padding="none" class="overflow-hidden mb-4">
+          <div class="px-4 py-3 flex items-center justify-between bg-surface-subtle border-b border-border-subtle">
+            <h3 class="text-sm font-semibold text-text-default">Bounty Pick</h3>
+            <span v-if="nextUpcomingEpisode" class="text-xs text-text-muted">Episode {{ nextUpcomingEpisode.number }}</span>
+          </div>
+          <div class="px-4 py-3">
+            <div v-if="bountyHistory.length > 0" class="divide-y divide-border-subtle">
+              <div
+                v-for="row in bountyHistory"
+                :key="row.episodeId"
+                class="flex items-center gap-3 py-2 first:pt-0 last:pb-0"
+              >
+                <span class="w-10 shrink-0 text-xs font-semibold text-text-muted">Ep {{ row.number }}</span>
+                <template v-if="row.contestantId">
+                  <ContestantAvatar
+                    :photo-url="contestantPhoto(row.contestantId)"
+                    :name="contestantName(row.contestantId)"
+                    :size="28"
+                  />
+                  <span class="flex-1 truncate text-sm text-text-default">{{ contestantName(row.contestantId) }}</span>
+                </template>
+                <span v-else class="flex-1 text-sm text-text-muted">No pick set</span>
+
+                <div class="flex shrink-0 items-center gap-2">
+                  <span
+                    v-if="row.state.kind === 'hit'"
+                    class="rounded-full bg-status-success-surface px-2 py-0.5 text-xs font-semibold text-status-success"
+                  >Hit +{{ row.state.points }}</span>
+                  <span
+                    v-else-if="row.state.kind === 'missed'"
+                    class="rounded-full bg-status-error-surface px-2 py-0.5 text-xs font-semibold text-status-error"
+                  >Missed</span>
+                  <span
+                    v-else
+                    class="rounded-full bg-surface-subtle px-2 py-0.5 text-xs font-semibold text-text-muted"
+                  >Upcoming</span>
+                  <BaseButton
+                    v-if="row.isUpcoming"
+                    variant="secondary"
+                    size="sm"
+                    @click="openBountyModal"
+                  >{{ row.contestantId ? 'Update' : 'Set pick' }}</BaseButton>
+                </div>
+              </div>
+            </div>
+            <p v-else class="text-sm text-text-muted">
+              {{ nextUpcomingEpisode ? 'No bounty history yet' : 'Locked — no upcoming episodes' }}
+            </p>
+          </div>
+        </BaseCard>
+
+        <p v-if="existingTeam && errorMsg" class="text-status-error text-sm mt-4">{{ errorMsg }}</p>
       </template>
     </div>
 
     <!-- Swap modal -->
-    <div v-if="swappingPlayer" class="fixed inset-0 bg-black/40 flex items-center justify-center z-50" @click.self="swappingPlayer = null">
-      <div class="bg-white rounded-xl shadow-lg w-full max-w-sm p-6">
-        <h2 class="text-lg font-bold mb-1">Swap out {{ swappingContestantName }}</h2>
-        <p class="text-xs mb-4" :class="swapCostForRole(swappingPlayer.role) === 0 ? 'text-green-600' : 'text-red-500'">
-          {{ swapCostForRole(swappingPlayer.role) === 0 ? 'Free (grace period)' : `Cost: −${swapCostForRole(swappingPlayer.role)} pts` }}
-        </p>
-        <input v-model="swapSearch" type="text" placeholder="Search contestants…"
-          class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-        <div class="max-h-52 overflow-y-auto border border-gray-200 rounded-lg">
-          <label v-for="c in availableContestants" :key="c.id"
-            class="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 cursor-pointer border-b last:border-0 border-gray-100">
-            <input type="radio" :value="c.id" v-model="selectedReplacementId" class="text-blue-600" />
-            <span class="text-sm flex-1">{{ c.name }}</span>
-            <span class="text-xs text-gray-400">{{ c.tribe }}</span>
-          </label>
-          <div v-if="availableContestants.length === 0" class="px-3 py-3 text-sm text-gray-400">No contestants available</div>
+    <BaseModal :show="!!swappingPlayer" title="Swap Player" size="lg" @close="swappingPlayer = null">
+      <template v-if="swappingPlayer">
+        <div class="grid grid-cols-1 items-start gap-3 sm:grid-cols-[1fr_auto_1fr]">
+          <!-- Swapping out -->
+          <div>
+            <p class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-text-muted">Swapping out</p>
+            <ContestantSelect v-model="swapOutId" :options="activeRosterContestants" placeholder="Select player" />
+          </div>
+
+          <!-- Swap icon (arrows right/left; rotates to up/down on mobile) -->
+          <svg
+            class="mx-auto h-6 w-6 shrink-0 rotate-90 self-center text-icon-subtle sm:mt-7 sm:rotate-0"
+            fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-9L21 7.5m0 0L16.5 3M21 7.5H7.5"
+            />
+          </svg>
+
+          <!-- Swapping in -->
+          <div>
+            <p class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-text-muted">Swapping in</p>
+            <ContestantSelect v-model="selectedReplacementId" :options="availableContestants" placeholder="Select replacement" />
+          </div>
         </div>
-        <div class="flex justify-end gap-3 mt-4">
-          <button @click="swappingPlayer = null" class="text-sm text-gray-500 hover:text-gray-700 px-4 py-2">Cancel</button>
-          <button @click="confirmSwap" :disabled="!selectedReplacementId || savingSwap"
-            class="bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-sm font-semibold px-4 py-2 rounded-lg">
-            {{ savingSwap ? 'Saving…' : 'Confirm swap' }}
-          </button>
+
+        <!-- Transaction cost (highlighted) -->
+        <div
+          class="mt-5 rounded-md px-3 py-2 text-center text-sm font-semibold"
+          :class="swapCostForRole(swappingPlayer.role) === 0
+            ? 'bg-status-success-surface text-status-success'
+            : 'bg-status-error-surface text-status-error'"
+        >
+          {{ swapCostForRole(swappingPlayer.role) === 0 ? 'Free swap (grace period)' : `Cost: −${swapCostForRole(swappingPlayer.role)} pts` }}
         </div>
-      </div>
-    </div>
+      </template>
+      <template #footer>
+        <button @click="swappingPlayer = null" class="text-sm text-text-subtle hover:text-text-default px-4 py-2">Cancel</button>
+        <BaseButton :loading="savingSwap" :disabled="!selectedReplacementId" @click="confirmSwap">Confirm swap</BaseButton>
+      </template>
+    </BaseModal>
 
     <!-- Role change modal -->
-    <div v-if="roleChangeTargetId" class="fixed inset-0 bg-black/40 flex items-center justify-center z-50" @click.self="roleChangeTargetId = null">
-      <div class="bg-white rounded-xl shadow-lg w-full max-w-sm p-6">
-        <h2 class="text-lg font-bold mb-2">Make {{ roleChangeTargetName }} your MVP?</h2>
-        <p class="text-sm text-gray-600 mb-1">{{ currentMvpName }} will become a regular player.</p>
-        <p class="text-sm font-semibold mb-4" :class="roleChangeCost === 0 ? 'text-green-600' : 'text-red-500'">
-          {{ roleChangeCost === 0 ? 'Free (grace period)' : `Cost: −${roleChangeCost} pts` }}
-        </p>
-        <div class="flex justify-end gap-3">
-          <button @click="roleChangeTargetId = null" class="text-sm text-gray-500 hover:text-gray-700 px-4 py-2">Cancel</button>
-          <button @click="confirmRoleChange" :disabled="savingSwap"
-            class="bg-purple-600 hover:bg-purple-700 disabled:opacity-40 text-white text-sm font-semibold px-4 py-2 rounded-lg">
-            {{ savingSwap ? 'Saving…' : 'Confirm' }}
-          </button>
+    <BaseModal
+      :show="!!roleChangeTargetId"
+      :title="`Make ${roleChangeTargetName} your MVP?`"
+      @close="roleChangeTargetId = null"
+    >
+      <p class="text-sm text-text-subtle mb-1">{{ currentMvpName }} will become a regular player.</p>
+      <p class="text-sm font-semibold" :class="roleChangeCost === 0 ? 'text-status-success' : 'text-status-error'">
+        {{ roleChangeCost === 0 ? 'Free (grace period)' : `Cost: −${roleChangeCost} pts` }}
+      </p>
+      <template #footer>
+        <button @click="roleChangeTargetId = null" class="text-sm text-text-subtle hover:text-text-default px-4 py-2">Cancel</button>
+        <BaseButton :loading="savingSwap" @click="confirmRoleChange">Confirm</BaseButton>
+      </template>
+    </BaseModal>
+
+    <!-- Bounty pick modal -->
+    <BaseModal :show="changingBounty" title="Update Bounty Pick" size="lg" @close="changingBounty = false">
+      <p class="mb-3 text-sm text-text-subtle">
+        Choose who you think gets voted out next — only players still in the game are shown.
+      </p>
+      <div class="-mx-1 max-h-[60vh] overflow-y-auto px-1">
+        <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+          <ContestantCard
+            v-for="c in inGameContestants"
+            :key="c.id"
+            :contestant="c"
+            :selected="c.id === newBountyContestantId"
+            :disabled="false"
+            @select="newBountyContestantId = newBountyContestantId === c.id ? null : c.id"
+          />
         </div>
       </div>
-    </div>
+      <template #footer>
+        <button @click="changingBounty = false" class="text-sm text-text-subtle hover:text-text-default px-4 py-2">Cancel</button>
+        <BaseButton :disabled="!newBountyContestantId" @click="confirmingBounty = true">Save</BaseButton>
+      </template>
+    </BaseModal>
+
+    <!-- Bounty confirmation -->
+    <BaseModal :show="confirmingBounty" title="Confirm Bounty Pick" @close="confirmingBounty = false">
+      <p class="text-sm text-text-subtle">
+        Set this contestant as your bounty pick for Episode {{ nextUpcomingEpisode?.number }}?
+      </p>
+      <div v-if="newBountyContestantId" class="mt-3 flex items-center gap-3">
+        <ContestantAvatar
+          :photo-url="contestantPhoto(newBountyContestantId)"
+          :name="contestantName(newBountyContestantId)"
+          :size="40"
+        />
+        <span class="font-semibold text-text-default">{{ contestantName(newBountyContestantId) }}</span>
+      </div>
+      <template #footer>
+        <button @click="confirmingBounty = false" class="text-sm text-text-subtle hover:text-text-default px-4 py-2">Cancel</button>
+        <BaseButton :loading="savingBounty" @click="saveBountyChange">Confirm pick</BaseButton>
+      </template>
+    </BaseModal>
+
+    <!-- Position-chip action menu -->
+    <Teleport to="body">
+      <div v-if="openMenuId" class="fixed inset-0 z-40" @click="openMenuId = null">
+        <div
+          class="absolute w-36 rounded-lg border border-border-subtle bg-surface-overlay py-1 shadow-xl"
+          :style="{ left: `${menuPos.x}px`, top: `${menuPos.y}px` }"
+          @click.stop
+        >
+          <button
+            v-if="openMenuPlayer && openMenuPlayer.role === 'player'"
+            @click="menuMakeMvp"
+            class="block w-full px-3 py-2 text-left text-sm text-text-default hover:bg-surface-subtle"
+          >Make MVP</button>
+          <button
+            @click="menuSwap"
+            class="block w-full px-3 py-2 text-left text-sm text-text-default hover:bg-surface-subtle"
+          >Swap</button>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
