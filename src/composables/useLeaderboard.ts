@@ -130,7 +130,8 @@ export async function computeLeaderboard(seasonId: string): Promise<LeaderboardR
     }
   }
 
-  // Swap penalties per team (penalty_points stored as positive magnitude)
+  // Swap penalties per team. penalty_points is stored as a negative value, so it
+  // subtracts directly — do NOT negate it.
   const swapPenaltyMap: Record<string, number> = {}
   const { data: swaps } = await supabase
     .from('team_swaps')
@@ -187,7 +188,7 @@ export async function computeLeaderboard(seasonId: string): Promise<LeaderboardR
 
       const actionPoints = Object.values(contribMap).reduce((s, v) => s + v.pts, 0)
       const bountyPoints = bountyPtsMap[team.id] ?? 0
-      const swapPenalty = -(swapPenaltyMap[team.id] ?? 0)
+      const swapPenalty = swapPenaltyMap[team.id] ?? 0
       return {
         teamId: team.id,
         teamName: team.team_name,
@@ -199,4 +200,155 @@ export async function computeLeaderboard(seasonId: string): Promise<LeaderboardR
       }
     })
     .sort((a, b) => b.totalPoints - a.totalPoints)
+}
+
+// ── Detailed per-team breakdown for the Score Breakdown modal ────────────────
+// Uses the SAME scoring math as computeLeaderboard, but keeps per-stint detail
+// (a "stint" = one team_players record: a player over an episode range) plus
+// per-episode bounty hits, so the total reconciles with the leaderboard score.
+
+export type BreakdownStint = {
+  contestantId: string
+  name: string
+  role: string
+  fromEpisode: number
+  toEpisode: number | null // null = still on the roster
+  points: number
+}
+export type BreakdownBountyHit = {
+  episodeNumber: number
+  contestantId: string
+  name: string
+  points: number
+}
+export type TeamBreakdown = {
+  stints: BreakdownStint[]
+  bountyHits: BreakdownBountyHit[]
+  swapPenalty: number
+  actionPoints: number
+  bountyPoints: number
+  totalPoints: number
+}
+
+export async function computeTeamBreakdown(seasonId: string, teamId: string): Promise<TeamBreakdown> {
+  const { data: seasonData, error: seasonErr } = await supabase
+    .from('seasons')
+    .select('bounty_points_pre_merge, bounty_points_post_merge, bounty_points_finale')
+    .eq('id', seasonId)
+    .single()
+  if (seasonErr) throw new Error(seasonErr.message)
+  const config = seasonData as SeasonConfig
+
+  const { data: allEps, error: epsErr } = await supabase
+    .from('episodes')
+    .select('id, number, is_merge, is_finale, bounty_contestant_id, status')
+    .eq('season_id', seasonId)
+    .order('number')
+  if (epsErr) throw new Error(epsErr.message)
+  const episodes = allEps ?? []
+  const episodeIds = episodes.map(e => e.id)
+  const epNumById: Record<string, number> = {}
+  for (const ep of episodes) epNumById[ep.id] = ep.number
+  const mergeEpNumber = episodes.find(e => e.is_merge)?.number ?? Infinity
+  const completedWithResult = episodes.filter(e => e.status === 'completed' && e.bounty_contestant_id)
+
+  // Action points: contestant_id → episode_number → raw points
+  const epActsByContestant: Record<string, Record<number, number>> = {}
+  if (episodeIds.length > 0) {
+    const { data: actions, error: actErr } = await supabase
+      .from('contestant_actions')
+      .select('contestant_id, episode_id, count, action_types(points)')
+      .in('episode_id', episodeIds)
+    if (actErr) throw new Error(actErr.message)
+    for (const a of actions ?? []) {
+      const pts = (a.action_types as unknown as { points: number } | null)?.points ?? 0
+      const epNum = epNumById[a.episode_id]
+      if (epNum === undefined) continue
+      if (!epActsByContestant[a.contestant_id]) epActsByContestant[a.contestant_id] = {}
+      epActsByContestant[a.contestant_id]![epNum] =
+        (epActsByContestant[a.contestant_id]![epNum] ?? 0) + pts * a.count
+    }
+  }
+
+  const { data: tpData, error: tpErr } = await supabase
+    .from('team_players')
+    .select('contestant_id, role, effective_from_episode, effective_to_episode')
+    .eq('team_id', teamId)
+  if (tpErr) throw new Error(tpErr.message)
+  const teamPlayers = (tpData ?? []) as Omit<TeamPlayerRecord, 'team_id'>[]
+
+  const { data: picksData } = await supabase
+    .from('bounty_picks')
+    .select('contestant_id, effective_from_episode')
+    .eq('team_id', teamId)
+    .order('effective_from_episode', { ascending: true })
+  const teamPicks = picksData ?? []
+
+  // Names for every contestant referenced (roster players + bounty targets).
+  const nameIds = new Set<string>()
+  for (const p of teamPlayers) nameIds.add(p.contestant_id)
+  for (const e of completedWithResult) if (e.bounty_contestant_id) nameIds.add(e.bounty_contestant_id)
+  const nameMap: Record<string, string> = {}
+  if (nameIds.size > 0) {
+    const { data: nameData } = await supabase
+      .from('contestants')
+      .select('id, name')
+      .in('id', [...nameIds])
+    for (const c of nameData ?? []) nameMap[c.id] = c.name
+  }
+
+  const stints: BreakdownStint[] = teamPlayers
+    .map(tp => {
+      let rawPts = 0
+      for (const ep of episodes) {
+        if (ep.number < tp.effective_from_episode) continue
+        if (tp.effective_to_episode !== null && ep.number > tp.effective_to_episode) continue
+        rawPts += epActsByContestant[tp.contestant_id]?.[ep.number] ?? 0
+      }
+      return {
+        contestantId: tp.contestant_id,
+        name: nameMap[tp.contestant_id] ?? '?',
+        role: tp.role,
+        fromEpisode: tp.effective_from_episode,
+        toEpisode: tp.effective_to_episode,
+        points: tp.role === 'mvp' ? rawPts * 1.5 : rawPts,
+      }
+    })
+    .sort((a, b) => a.fromEpisode - b.fromEpisode || (a.role === 'mvp' ? -1 : 1))
+
+  const bountyHits: BreakdownBountyHit[] = []
+  for (const ep of completedWithResult) {
+    const eligible = teamPicks.filter(p => p.effective_from_episode <= ep.number)
+    const pick = eligible.length ? eligible[eligible.length - 1] : null
+    if (pick && pick.contestant_id === ep.bounty_contestant_id) {
+      bountyHits.push({
+        episodeNumber: ep.number,
+        contestantId: ep.bounty_contestant_id!,
+        name: nameMap[ep.bounty_contestant_id!] ?? '?',
+        points: ep.is_finale
+          ? config.bounty_points_finale
+          : ep.number >= mergeEpNumber
+            ? config.bounty_points_post_merge
+            : config.bounty_points_pre_merge,
+      })
+    }
+  }
+
+  const { data: swaps } = await supabase
+    .from('team_swaps')
+    .select('penalty_points')
+    .eq('team_id', teamId)
+  // penalty_points is stored negative, so it already subtracts — do NOT negate.
+  const swapPenalty = (swaps ?? []).reduce((s, x) => s + x.penalty_points, 0)
+
+  const actionPoints = stints.reduce((s, x) => s + x.points, 0)
+  const bountyPoints = bountyHits.reduce((s, x) => s + x.points, 0)
+  return {
+    stints,
+    bountyHits,
+    swapPenalty,
+    actionPoints,
+    bountyPoints,
+    totalPoints: actionPoints + bountyPoints + swapPenalty,
+  }
 }

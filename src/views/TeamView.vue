@@ -11,7 +11,7 @@ import BaseButton from '../components/base/BaseButton.vue'
 import BaseCard from '../components/base/BaseCard.vue'
 import BaseModal from '../components/base/BaseModal.vue'
 import { useToast } from '../composables/useToast'
-import { computeLeaderboard } from '../composables/useLeaderboard'
+import { computeLeaderboard, computeTeamBreakdown, type TeamBreakdown } from '../composables/useLeaderboard'
 import { getTribeColors } from '../utils/tribeColors'
 import type { ContestantFull } from '../types/contestant'
 
@@ -45,6 +45,9 @@ const toast = useToast()
 
 const seasons = ref<Season[]>([])
 const selectedSeasonId = ref('')
+const currentSeasonId = ref('')
+const seasonModalOpen = ref(false)
+const breakdownModalOpen = ref(false)
 const allContestants = ref<Contestant[]>([])
 const eliminatedEpisodeIdByContestant = ref<Record<string, string | null>>({})
 const allEpisodes = ref<EpisodeInfo[]>([])
@@ -59,9 +62,11 @@ const errorMsg = ref('')
 const myRank = ref<number | null>(null)
 const myScore = ref<number | null>(null)
 const myPlayerPoints = ref<Record<string, number>>({})
+const breakdown = ref<TeamBreakdown | null>(null)
+const breakdownLoading = ref(false)
 
 function fmtPts(n: number) {
-  return Number.isInteger(n) ? String(n) : n.toFixed(1)
+  return n.toFixed(1)
 }
 
 function ordinal(n: number) {
@@ -229,6 +234,7 @@ const currentMvpName = computed(() => {
 })
 
 const currentSeason = computed(() => seasons.value.find(s => s.id === selectedSeasonId.value) ?? null)
+const isOnCurrentSeason = computed(() => selectedSeasonId.value === currentSeasonId.value)
 
 const currentEpisodeNumber = computed(() => {
   const epId = currentSeason.value?.current_episode_id
@@ -256,14 +262,18 @@ const seasonStatusBadge = computed(() => {
 })
 
 async function loadSeasons() {
+  // Load all seasons (including completed) so previous seasons can be viewed.
   const { data } = await supabase
     .from('seasons')
     .select('id, name, status, current_episode_id')
-    .in('status', ['upcoming', 'active'])
     .order('created_at', { ascending: false })
   seasons.value = data ?? []
+  // "Current" = the most recent active/upcoming season, else the newest overall.
+  const current = seasons.value.find(s => s.status === 'active' || s.status === 'upcoming')
+    ?? seasons.value[0]
+  currentSeasonId.value = current?.id ?? ''
   if (seasons.value.length > 0 && !selectedSeasonId.value) {
-    selectedSeasonId.value = seasons.value[0]!.id
+    selectedSeasonId.value = currentSeasonId.value
   }
 }
 
@@ -383,6 +393,19 @@ async function loadMyStanding() {
     }
   } catch {
     // Standing is a nice-to-have; failure shouldn't block the page.
+  }
+}
+
+async function openBreakdown() {
+  breakdownModalOpen.value = true
+  if (!selectedSeasonId.value || !existingTeam.value) return
+  breakdownLoading.value = true
+  try {
+    breakdown.value = await computeTeamBreakdown(selectedSeasonId.value, existingTeam.value.id)
+  } catch {
+    breakdown.value = null
+  } finally {
+    breakdownLoading.value = false
   }
 }
 
@@ -564,6 +587,22 @@ onMounted(async () => {
       </div>
     </header>
 
+    <!-- Viewing a previous season -->
+    <div
+      v-if="!loading && currentSeasonId && !isOnCurrentSeason"
+      class="bg-surface-subtle border-b border-border-subtle px-6 py-2"
+    >
+      <button
+        @click="selectedSeasonId = currentSeasonId"
+        class="flex items-center gap-1.5 text-sm font-medium text-text-accent hover:text-interactive-accent-hover"
+      >
+        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+        </svg>
+        Return to current season
+      </button>
+    </div>
+
     <!-- Loading -->
     <div v-if="loading" class="max-w-3xl mx-auto px-6 py-8 text-text-muted text-sm">Loading…</div>
 
@@ -575,16 +614,6 @@ onMounted(async () => {
 
     <!-- Full-page wizard when user has no team -->
     <template v-else-if="!existingTeam">
-      <!-- Season selector bar (only shown when multiple seasons) -->
-      <div v-if="seasons.length > 1" class="bg-surface-subtle border-b border-border-subtle px-6 py-3 shrink-0">
-        <div class="flex items-center gap-3">
-          <label class="text-xs text-text-muted font-medium uppercase tracking-wide">Season</label>
-          <select v-model="selectedSeasonId"
-            class="bg-interactive-input border border-interactive-input-border text-text-default rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-border-accent">
-            <option v-for="s in seasons" :key="s.id" :value="s.id">{{ s.name }}</option>
-          </select>
-        </div>
-      </div>
       <TeamCreateWizard
         class="flex-1"
         :season-id="selectedSeasonId"
@@ -603,14 +632,7 @@ onMounted(async () => {
           <h2 class="text-2xl font-bold text-text-default">{{ existingTeam?.team_name || 'My Team' }}</h2>
           <p v-if="ownerName" class="text-sm text-text-muted">{{ ownerName }}</p>
           <div class="mt-1 flex items-center gap-2 flex-wrap">
-            <span v-if="seasons.length === 1" class="text-sm text-text-subtle">{{ seasons[0]?.name }}</span>
-            <select
-              v-else
-              v-model="selectedSeasonId"
-              class="bg-interactive-input border border-interactive-input-border text-text-default rounded-md px-2.5 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-border-accent"
-            >
-              <option v-for="s in seasons" :key="s.id" :value="s.id">{{ s.name }}</option>
-            </select>
+            <span class="text-sm text-text-subtle">{{ currentSeason?.name }}</span>
             <span
               v-if="seasonStatusBadge"
               :class="['px-2.5 py-1 rounded-full text-xs font-semibold', seasonStatusBadge.classes]"
@@ -621,12 +643,18 @@ onMounted(async () => {
         <!-- My standing: rank + score -->
         <div v-if="myRank !== null" class="mb-6 grid grid-cols-2 gap-3">
           <BaseCard padding="sm" class="text-center">
-            <p class="text-xs text-text-muted uppercase tracking-wide">Place</p>
-            <p class="mt-0.5 text-2xl font-bold text-text-default">{{ ordinal(myRank ?? 0) }}</p>
-          </BaseCard>
-          <BaseCard padding="sm" class="text-center">
             <p class="text-xs text-text-muted uppercase tracking-wide">Score</p>
             <p class="mt-0.5 text-2xl font-bold text-text-default">{{ fmtPts(myScore ?? 0) }}</p>
+            <BaseButton variant="secondary" size="sm" block class="mt-3" @click="openBreakdown">
+              View Breakdown
+            </BaseButton>
+          </BaseCard>
+          <BaseCard padding="sm" class="text-center">
+            <p class="text-xs text-text-muted uppercase tracking-wide">Place</p>
+            <p class="mt-0.5 text-2xl font-bold text-text-default">{{ ordinal(myRank ?? 0) }}</p>
+            <BaseButton variant="secondary" size="sm" block class="mt-3" @click="router.push('/leaderboard')">
+              View Leaderboard
+            </BaseButton>
           </BaseCard>
         </div>
 
@@ -670,7 +698,7 @@ onMounted(async () => {
             </div>
             <div class="text-right">
               <p class="text-sm font-semibold text-text-default tabular-nums">
-                {{ fmtPts(myPlayerPoints[player.contestant_id] ?? 0) }}<span class="font-normal text-text-muted"> pts</span>
+                {{ fmtPts(myPlayerPoints[player.contestant_id] ?? 0) }}
               </p>
               <p
                 class="mt-0.5 text-xs"
@@ -687,7 +715,7 @@ onMounted(async () => {
           <div v-if="nextUpcomingEpisode && !atMaxSwaps" class="px-4 py-2 bg-surface-subtle border-t border-border-subtle">
             <p class="text-xs text-text-muted">
               <template v-if="isGracePeriod">Free swap window active (through Episode {{ seasonConfig.grace_period_through_episode }})</template>
-              <template v-else>Swap cost: −{{ seasonConfig.swap_penalty_player }} pts (player) · −{{ seasonConfig.swap_penalty_mvp }} pts (MVP) · −{{ seasonConfig.swap_penalty_role_change }} pts (role change)</template>
+              <template v-else>Swap cost: −{{ fmtPts(seasonConfig.swap_penalty_player) }} pts (player) · −{{ fmtPts(seasonConfig.swap_penalty_mvp) }} pts (MVP) · −{{ fmtPts(seasonConfig.swap_penalty_role_change) }} pts (role change)</template>
             </p>
           </div>
         </BaseCard>
@@ -704,6 +732,7 @@ onMounted(async () => {
                 v-for="row in bountyHistory"
                 :key="row.episodeId"
                 class="flex items-center gap-3 py-2 first:pt-0 last:pb-0"
+                :class="{ 'opacity-60': row.state.kind === 'missed' }"
               >
                 <span class="w-10 shrink-0 text-xs font-semibold text-text-muted">Ep {{ row.number }}</span>
                 <template v-if="row.contestantId">
@@ -720,15 +749,11 @@ onMounted(async () => {
                   <span
                     v-if="row.state.kind === 'hit'"
                     class="rounded-full bg-status-success-surface px-2 py-0.5 text-xs font-semibold text-status-success"
-                  >Hit +{{ row.state.points }}</span>
+                  >Hit +{{ fmtPts(row.state.points) }}</span>
                   <span
                     v-else-if="row.state.kind === 'missed'"
-                    class="rounded-full bg-status-error-surface px-2 py-0.5 text-xs font-semibold text-status-error"
-                  >Missed</span>
-                  <span
-                    v-else
                     class="rounded-full bg-surface-subtle px-2 py-0.5 text-xs font-semibold text-text-muted"
-                  >Upcoming</span>
+                  >Missed</span>
                   <BaseButton
                     v-if="row.isUpcoming"
                     variant="secondary"
@@ -747,6 +772,91 @@ onMounted(async () => {
         <p v-if="existingTeam && errorMsg" class="text-status-error text-sm mt-4">{{ errorMsg }}</p>
       </template>
     </div>
+
+    <!-- View previous seasons (bottom of page) -->
+    <div v-if="!loading && seasons.length > 1" class="mt-auto px-6 py-6 text-center">
+      <BaseButton variant="secondary" size="sm" @click="seasonModalOpen = true">View Previous Seasons</BaseButton>
+    </div>
+
+    <!-- Score breakdown modal -->
+    <BaseModal :show="breakdownModalOpen" title="Score Breakdown" size="md" @close="breakdownModalOpen = false">
+      <div v-if="breakdownLoading" class="py-6 text-center text-sm text-text-muted">Loading…</div>
+      <div v-else-if="breakdown" class="max-h-[60vh] overflow-y-auto">
+        <!-- Player contributions -->
+        <p class="mb-1 text-xs font-semibold uppercase tracking-wide text-text-muted">Players</p>
+        <div class="divide-y divide-border-subtle">
+          <div
+            v-for="(s, i) in breakdown.stints"
+            :key="i"
+            class="flex items-center justify-between gap-3 py-2"
+          >
+            <div class="min-w-0">
+              <p class="truncate text-sm font-medium text-text-default">
+                {{ s.name }}<span v-if="s.role === 'mvp'" class="ml-1 text-survivor-sand">★</span>
+              </p>
+              <p class="text-xs text-text-muted">
+                Ep {{ s.fromEpisode }}–{{ s.toEpisode ?? 'now' }}<template v-if="s.role === 'mvp'"> · MVP ×1.5</template>
+              </p>
+            </div>
+            <span class="shrink-0 text-sm font-semibold tabular-nums text-text-default">{{ fmtPts(s.points) }}</span>
+          </div>
+        </div>
+
+        <!-- Bounty hits -->
+        <template v-if="breakdown.bountyHits.length">
+          <p class="mb-1 mt-4 text-xs font-semibold uppercase tracking-wide text-text-muted">Bounty Hits</p>
+          <div class="divide-y divide-border-subtle">
+            <div
+              v-for="(b, i) in breakdown.bountyHits"
+              :key="i"
+              class="flex items-center justify-between gap-3 py-2"
+            >
+              <div class="min-w-0">
+                <p class="truncate text-sm font-medium text-text-default">{{ b.name }}</p>
+                <p class="text-xs text-text-muted">Ep {{ b.episodeNumber }}</p>
+              </div>
+              <span class="shrink-0 text-sm font-semibold tabular-nums text-status-success">+{{ fmtPts(b.points) }}</span>
+            </div>
+          </div>
+        </template>
+
+        <!-- Penalties -->
+        <template v-if="breakdown.swapPenalty !== 0">
+          <p class="mb-1 mt-4 text-xs font-semibold uppercase tracking-wide text-text-muted">Penalties</p>
+          <div class="flex items-center justify-between gap-3 py-2">
+            <p class="text-sm font-medium text-text-default">Swap penalties</p>
+            <span class="shrink-0 text-sm font-semibold tabular-nums text-status-error">{{ fmtPts(breakdown.swapPenalty) }}</span>
+          </div>
+        </template>
+
+        <!-- Total -->
+        <div class="mt-4 flex items-center justify-between border-t border-border-default pt-3">
+          <p class="text-sm font-bold text-text-default">Total</p>
+          <span class="text-base font-bold tabular-nums text-text-default">{{ fmtPts(breakdown.totalPoints) }}</span>
+        </div>
+      </div>
+      <p v-else class="py-6 text-center text-sm text-text-muted">Couldn't load the breakdown.</p>
+    </BaseModal>
+
+    <!-- Season selector modal -->
+    <BaseModal :show="seasonModalOpen" title="Select Season" @close="seasonModalOpen = false">
+      <div class="space-y-1">
+        <button
+          v-for="s in seasons"
+          :key="s.id"
+          @click="selectedSeasonId = s.id; seasonModalOpen = false"
+          class="flex w-full items-center justify-between gap-3 rounded-md px-3 py-2.5 text-left transition-colors hover:bg-surface-subtle"
+          :class="s.id === selectedSeasonId ? 'bg-surface-subtle' : ''"
+        >
+          <span class="text-sm font-medium text-text-default">{{ s.name }}</span>
+          <span
+            v-if="s.id === currentSeasonId"
+            class="shrink-0 rounded-full bg-surface-accent px-2 py-0.5 text-xs font-semibold text-text-accent"
+          >Current</span>
+          <span v-else class="shrink-0 text-xs capitalize text-text-muted">{{ s.status }}</span>
+        </button>
+      </div>
+    </BaseModal>
 
     <!-- Swap modal -->
     <BaseModal :show="!!swappingPlayer" title="Swap Player" size="lg" @close="swappingPlayer = null">
@@ -784,7 +894,7 @@ onMounted(async () => {
             ? 'bg-status-success-surface text-status-success'
             : 'bg-status-error-surface text-status-error'"
         >
-          {{ swapCostForRole(swappingPlayer.role) === 0 ? 'Free swap (grace period)' : `Cost: −${swapCostForRole(swappingPlayer.role)} pts` }}
+          {{ swapCostForRole(swappingPlayer.role) === 0 ? 'Free swap (grace period)' : `Cost: −${fmtPts(swapCostForRole(swappingPlayer.role))} pts` }}
         </div>
       </template>
       <template #footer>
@@ -801,7 +911,7 @@ onMounted(async () => {
     >
       <p class="text-sm text-text-subtle mb-1">{{ currentMvpName }} will become a regular player.</p>
       <p class="text-sm font-semibold" :class="roleChangeCost === 0 ? 'text-status-success' : 'text-status-error'">
-        {{ roleChangeCost === 0 ? 'Free (grace period)' : `Cost: −${roleChangeCost} pts` }}
+        {{ roleChangeCost === 0 ? 'Free (grace period)' : `Cost: −${fmtPts(roleChangeCost)} pts` }}
       </p>
       <template #footer>
         <button @click="roleChangeTargetId = null" class="text-sm text-text-subtle hover:text-text-default px-4 py-2">Cancel</button>

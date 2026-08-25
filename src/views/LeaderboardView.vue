@@ -45,7 +45,7 @@ async function handleSignOut() {
 }
 
 function fmtPts(n: number) {
-  return Number.isInteger(n) ? String(n) : n.toFixed(1)
+  return n.toFixed(1)
 }
 
 watch(selectedSeasonId, loadLeaderboard)
