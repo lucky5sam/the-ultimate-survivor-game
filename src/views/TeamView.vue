@@ -466,6 +466,13 @@ function contestantTribe(id: string) {
   return allContestants.value.find(c => c.id === id)?.tribe ?? ''
 }
 
+function contestantFirstName(id: string) {
+  return contestantName(id).split(' ')[0] ?? ''
+}
+function contestantLastName(id: string) {
+  return contestantName(id).split(' ').slice(1).join(' ')
+}
+
 function playerStatus(id: string): { out: boolean; ep: number | null } {
   const epId = eliminatedEpisodeIdByContestant.value[id]
   if (!epId) return { out: false, ep: null }
@@ -661,7 +668,7 @@ onMounted(async () => {
         </div>
 
         <!-- My standing: rank + score -->
-        <div v-if="myRank !== null" class="mb-6 grid grid-cols-2 gap-3">
+        <div v-if="myRank !== null" class="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
           <BaseCard padding="sm" class="text-center">
             <p class="text-xs text-text-muted uppercase tracking-wide">Score</p>
             <p class="mt-0.5 text-2xl font-bold text-text-default">{{ fmtPts(myScore ?? 0) }}</p>
@@ -704,7 +711,13 @@ onMounted(async () => {
               />
               <div>
                 <div class="flex items-center gap-1.5">
-                  <p class="font-medium text-sm text-text-default leading-tight">{{ contestantName(player.contestant_id) }}</p>
+                  <p class="font-medium text-sm leading-tight">
+                    <span class="text-text-default">{{ contestantFirstName(player.contestant_id) }}</span>
+                    <span
+                      v-if="contestantLastName(player.contestant_id)"
+                      class="ml-1 hidden text-text-subtle sm:inline"
+                    >{{ contestantLastName(player.contestant_id) }}</span>
+                  </p>
                   <span
                     class="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-[10px] font-bold text-white"
                     :style="{ backgroundColor: getTribeColors(contestantTribe(player.contestant_id)).primary }"
