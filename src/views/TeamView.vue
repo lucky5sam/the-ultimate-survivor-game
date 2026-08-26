@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '../lib/supabase'
+import { fmtEt } from '../lib/time'
 import { useAuthStore } from '../stores/auth'
 import TeamCreateWizard from '../components/TeamCreateWizard.vue'
 import ContestantAvatar from '../components/ContestantAvatar.vue'
@@ -26,6 +27,7 @@ type EpisodeInfo = {
   is_merge: boolean
   is_finale: boolean
   bounty_contestant_id: string | null
+  locks_at: string | null
 }
 type BountyPick = { contestant_id: string; effective_from_episode: number }
 type SeasonConfig = {
@@ -75,9 +77,39 @@ function ordinal(n: number) {
   return `${n}${suffixes[(v - 20) % 10] ?? suffixes[v] ?? suffixes[0]}`
 }
 
-// Episode + bounty state
-const nextUpcomingEpisode = ref<EpisodeInfo | null>(null)
-const currentBountyPick = ref<BountyPick | null>(null)
+// A ticking clock so date-based locks flip automatically without a reload.
+const now = ref(Date.now())
+let nowTimer: ReturnType<typeof setInterval> | undefined
+
+function isPastLock(iso: string | null): boolean {
+  return !!iso && new Date(iso).getTime() <= now.value
+}
+
+// Episode + bounty state.
+// The editable episode is the earliest upcoming one whose lock time hasn't passed.
+// A scheduled lock time auto-locks the roster/bounty even if the admin hasn't
+// flipped the episode to active yet; leaving locks_at null keeps the old behavior
+// (upcoming = editable until the admin starts the episode).
+const nextUpcomingEpisode = computed<EpisodeInfo | null>(
+  () => allEpisodes.value.find(e => e.status === 'upcoming' && !isPastLock(e.locks_at)) ?? null,
+)
+
+// An episode that has locked (airing / awaiting results) but isn't completed yet.
+// Used to explain why the roster is currently locked.
+const lockedAiringEpisode = computed<EpisodeInfo | null>(
+  () =>
+    allEpisodes.value.find(
+      e => e.status !== 'completed' && (e.status === 'active' || isPastLock(e.locks_at)),
+    ) ?? null,
+)
+
+// The bounty pick in force for the currently editable episode (or the latest one).
+const currentBountyPick = computed<BountyPick | null>(() => {
+  const epNums = allEpisodes.value.map(e => e.number)
+  const targetEpNum = nextUpcomingEpisode.value?.number ?? (epNums.length > 0 ? Math.max(...epNums) : 1)
+  return pickForEpisode(targetEpNum)
+})
+
 const allBountyPicks = ref<BountyPick[]>([])
 const changingBounty = ref(false)
 const confirmingBounty = ref(false)
@@ -201,6 +233,7 @@ const bountyHistory = computed(() =>
       e =>
         e.status === 'completed' ||
         e.status === 'active' ||
+        isPastLock(e.locks_at) ||
         e.id === nextUpcomingEpisode.value?.id,
     )
     .map(ep => {
@@ -345,16 +378,14 @@ async function loadEpisodesAndBounty() {
   if (!selectedSeasonId.value) return
   const { data: eps } = await supabase
     .from('episodes')
-    .select('id, number, status, is_merge, is_finale, bounty_contestant_id')
+    .select('id, number, status, is_merge, is_finale, bounty_contestant_id, locks_at')
     .eq('season_id', selectedSeasonId.value)
     .order('number')
 
   allEpisodes.value = eps ?? []
-  nextUpcomingEpisode.value = (eps ?? []).find(e => e.status === 'upcoming') ?? null
 
   if (!existingTeam.value) {
     allBountyPicks.value = []
-    currentBountyPick.value = null
     return
   }
 
@@ -365,9 +396,6 @@ async function loadEpisodesAndBounty() {
     .order('effective_from_episode', { ascending: true })
   allBountyPicks.value = picks ?? []
 
-  const epNums = allEpisodes.value.map(e => e.number)
-  const targetEpNum = nextUpcomingEpisode.value?.number ?? (epNums.length > 0 ? Math.max(...epNums) : 1)
-  currentBountyPick.value = pickForEpisode(targetEpNum)
   newBountyContestantId.value = currentBountyPick.value?.contestant_id ?? null
 }
 
@@ -593,11 +621,16 @@ watch(selectedSeasonId, async () => {
 })
 
 onMounted(async () => {
+  nowTimer = setInterval(() => { now.value = Date.now() }, 30_000)
   await loadSeasons()
   await Promise.all([loadContestants(), loadMyTeam()])
   await Promise.all([loadEpisodesAndBounty(), loadSeasonConfig()])
   await loadMyStanding()
   loading.value = false
+})
+
+onUnmounted(() => {
+  if (nowTimer) clearInterval(nowTimer)
 })
 </script>
 
@@ -743,9 +776,15 @@ onMounted(async () => {
               </p>
             </div>
           </div>
-          <div v-if="!nextUpcomingEpisode" class="px-4 py-3 text-xs text-text-muted">Locked — no upcoming episodes</div>
+          <div v-if="!nextUpcomingEpisode" class="px-4 py-3 text-xs text-text-muted">
+            <template v-if="lockedAiringEpisode">Roster locked — Episode {{ lockedAiringEpisode.number }} in progress</template>
+            <template v-else>Locked — no upcoming episode scheduled</template>
+          </div>
           <div v-else-if="atMaxSwaps" class="px-4 py-3 text-xs text-text-muted">Maximum swaps reached for this season</div>
           <div v-if="nextUpcomingEpisode && !atMaxSwaps" class="px-4 py-2 bg-surface-subtle border-t border-border-subtle">
+            <p v-if="nextUpcomingEpisode.locks_at" class="text-xs font-medium text-text-subtle">
+              Roster locks {{ fmtEt(nextUpcomingEpisode.locks_at) }}
+            </p>
             <p class="text-xs text-text-muted">
               <template v-if="isGracePeriod">Free swap window active (through Episode {{ seasonConfig.grace_period_through_episode }})</template>
               <template v-else>Swap cost: −{{ fmtPts(seasonConfig.swap_penalty_player) }} pts (player) · −{{ fmtPts(seasonConfig.swap_penalty_mvp) }} pts (MVP) · −{{ fmtPts(seasonConfig.swap_penalty_role_change) }} pts (role change)</template>

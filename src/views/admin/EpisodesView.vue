@@ -2,11 +2,13 @@
 import { ref, onMounted, watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '../../lib/supabase'
+import { etInputToIso, isoToEtInput, fmtEt } from '../../lib/time'
 
 type Season = { id: string; name: string; current_episode_id: string | null }
 type Episode = {
   id: string; number: number; title: string | null; air_date: string | null
   status: string; is_merge: boolean; is_finale: boolean; bounty_contestant_id: string | null
+  locks_at: string | null
 }
 type Contestant = { id: string; name: string; eliminated_episode_id: string | null }
 
@@ -26,7 +28,7 @@ const nextNumber = computed(() =>
   episodes.value.length > 0 ? Math.max(...episodes.value.map(e => e.number)) + 1 : 1
 )
 
-const form = ref({ number: 1, title: '', air_date: '', is_merge: false, is_finale: false, bounty_contestant_id: '', eliminatedIds: [] as string[] })
+const form = ref({ number: 1, title: '', air_date: '', locks_at: '', is_merge: false, is_finale: false, bounty_contestant_id: '', eliminatedIds: [] as string[] })
 
 const contestantMap = computed(() =>
   Object.fromEntries(contestants.value.map(c => [c.id, c.name]))
@@ -90,6 +92,7 @@ async function saveEpisode() {
       number: form.value.number,
       title: form.value.title || null,
       air_date: form.value.air_date || null,
+      locks_at: etInputToIso(form.value.locks_at),
       is_merge: form.value.is_merge,
       is_finale: form.value.is_finale,
       // bounty_contestant_id is only meaningful for the finale (the winner).
@@ -122,6 +125,7 @@ async function saveEpisode() {
       number: form.value.number,
       title: form.value.title || null,
       air_date: form.value.air_date || null,
+      locks_at: etInputToIso(form.value.locks_at),
       season_id: selectedSeasonId.value,
       status: 'upcoming',
       is_merge: form.value.is_merge,
@@ -160,7 +164,7 @@ async function deleteEpisode(id: string, number: number) {
 
 function openCreate() {
   editingId.value = null
-  form.value = { number: nextNumber.value, title: '', air_date: '', is_merge: false, is_finale: false, bounty_contestant_id: '', eliminatedIds: [] }
+  form.value = { number: nextNumber.value, title: '', air_date: '', locks_at: '', is_merge: false, is_finale: false, bounty_contestant_id: '', eliminatedIds: [] }
   showForm.value = true
 }
 
@@ -170,6 +174,7 @@ function openEdit(ep: Episode) {
     number: ep.number,
     title: ep.title ?? '',
     air_date: ep.air_date ?? '',
+    locks_at: isoToEtInput(ep.locks_at),
     is_merge: ep.is_merge,
     is_finale: ep.is_finale,
     bounty_contestant_id: ep.bounty_contestant_id ?? '',
@@ -179,7 +184,7 @@ function openEdit(ep: Episode) {
 }
 
 function resetForm() {
-  form.value = { number: nextNumber.value, title: '', air_date: '', is_merge: false, is_finale: false, bounty_contestant_id: '', eliminatedIds: [] }
+  form.value = { number: nextNumber.value, title: '', air_date: '', locks_at: '', is_merge: false, is_finale: false, bounty_contestant_id: '', eliminatedIds: [] }
 }
 
 const statusColor: Record<string, string> = {
@@ -235,6 +240,7 @@ onMounted(async () => {
           <th class="px-4 py-3">#</th>
           <th class="px-4 py-3">Title</th>
           <th class="px-4 py-3">Air Date</th>
+          <th class="px-4 py-3">Locks</th>
           <th class="px-4 py-3">Status</th>
           <th class="px-4 py-3">Eliminated / Winner</th>
           <th class="px-4 py-3"></th>
@@ -250,6 +256,7 @@ onMounted(async () => {
           </td>
           <td class="px-4 py-3">{{ ep.title ?? '—' }}</td>
           <td class="px-4 py-3 text-gray-500">{{ ep.air_date ?? '—' }}</td>
+          <td class="px-4 py-3 text-gray-500">{{ ep.locks_at ? fmtEt(ep.locks_at) : '—' }}</td>
           <td class="px-4 py-3">
             <span :class="['px-2 py-0.5 rounded-full text-xs font-medium', statusColor[ep.status]]">
               {{ ep.status.charAt(0).toUpperCase() + ep.status.slice(1) }}
@@ -301,6 +308,17 @@ onMounted(async () => {
             </label>
             <input v-model="form.air_date" type="date"
               class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              Roster locks at <span class="text-gray-400 font-normal">(ET — when the episode airs)</span>
+            </label>
+            <input v-model="form.locks_at" type="datetime-local"
+              class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            <p class="mt-1 text-xs text-gray-400">
+              Rosters and bounty picks lock at this time and unlock when the next episode's lock time is set in the future. Enter it as Eastern Time (8:00 PM for a normal airing).
+            </p>
           </div>
 
           <div class="flex gap-6">
