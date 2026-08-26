@@ -64,9 +64,9 @@ async function savePayment() {
     const { error: metaErr } = await supabase.auth.updateUser({ data: payload })
     if (metaErr) throw new Error(metaErr.message)
     if (auth.user) {
-      const { error } = await supabase
-        .from('profiles')
-        .upsert({ id: auth.user.id, ...payload }, { onConflict: 'id' })
+      // The profile row is created by a signup trigger (with a NOT NULL
+      // display_name), so only ever UPDATE our own fields — never upsert/insert.
+      const { error } = await supabase.from('profiles').update(payload).eq('id', auth.user.id)
       if (error) throw new Error(error.message)
     }
     auth.paymentMethod = payload.payment_method ?? ''
@@ -96,7 +96,8 @@ async function saveProfile() {
     if (auth.user) {
       const { error: profErr } = await supabase
         .from('profiles')
-        .upsert({ id: auth.user.id, first_name: first, last_name: last }, { onConflict: 'id' })
+        .update({ first_name: first, last_name: last })
+        .eq('id', auth.user.id)
       if (profErr) throw new Error(profErr.message)
     }
 

@@ -94,20 +94,18 @@ async function handleSignUp() {
     if (error) {
       errorMsg.value = error.message
     } else {
-      // If confirmation is off, a session exists now and this write succeeds; if
-      // confirmation is on it's a no-op (no session) and the metadata backfill covers it.
+      // If confirmation is off a session exists now, so update the row the signup
+      // trigger just created (it owns the NOT NULL display_name). If confirmation
+      // is on there's no session and the metadata backfill covers it on first load.
       if (data.session && data.user) {
         await supabase
           .from('profiles')
-          .upsert(
-            {
-              id: data.user.id,
-              first_name: firstName.value,
-              last_name: lastName.value,
-              ...paymentData,
-            },
-            { onConflict: 'id' },
-          )
+          .update({
+            first_name: firstName.value,
+            last_name: lastName.value,
+            ...paymentData,
+          })
+          .eq('id', data.user.id)
       }
       successMsg.value = 'Check your email to confirm your account.'
     }

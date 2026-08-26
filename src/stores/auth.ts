@@ -64,7 +64,9 @@ export const useAuthStore = defineStore('auth', () => {
       }
 
       if (Object.keys(updates).length > 0) {
-        await supabase.from('profiles').upsert({ id: uid, ...updates }, { onConflict: 'id' })
+        // The row is created by a signup trigger (NOT NULL display_name), so
+        // only UPDATE our own fields here — never insert.
+        await supabase.from('profiles').update(updates).eq('id', uid)
         await fetchProfile(uid) // refresh local state from the persisted row
       }
     } catch {
