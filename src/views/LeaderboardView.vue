@@ -69,47 +69,20 @@ onMounted(async () => { await loadSeasons(); await loadLeaderboard() })
     </div>
 
     <BaseCard v-else padding="none" class="overflow-hidden">
-      <div class="overflow-x-auto">
-        <table class="w-full text-sm">
-          <thead class="border-b border-border-subtle bg-surface-subtle text-left text-xs uppercase tracking-wide text-text-muted">
-            <tr>
-              <th class="w-10 px-4 py-3">#</th>
-              <th class="px-4 py-3">Team</th>
-              <th class="px-4 py-3">Players</th>
-              <th class="px-4 py-3 text-right">Bounty</th>
-              <th class="px-4 py-3 text-right">Swaps</th>
-              <th class="px-4 py-3 text-right">Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="(row, i) in rows" :key="row.teamId" class="border-t border-border-subtle first:border-t-0">
-              <td
-                class="px-4 py-3 font-bold tabular-nums"
-                :class="i === 0 ? 'text-survivor-sand' : 'text-text-subtle'"
-              >
-                {{ i + 1 }}
-              </td>
-              <td class="px-4 py-3 font-semibold text-text-default">{{ row.teamName ?? '(no name)' }}</td>
-              <td class="px-4 py-3 text-text-muted">
-                <span v-for="(p, pi) in row.players" :key="p.name">
-                  {{ p.name }}<span v-if="p.isMvp" class="text-survivor-sand">★</span><span v-if="pi < row.players.length - 1" class="mx-1 text-text-subtle">·</span>
-                </span>
-              </td>
-              <td class="px-4 py-3 text-right tabular-nums text-status-success">
-                {{ row.bountyPoints > 0 ? '+' + fmtPts(row.bountyPoints) : '—' }}
-              </td>
-              <td class="px-4 py-3 text-right tabular-nums text-status-error">
-                {{ row.swapPenalty < 0 ? fmtPts(row.swapPenalty) : '—' }}
-              </td>
-              <td
-                class="px-4 py-3 text-right font-semibold tabular-nums"
-                :class="row.totalPoints >= 0 ? 'text-text-default' : 'text-status-error'"
-              >
-                {{ fmtPts(row.totalPoints) }}
-              </td>
-            </tr>
-          </tbody>
-        </table>
+      <div
+        v-for="(row, i) in rows"
+        :key="row.teamId"
+        class="flex items-center gap-4 border-t border-border-subtle px-4 py-3 first:border-t-0"
+      >
+        <span
+          class="w-6 shrink-0 text-center text-base font-bold tabular-nums"
+          :class="i === 0 ? 'text-survivor-sand' : 'text-text-subtle'"
+        >{{ i + 1 }}</span>
+        <span class="flex-1 truncate font-semibold text-text-default">{{ row.teamName ?? '(no name)' }}</span>
+        <span
+          class="shrink-0 text-base font-bold tabular-nums"
+          :class="row.totalPoints >= 0 ? 'text-text-default' : 'text-status-error'"
+        >{{ fmtPts(row.totalPoints) }}</span>
       </div>
     </BaseCard>
   </div>
