@@ -104,11 +104,13 @@ onMounted(loadSeasons)
             <tr>
               <th class="sticky left-0 z-10 w-52 bg-surface-subtle px-4 py-3 text-left">Team</th>
               <th class="sticky left-52 z-10 w-20 bg-surface-subtle px-4 py-3 text-right">Total</th>
-              <th v-for="n in maxPlayers" :key="n" class="min-w-[8rem] px-4 py-3 text-left">
-                Player {{ n }}
-              </th>
+              <template v-for="n in maxPlayers" :key="n">
+                <th class="min-w-[8rem] px-4 py-3 text-left">Player {{ n }}</th>
+                <th class="px-4 py-3 text-right">Pts</th>
+              </template>
+              <th class="min-w-[8rem] px-4 py-3 text-left">Current Bounty</th>
               <th class="px-4 py-3 text-right">Actions</th>
-              <th class="px-4 py-3 text-right">Bounty</th>
+              <th class="px-4 py-3 text-right">Bounty Pts</th>
               <th class="px-4 py-3 text-right">Swaps</th>
             </tr>
           </thead>
@@ -143,17 +145,24 @@ onMounted(loadSeasons)
                 {{ fmtPts(row.totalPoints) }}
               </td>
 
-              <!-- Player columns: name + individual score -->
-              <td v-for="n in maxPlayers" :key="n" class="px-4 py-3 align-top">
-                <template v-if="row.roster[n - 1]">
-                  <div class="truncate text-text-default">
-                    {{ row.roster[n - 1]!.name
-                    }}<span v-if="row.roster[n - 1]!.isMvp" class="text-survivor-sand"> ★</span>
-                  </div>
-                  <div class="tabular-nums text-xs text-text-muted">
-                    {{ fmtPts(row.roster[n - 1]!.points) }}
-                  </div>
-                </template>
+              <!-- Player columns: name and individual score in separate columns -->
+              <template v-for="n in maxPlayers" :key="n">
+                <td class="px-4 py-3 align-top">
+                  <template v-if="row.roster[n - 1]">
+                    <span class="text-text-default">{{ row.roster[n - 1]!.name }}</span
+                    ><span v-if="row.roster[n - 1]!.isMvp" class="text-survivor-sand"> ★</span>
+                  </template>
+                  <span v-else class="text-text-subtle">—</span>
+                </td>
+                <td class="whitespace-nowrap px-4 py-3 text-right align-top tabular-nums text-text-muted">
+                  <template v-if="row.roster[n - 1]">{{ fmtPts(row.roster[n - 1]!.points) }}</template>
+                  <span v-else class="text-text-subtle">—</span>
+                </td>
+              </template>
+
+              <!-- Current bounty (blank until the pick locks in) -->
+              <td class="px-4 py-3 align-top text-text-default">
+                <span v-if="row.currentBountyName">{{ row.currentBountyName }}</span>
                 <span v-else class="text-text-subtle">—</span>
               </td>
 

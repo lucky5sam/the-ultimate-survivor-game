@@ -31,6 +31,10 @@ export type LeaderboardRow = {
   bountyPoints: number
   swapPenalty: number
   totalPoints: number
+  // The team's bounty pick for the currently locked-in (airing / past-lock,
+  // not-yet-resolved) episode. null while the next pick is still editable, so
+  // an un-committed pick is never revealed.
+  currentBountyName: string | null
 }
 
 export async function computeLeaderboard(seasonId: string): Promise<LeaderboardRow[]> {
@@ -43,7 +47,7 @@ export async function computeLeaderboard(seasonId: string): Promise<LeaderboardR
       .single(),
     supabase
       .from('episodes')
-      .select('id, number, is_merge, is_finale, bounty_contestant_id, status')
+      .select('id, number, is_merge, is_finale, bounty_contestant_id, status, locks_at')
       .eq('season_id', seasonId)
       .order('number'),
     supabase.from('contestants').select('id, eliminated_episode_id').eq('season_id', seasonId),
@@ -64,6 +68,19 @@ export async function computeLeaderboard(seasonId: string): Promise<LeaderboardR
   const epNumById: Record<string, number> = {}
   for (const ep of episodes) epNumById[ep.id] = ep.number
   const mergeEpNumber = episodes.find((e) => e.is_merge)?.number ?? Infinity
+
+  // The episode whose bounty is currently locked-in but not yet resolved (airing,
+  // or past its lock time). Each team's pick for this episode is the "current
+  // bounty". When the next pick is still editable there is no locked episode, so
+  // the current bounty stays hidden (an un-committed pick is never revealed).
+  const nowMs = Date.now()
+  const lockedEpisode =
+    episodes.find(
+      (e) =>
+        e.status !== 'completed' &&
+        (e.status === 'active' || (e.locks_at != null && Date.parse(e.locks_at) <= nowMs)),
+    ) ?? null
+  const lockedEpNumber = lockedEpisode?.number ?? null
 
   // Eliminations are the source of truth for regular-episode bounties.
   const eliminatedByEpisode: Record<string, Set<string>> = {}
@@ -132,8 +149,13 @@ export async function computeLeaderboard(seasonId: string): Promise<LeaderboardR
     swapPenaltyMap[s.team_id] = (swapPenaltyMap[s.team_id] ?? 0) + s.penalty_points
   }
 
-  // ── Phase 3: contestant names (needs the roster from phase 2) ──
-  const contestantIds = [...new Set(allTeamPlayers.map((p) => p.contestant_id))]
+  // ── Phase 3: contestant names (roster players + bounty-pick targets) ──
+  const contestantIds = [
+    ...new Set([
+      ...allTeamPlayers.map((p) => p.contestant_id),
+      ...(bountyRes.data ?? []).map((p) => p.contestant_id),
+    ]),
+  ]
   const contestantNameMap: Record<string, string> = {}
   if (contestantIds.length > 0) {
     const { data: nameData } = await supabase
@@ -216,6 +238,21 @@ export async function computeLeaderboard(seasonId: string): Promise<LeaderboardR
       const actionPoints = Object.values(contribMap).reduce((s, v) => s + v.pts, 0)
       const bountyPoints = bountyPtsMap[team.id] ?? 0
       const swapPenalty = swapPenaltyMap[team.id] ?? 0
+
+      // Current bounty: the team's pick effective for the locked-in episode
+      // (append-only — latest pick on or before it). Hidden when no episode is
+      // locked yet, so an editable pick is never revealed.
+      let currentBountyName: string | null = null
+      if (lockedEpNumber !== null) {
+        const eligible = (picksByTeam[team.id] ?? []).filter(
+          (p) => p.effective_from_episode <= lockedEpNumber,
+        )
+        const pick = eligible.length
+          ? eligible.reduce((a, b) => (b.effective_from_episode > a.effective_from_episode ? b : a))
+          : null
+        if (pick) currentBountyName = contestantNameMap[pick.contestant_id] ?? null
+      }
+
       return {
         teamId: team.id,
         teamName: team.team_name,
@@ -225,6 +262,7 @@ export async function computeLeaderboard(seasonId: string): Promise<LeaderboardR
         bountyPoints,
         swapPenalty,
         totalPoints: actionPoints + bountyPoints + swapPenalty,
+        currentBountyName,
       }
     })
     .sort((a, b) => b.totalPoints - a.totalPoints)
