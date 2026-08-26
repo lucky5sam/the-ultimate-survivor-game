@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import BaseButton from '../components/base/BaseButton.vue'
 import BaseInput from '../components/base/BaseInput.vue'
 import BaseCard from '../components/base/BaseCard.vue'
+import PaymentFields from '../components/PaymentFields.vue'
 import ThemeAtmosphere from '../components/decor/ThemeAtmosphere.vue'
 
 type Mode = 'signin' | 'signup' | 'forgot'
@@ -18,6 +19,9 @@ const password = ref('')
 const confirmPassword = ref('')
 const firstName = ref('')
 const lastName = ref('')
+const paymentMethod = ref('')
+const paymentHandle = ref('')
+const paymentNote = ref('')
 const errorMsg = ref('')
 const successMsg = ref('')
 const loading = ref(false)
@@ -55,16 +59,37 @@ async function handleSignUp() {
     errorMsg.value = 'Passwords do not match'
     return
   }
+  // Payment info is optional, but if a method is chosen its detail is required.
+  const method = paymentMethod.value
+  const handle = paymentHandle.value.trim()
+  const note = paymentNote.value.trim()
+  if ((method === 'venmo' || method === 'zelle') && !handle) {
+    errorMsg.value =
+      method === 'venmo' ? 'Enter your Venmo username' : 'Enter your Zelle email or phone'
+    return
+  }
+  if (method === 'other' && !note) {
+    errorMsg.value = 'Add a note about your expected payment method'
+    return
+  }
+  const paymentData = {
+    payment_method: method || null,
+    payment_handle: method === 'venmo' || method === 'zelle' ? handle || null : null,
+    payment_note: method === 'other' ? note || null : null,
+  }
+
   loading.value = true
   errorMsg.value = ''
   try {
     const { data, error } = await supabase.auth.signUp({
       email: email.value,
       password: password.value,
-      // Stash the name in auth metadata — this persists even before the email is
-      // confirmed (when there's no session to write to profiles yet). The profile
-      // row is populated from this metadata on first authenticated load.
-      options: { data: { first_name: firstName.value, last_name: lastName.value } },
+      // Stash name + payment info in auth metadata — this persists even before the
+      // email is confirmed (when there's no session to write to profiles yet). The
+      // profile row is populated from this metadata on first authenticated load.
+      options: {
+        data: { first_name: firstName.value, last_name: lastName.value, ...paymentData },
+      },
     })
     if (error) {
       errorMsg.value = error.message
@@ -75,7 +100,12 @@ async function handleSignUp() {
         await supabase
           .from('profiles')
           .upsert(
-            { id: data.user.id, first_name: firstName.value, last_name: lastName.value },
+            {
+              id: data.user.id,
+              first_name: firstName.value,
+              last_name: lastName.value,
+              ...paymentData,
+            },
             { onConflict: 'id' },
           )
       }
@@ -228,6 +258,17 @@ function handleSubmit() {
                 autocomplete="new-password"
               />
             </template>
+
+            <div v-if="mode === 'signup'" class="border-t border-border-subtle pt-4">
+              <p class="mb-3 text-xs text-text-muted">
+                Optional — how you'd like to receive prizes. You can add or change this later.
+              </p>
+              <PaymentFields
+                v-model:method="paymentMethod"
+                v-model:handle="paymentHandle"
+                v-model:note="paymentNote"
+              />
+            </div>
 
             <p v-if="errorMsg" class="text-sm text-status-error">{{ errorMsg }}</p>
 

@@ -9,6 +9,7 @@ import { useToast } from '../composables/useToast'
 import BaseInput from '../components/base/BaseInput.vue'
 import BaseButton from '../components/base/BaseButton.vue'
 import BaseCard from '../components/base/BaseCard.vue'
+import PaymentFields from '../components/PaymentFields.vue'
 
 const auth = useAuthStore()
 const toast = useToast()
@@ -18,6 +19,12 @@ const lastName = ref('')
 const savingName = ref(false)
 const nameError = ref('')
 
+const paymentMethod = ref('')
+const paymentHandle = ref('')
+const paymentNote = ref('')
+const savingPayment = ref(false)
+const paymentError = ref('')
+
 const newPassword = ref('')
 const confirmPassword = ref('')
 const savingPassword = ref(false)
@@ -26,7 +33,52 @@ const passwordError = ref('')
 onMounted(() => {
   firstName.value = auth.firstName
   lastName.value = auth.lastName
+  paymentMethod.value = auth.paymentMethod
+  paymentHandle.value = auth.paymentHandle
+  paymentNote.value = auth.paymentNote
 })
+
+async function savePayment() {
+  paymentError.value = ''
+  const method = paymentMethod.value
+  const handle = paymentHandle.value.trim()
+  const note = paymentNote.value.trim()
+
+  if ((method === 'venmo' || method === 'zelle') && !handle) {
+    paymentError.value =
+      method === 'venmo' ? 'Enter your Venmo username' : 'Enter your Zelle email or phone'
+    return
+  }
+  if (method === 'other' && !note) {
+    paymentError.value = 'Add a note about your expected payment method'
+    return
+  }
+
+  savingPayment.value = true
+  const payload = {
+    payment_method: method || null,
+    payment_handle: method === 'venmo' || method === 'zelle' ? handle || null : null,
+    payment_note: method === 'other' ? note || null : null,
+  }
+  try {
+    const { error: metaErr } = await supabase.auth.updateUser({ data: payload })
+    if (metaErr) throw new Error(metaErr.message)
+    if (auth.user) {
+      const { error } = await supabase
+        .from('profiles')
+        .upsert({ id: auth.user.id, ...payload }, { onConflict: 'id' })
+      if (error) throw new Error(error.message)
+    }
+    auth.paymentMethod = payload.payment_method ?? ''
+    auth.paymentHandle = payload.payment_handle ?? ''
+    auth.paymentNote = payload.payment_note ?? ''
+    toast.success('Payment info updated')
+  } catch (e) {
+    paymentError.value = e instanceof Error ? e.message : 'Failed to update payment info'
+  } finally {
+    savingPayment.value = false
+  }
+}
 
 async function saveProfile() {
   savingName.value = true
@@ -116,6 +168,25 @@ async function changePassword() {
         <p v-if="nameError" class="text-sm text-status-error">{{ nameError }}</p>
         <div class="flex justify-end">
           <BaseButton type="submit" :loading="savingName">Save changes</BaseButton>
+        </div>
+      </form>
+    </BaseCard>
+
+    <!-- Payment -->
+    <BaseCard class="mb-6">
+      <h3 class="mb-1 text-sm font-semibold text-text-default">Payment</h3>
+      <p class="mb-4 text-xs text-text-muted">
+        How you'd like to receive prize payouts. Required to be eligible for prizes.
+      </p>
+      <form class="space-y-4" @submit.prevent="savePayment">
+        <PaymentFields
+          v-model:method="paymentMethod"
+          v-model:handle="paymentHandle"
+          v-model:note="paymentNote"
+        />
+        <p v-if="paymentError" class="text-sm text-status-error">{{ paymentError }}</p>
+        <div class="flex justify-end">
+          <BaseButton type="submit" :loading="savingPayment">Save payment info</BaseButton>
         </div>
       </form>
     </BaseCard>

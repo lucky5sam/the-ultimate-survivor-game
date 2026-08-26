@@ -154,8 +154,12 @@ onMounted(loadSeasons)
                   </template>
                   <span v-else class="text-text-subtle">—</span>
                 </td>
-                <td class="whitespace-nowrap px-4 py-3 text-right align-top tabular-nums text-text-muted">
-                  <template v-if="row.roster[n - 1]">{{ fmtPts(row.roster[n - 1]!.points) }}</template>
+                <td
+                  class="whitespace-nowrap px-4 py-3 text-right align-top tabular-nums text-text-muted"
+                >
+                  <template v-if="row.roster[n - 1]">{{
+                    fmtPts(row.roster[n - 1]!.points)
+                  }}</template>
                   <span v-else class="text-text-subtle">—</span>
                 </td>
               </template>

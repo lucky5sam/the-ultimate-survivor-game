@@ -39,6 +39,15 @@ async function handleSignOut() {
 
 <template>
   <div class="min-h-screen bg-surface-page flex flex-col">
+    <!-- Incomplete-profile banner: shown until payment info is filled in -->
+    <RouterLink
+      v-if="!auth.isProfileComplete"
+      to="/profile"
+      class="block shrink-0 bg-status-warning-surface px-6 py-2 text-center text-sm font-medium text-status-warning hover:opacity-90"
+    >
+      Complete your profile to be eligible for prizes — add your payment info →
+    </RouterLink>
+
     <header
       class="bg-surface-default border-b border-border-subtle px-6 py-4 flex items-center justify-between shrink-0"
     >
