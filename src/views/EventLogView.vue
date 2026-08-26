@@ -5,7 +5,7 @@
 // leaderboard scores from — so the log always reconciles with the standings.
 import { ref, computed, onMounted, watch } from 'vue'
 import { supabase } from '../lib/supabase'
-import { getTribeColors } from '../utils/tribeColors'
+import { getTribeColors, loadTribeColors } from '../utils/tribeColors'
 import BaseCard from '../components/base/BaseCard.vue'
 import BaseModal from '../components/base/BaseModal.vue'
 
@@ -94,6 +94,7 @@ async function loadEvents() {
   if (!selectedSeasonId.value) return
   loading.value = true
   errorMsg.value = ''
+  loadTribeColors(selectedSeasonId.value)
   try {
     const { data: eps, error: epsErr } = await supabase
       .from('episodes')

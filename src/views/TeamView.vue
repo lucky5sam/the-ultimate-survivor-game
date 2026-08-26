@@ -16,6 +16,7 @@ import BaseCard from '../components/base/BaseCard.vue'
 import BaseModal from '../components/base/BaseModal.vue'
 import { useToast } from '../composables/useToast'
 import { computeLeaderboard, computeTeamBreakdown, type TeamBreakdown } from '../composables/useLeaderboard'
+import { loadTribeColors } from '../utils/tribeColors'
 import type { ContestantFull } from '../types/contestant'
 import type { BountyHistoryRow } from '../types/bounty'
 
@@ -613,7 +614,7 @@ async function copyInviteLink() {
 
 watch(selectedSeasonId, async () => {
   loading.value = true
-  await Promise.all([loadContestants(), loadMyTeam()])
+  await Promise.all([loadContestants(), loadMyTeam(), loadTribeColors(selectedSeasonId.value)])
   await Promise.all([loadEpisodesAndBounty(), loadSeasonConfig()])
   await loadMyStanding()
   loading.value = false
@@ -622,7 +623,7 @@ watch(selectedSeasonId, async () => {
 onMounted(async () => {
   nowTimer = setInterval(() => { now.value = Date.now() }, 1_000)
   await loadSeasons()
-  await Promise.all([loadContestants(), loadMyTeam()])
+  await Promise.all([loadContestants(), loadMyTeam(), loadTribeColors(selectedSeasonId.value)])
   await Promise.all([loadEpisodesAndBounty(), loadSeasonConfig()])
   await loadMyStanding()
   loading.value = false

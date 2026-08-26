@@ -18,6 +18,7 @@ import TeamRosterList from '../components/TeamRosterList.vue'
 import BountyHistoryList from '../components/BountyHistoryList.vue'
 import ScoreBreakdownModal from '../components/ScoreBreakdownModal.vue'
 import { computeLeaderboard, computeTeamBreakdown, type TeamBreakdown } from '../composables/useLeaderboard'
+import { loadTribeColors } from '../utils/tribeColors'
 import type { ContestantFull } from '../types/contestant'
 import type { BountyHistoryRow } from '../types/bounty'
 
@@ -185,6 +186,7 @@ async function load() {
 
   teamName.value = team.team_name
   seasonId.value = team.season_id
+  loadTribeColors(team.season_id)
 
   const [{ data: season }, { data: profile }] = await Promise.all([
     supabase

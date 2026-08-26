@@ -2,6 +2,7 @@
 import { ref, computed, watchEffect, onMounted } from 'vue'
 import { supabase } from '../../lib/supabase'
 import { etInputToIso, isoToEtInput, fmtEt } from '../../lib/time'
+import { getTribeColors } from '../../utils/tribeColors'
 
 type Season = {
   id: string
@@ -35,7 +36,12 @@ const errorMsg = ref('')
 const showForm = ref(false)
 const saving = ref(false)
 const editingId = ref<string | null>(null)
-const activeTab = ref<'config' | 'actions'>('config')
+const activeTab = ref<'config' | 'actions' | 'tribes'>('config')
+
+// Tribes state (name + color per season)
+type LocalTribe = { id?: string; name: string; color: string }
+const localTribes = ref<LocalTribe[]>([])
+const originalTribeIds = ref<Set<string>>(new Set())
 
 const form = ref({
   name: '',
@@ -133,6 +139,64 @@ async function saveActionTypes(seasonId: string) {
   }
 }
 
+async function loadTribes(seasonId: string) {
+  // Merge the saved tribes table with any tribe names already used on the roster
+  // (assignments) that don't yet have a row — so the admin can just pick a color.
+  const [{ data: tribeRows }, { data: contRows }] = await Promise.all([
+    supabase.from('tribes').select('id, name, color').eq('season_id', seasonId),
+    supabase
+      .from('contestants')
+      .select('contestant_tribe_assignments(tribe)')
+      .eq('season_id', seasonId),
+  ])
+
+  originalTribeIds.value = new Set((tribeRows ?? []).map(t => t.id))
+  const byName = new Map((tribeRows ?? []).map(t => [t.name, t]))
+
+  const usedNames = new Set<string>()
+  for (const c of contRows ?? []) {
+    for (const a of ((c.contestant_tribe_assignments as any[]) ?? [])) {
+      if (a.tribe) usedNames.add(a.tribe)
+    }
+  }
+
+  const list: LocalTribe[] = (tribeRows ?? []).map(t => ({ id: t.id, name: t.name, color: t.color }))
+  for (const name of usedNames) {
+    if (!byName.has(name)) list.push({ name, color: getTribeColors(name).primary })
+  }
+  localTribes.value = list.sort((a, b) => a.name.localeCompare(b.name))
+}
+
+async function saveTribes(seasonId: string) {
+  const rows = localTribes.value.filter(t => t.name.trim())
+
+  const toUpsert = rows.map(t => ({
+    ...(t.id ? { id: t.id } : {}),
+    season_id: seasonId,
+    name: t.name.trim(),
+    color: t.color,
+  }))
+  if (toUpsert.length) {
+    const { error } = await supabase.from('tribes').upsert(toUpsert, { onConflict: 'id' })
+    if (error) throw new Error(error.message)
+  }
+
+  // Delete tribes the admin removed from the list.
+  const keptIds = new Set(rows.filter(t => t.id).map(t => t.id!))
+  const toDelete = [...originalTribeIds.value].filter(id => !keptIds.has(id))
+  if (toDelete.length) {
+    const { error } = await supabase.from('tribes').delete().in('id', toDelete)
+    if (error) throw new Error(error.message)
+  }
+}
+
+function addTribe() {
+  localTribes.value.push({ name: '', color: '#f97316' })
+}
+function removeTribe(i: number) {
+  localTribes.value.splice(i, 1)
+}
+
 async function loadSeasons() {
   loading.value = true
   const { data, error } = await supabase
@@ -163,6 +227,13 @@ async function saveSeason() {
   }
 
   await saveActionTypes(seasonId!)
+  try {
+    await saveTribes(seasonId!)
+  } catch (e) {
+    errorMsg.value = e instanceof Error ? e.message : 'Failed to save tribes'
+    saving.value = false
+    return
+  }
 
   showForm.value = false
   resetForm()
@@ -180,6 +251,8 @@ async function deleteSeason(id: string, name: string) {
 async function openCreate() {
   editingId.value = null
   resetForm()
+  localTribes.value = []
+  originalTribeIds.value = new Set()
   activeTab.value = 'config'
   await loadCatalog()
   showForm.value = true
@@ -201,7 +274,7 @@ async function openEdit(season: Season) {
     max_swaps: season.max_swaps,
   }
   activeTab.value = 'config'
-  await loadActionTypes(season.id)
+  await Promise.all([loadActionTypes(season.id), loadTribes(season.id)])
   showForm.value = true
 }
 
@@ -308,6 +381,13 @@ onMounted(loadSeasons)
           >
             Action Types
             <span v-if="localActionTypes.length" class="ml-1 text-xs text-gray-400">({{ enabledCount }}/{{ localActionTypes.length }})</span>
+          </button>
+          <button
+            @click="activeTab = 'tribes'"
+            :class="['flex-1 text-sm font-medium py-1.5 rounded-md transition-colors', activeTab === 'tribes' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700']"
+          >
+            Tribes
+            <span v-if="localTribes.length" class="ml-1 text-xs text-gray-400">({{ localTribes.length }})</span>
           </button>
         </div>
 
@@ -459,6 +539,52 @@ onMounted(loadSeasons)
                 </tr>
               </tbody>
             </table>
+          </div>
+        </div>
+
+        <!-- Tribes tab -->
+        <div v-else-if="activeTab === 'tribes'">
+          <div class="flex items-center justify-between mb-3">
+            <p class="text-sm text-gray-500">Pick a color for each tribe. Used for the tribe badges across the app.</p>
+            <button
+              type="button"
+              @click="addTribe"
+              class="text-blue-600 hover:text-blue-800 text-sm font-medium shrink-0"
+            >+ Add tribe</button>
+          </div>
+
+          <div v-if="localTribes.length === 0" class="text-center py-8 text-sm text-gray-400 border border-gray-200 rounded-lg">
+            No tribes yet. Add one here, or set starting tribes in Admin → Contestants.
+          </div>
+
+          <div v-else class="space-y-2">
+            <div
+              v-for="(t, i) in localTribes"
+              :key="i"
+              class="flex items-center gap-3 border border-gray-200 rounded-lg px-3 py-2"
+            >
+              <input
+                v-model="t.color"
+                type="color"
+                class="h-9 w-10 shrink-0 cursor-pointer rounded border border-gray-200 bg-white p-0.5"
+              />
+              <input
+                v-model="t.name"
+                type="text"
+                placeholder="Tribe name"
+                class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <span
+                class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-xs font-bold text-white"
+                :style="{ backgroundColor: t.color }"
+                :title="t.name"
+              >{{ t.name.charAt(0).toUpperCase() || '?' }}</span>
+              <button
+                type="button"
+                @click="removeTribe(i)"
+                class="text-red-500 hover:text-red-700 text-xs font-medium shrink-0"
+              >Remove</button>
+            </div>
           </div>
         </div>
 
