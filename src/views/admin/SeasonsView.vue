@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, watchEffect, onMounted } from 'vue'
 import { supabase } from '../../lib/supabase'
+import { etInputToIso, isoToEtInput, fmtEt } from '../../lib/time'
 
 type Season = {
   id: string
   name: string
   status: string
+  starts_at: string | null
   bounty_points_pre_merge: number
   bounty_points_post_merge: number
   bounty_points_finale: number
@@ -38,6 +40,7 @@ const activeTab = ref<'config' | 'actions'>('config')
 const form = ref({
   name: '',
   status: 'upcoming',
+  starts_at: '',
   bounty_points_pre_merge: 5,
   bounty_points_post_merge: 10,
   bounty_points_finale: 15,
@@ -147,11 +150,14 @@ async function saveSeason() {
 
   let seasonId = editingId.value
 
+  // starts_at is entered as an ET wall-clock string; store it as a UTC instant.
+  const payload = { ...form.value, starts_at: etInputToIso(form.value.starts_at) }
+
   if (editingId.value) {
-    const { error } = await supabase.from('seasons').update(form.value).eq('id', editingId.value)
+    const { error } = await supabase.from('seasons').update(payload).eq('id', editingId.value)
     if (error) { errorMsg.value = error.message; saving.value = false; return }
   } else {
-    const { data, error } = await supabase.from('seasons').insert(form.value).select('id').single()
+    const { data, error } = await supabase.from('seasons').insert(payload).select('id').single()
     if (error) { errorMsg.value = error.message; saving.value = false; return }
     seasonId = data.id
   }
@@ -184,6 +190,7 @@ async function openEdit(season: Season) {
   form.value = {
     name: season.name,
     status: season.status,
+    starts_at: isoToEtInput(season.starts_at),
     bounty_points_pre_merge: season.bounty_points_pre_merge,
     bounty_points_post_merge: season.bounty_points_post_merge,
     bounty_points_finale: season.bounty_points_finale,
@@ -202,6 +209,7 @@ function resetForm() {
   form.value = {
     name: '',
     status: 'upcoming',
+    starts_at: '',
     bounty_points_pre_merge: 5,
     bounty_points_post_merge: 10,
     bounty_points_finale: 15,
@@ -252,6 +260,7 @@ onMounted(loadSeasons)
         <tr>
           <th class="px-4 py-3">Name</th>
           <th class="px-4 py-3">Status</th>
+          <th class="px-4 py-3">Starts / Reg. closes</th>
           <th class="px-4 py-3">Bounty (pre/post/finale)</th>
           <th class="px-4 py-3">Swap penalty (MVP/player/role)</th>
           <th class="px-4 py-3">Grace / Max swaps</th>
@@ -266,6 +275,7 @@ onMounted(loadSeasons)
               {{ statusLabel[season.status] ?? season.status }}
             </span>
           </td>
+          <td class="px-4 py-3 text-gray-500">{{ season.starts_at ? fmtEt(season.starts_at) : '—' }}</td>
           <td class="px-4 py-3">{{ season.bounty_points_pre_merge }} / {{ season.bounty_points_post_merge }} / {{ season.bounty_points_finale }}</td>
           <td class="px-4 py-3">{{ season.swap_penalty_mvp }} / {{ season.swap_penalty_player }} / {{ season.swap_penalty_role_change }}</td>
           <td class="px-4 py-3">Ep {{ season.grace_period_through_episode }} / {{ season.max_swaps ?? '∞' }}</td>
@@ -318,6 +328,17 @@ onMounted(loadSeasons)
                 <option value="active">Active</option>
                 <option value="completed">Completed</option>
               </select>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">
+                Season starts <span class="text-gray-400 font-normal">(ET — registration closes)</span>
+              </label>
+              <input v-model="form.starts_at" type="datetime-local"
+                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <p class="mt-1 text-xs text-gray-400">
+                New teams can be created until this time (Eastern). After it passes, the league is locked to new players. Leave blank to keep registration open.
+              </p>
             </div>
 
             <div>

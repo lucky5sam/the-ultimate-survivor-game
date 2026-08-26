@@ -16,7 +16,7 @@ import { computeLeaderboard, computeTeamBreakdown, type TeamBreakdown } from '..
 import { getTribeColors } from '../utils/tribeColors'
 import type { ContestantFull } from '../types/contestant'
 
-type Season = { id: string; name: string; status: string; current_episode_id: string | null }
+type Season = { id: string; name: string; status: string; current_episode_id: string | null; starts_at: string | null }
 type Contestant = ContestantFull
 type TeamPlayer = { contestant_id: string; role: string; effective_from_episode: number; effective_to_episode: number | null }
 type ActivePlayer = { contestant_id: string; role: 'mvp' | 'player'; effective_from_episode: number }
@@ -289,6 +289,21 @@ const currentMvpName = computed(() => {
 const currentSeason = computed(() => seasons.value.find(s => s.id === selectedSeasonId.value) ?? null)
 const isOnCurrentSeason = computed(() => selectedSeasonId.value === currentSeasonId.value)
 
+// Registration window: new teams can be created until the season's start time.
+// A blank start time keeps registration open; completed seasons are always closed.
+function registrationOpenFor(s: Season | null): boolean {
+  if (!s || s.status === 'completed') return false
+  return !s.starts_at || now.value < new Date(s.starts_at).getTime()
+}
+// Gate for the wizard/closed message on the season being viewed.
+const registrationOpen = computed(() => registrationOpenFor(currentSeason.value))
+const seasonStartDisplay = computed(() =>
+  currentSeason.value?.starts_at ? fmtEt(currentSeason.value.starts_at) : null,
+)
+// The invite link tracks the league's current season regardless of what's being viewed.
+const appCurrentSeason = computed(() => seasons.value.find(s => s.id === currentSeasonId.value) ?? null)
+const inviteLinkOpen = computed(() => registrationOpenFor(appCurrentSeason.value))
+
 const currentEpisodeNumber = computed(() => {
   const epId = currentSeason.value?.current_episode_id
   if (!epId) return null
@@ -318,7 +333,7 @@ async function loadSeasons() {
   // Load all seasons (including completed) so previous seasons can be viewed.
   const { data } = await supabase
     .from('seasons')
-    .select('id, name, status, current_episode_id')
+    .select('id, name, status, current_episode_id, starts_at')
     .order('created_at', { ascending: false })
   seasons.value = data ?? []
   // "Current" = the most recent active/upcoming season, else the newest overall.
@@ -640,7 +655,7 @@ onUnmounted(() => {
       <h1 class="text-xl font-bold text-text-default">The Ultimate Survivor Game</h1>
       <div class="flex items-center gap-4 text-sm">
         <RouterLink to="/leaderboard" class="text-text-accent hover:text-interactive-accent-hover">Leaderboard</RouterLink>
-        <button @click="copyInviteLink" class="text-text-accent hover:text-interactive-accent-hover">Copy invite link</button>
+        <button v-if="inviteLinkOpen" @click="copyInviteLink" class="text-text-accent hover:text-interactive-accent-hover">Copy invite link</button>
         <RouterLink v-if="auth.isAdmin" to="/admin" class="text-text-accent hover:text-interactive-accent-hover">Admin</RouterLink>
         <span class="text-text-muted">{{ ownerName }}</span>
         <button @click="handleSignOut" class="text-status-error hover:opacity-80">Sign out</button>
@@ -672,8 +687,8 @@ onUnmounted(() => {
       </div>
     </template>
 
-    <!-- Full-page wizard when user has no team -->
-    <template v-else-if="!existingTeam">
+    <!-- Full-page wizard when user has no team and registration is open -->
+    <template v-else-if="!existingTeam && registrationOpen">
       <TeamCreateWizard
         class="flex-1"
         :season-id="selectedSeasonId"
@@ -683,6 +698,23 @@ onUnmounted(() => {
         @created="onTeamCreated"
       />
     </template>
+
+    <!-- Registration closed: no team and the season has already started -->
+    <div v-else-if="!existingTeam" class="max-w-md mx-auto px-6 py-16 text-center">
+      <div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-surface-subtle">
+        <svg class="h-6 w-6 text-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+        </svg>
+      </div>
+      <h2 class="text-xl font-bold text-text-default">Registration is closed</h2>
+      <p class="mt-2 text-sm text-text-muted">
+        {{ currentSeason?.name }} has already started<template v-if="seasonStartDisplay"> ({{ seasonStartDisplay }})</template>,
+        so new teams can no longer be created. You can still follow along on the leaderboard.
+      </p>
+      <BaseButton variant="secondary" class="mt-6" @click="router.push('/leaderboard')">
+        View Leaderboard
+      </BaseButton>
+    </div>
 
     <!-- Constrained team management view when team exists -->
     <div v-else class="max-w-3xl mx-auto px-6 py-8 w-full">
