@@ -5,9 +5,10 @@
 // leaderboard scores from — so the log always reconciles with the standings.
 import { ref, computed, onMounted, watch } from 'vue'
 import { supabase } from '../lib/supabase'
-import { getTribeColors, loadTribeColors } from '../utils/tribeColors'
+import { loadTribeColors } from '../utils/tribeColors'
 import BaseCard from '../components/base/BaseCard.vue'
 import BaseModal from '../components/base/BaseModal.vue'
+import TribeBadge from '../components/TribeBadge.vue'
 
 type Season = { id: string; name: string }
 type EpisodeInfo = { id: string; number: number; title: string | null; air_date: string | null; status: string }
@@ -242,12 +243,7 @@ onMounted(async () => { await loadSeasons(); await loadEvents() })
                 </td>
                 <td class="px-4 py-2.5 align-top text-text-default">
                   <div class="flex items-center gap-2">
-                    <span
-                      v-if="row.tribe"
-                      class="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-[10px] font-bold text-white"
-                      :style="{ backgroundColor: getTribeColors(row.tribe).primary }"
-                      :title="row.tribe"
-                    >{{ row.tribe.charAt(0).toUpperCase() }}</span>
+                    <TribeBadge v-if="row.tribe" :tribe="row.tribe" />
                     <span class="break-words">{{ row.recipient }}</span>
                   </div>
                 </td>

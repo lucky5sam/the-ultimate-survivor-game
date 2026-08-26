@@ -9,7 +9,7 @@
 // the chip as a static label.
 import { computed } from 'vue'
 import ContestantAvatar from './ContestantAvatar.vue'
-import { getTribeColors } from '../utils/tribeColors'
+import TribeBadge from './TribeBadge.vue'
 import type { ContestantFull } from '../types/contestant'
 
 type ActivePlayer = { contestant_id: string; role: 'mvp' | 'player'; effective_from_episode: number }
@@ -112,11 +112,7 @@ function playerStatus(id: string): { out: boolean; ep: number | null } {
                 class="ml-1 hidden text-text-subtle sm:inline"
               >{{ contestantLastName(player.contestant_id) }}</span>
             </p>
-            <span
-              class="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-[10px] font-bold text-white"
-              :style="{ backgroundColor: getTribeColors(contestantTribe(player.contestant_id)).primary }"
-              :title="contestantTribe(player.contestant_id)"
-            >{{ contestantTribe(player.contestant_id).charAt(0).toUpperCase() }}</span>
+            <TribeBadge :tribe="contestantTribe(player.contestant_id)" />
           </div>
           <div class="mt-0.5 text-xs text-text-muted">
             Ep {{ player.effective_from_episode }}–now
