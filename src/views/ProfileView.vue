@@ -83,7 +83,7 @@ async function changePassword() {
 
       <div class="mb-4">
         <label class="mb-1 block text-sm font-medium text-text-default">Email</label>
-        <p class="rounded-md border border-border-subtle bg-surface-subtle px-3 py-2 text-sm text-text-muted">
+        <p class="rounded-md border border-dashed border-border-subtle bg-surface-page px-3 py-2 text-sm text-text-subtle">
           {{ auth.user?.email }}
         </p>
       </div>

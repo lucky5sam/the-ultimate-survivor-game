@@ -8,13 +8,16 @@ import TeamCreateWizard from '../components/TeamCreateWizard.vue'
 import ContestantAvatar from '../components/ContestantAvatar.vue'
 import ContestantSelect from '../components/ContestantSelect.vue'
 import ContestantCard from '../components/ContestantCard.vue'
+import TeamRosterList from '../components/TeamRosterList.vue'
+import BountyHistoryList from '../components/BountyHistoryList.vue'
+import ScoreBreakdownModal from '../components/ScoreBreakdownModal.vue'
 import BaseButton from '../components/base/BaseButton.vue'
 import BaseCard from '../components/base/BaseCard.vue'
 import BaseModal from '../components/base/BaseModal.vue'
 import { useToast } from '../composables/useToast'
 import { computeLeaderboard, computeTeamBreakdown, type TeamBreakdown } from '../composables/useLeaderboard'
-import { getTribeColors } from '../utils/tribeColors'
 import type { ContestantFull } from '../types/contestant'
+import type { BountyHistoryRow } from '../types/bounty'
 
 type Season = { id: string; name: string; status: string; current_episode_id: string | null; starts_at: string | null }
 type Contestant = ContestantFull
@@ -128,19 +131,11 @@ const atMaxSwaps = computed(() =>
   seasonConfig.value.max_swaps !== null && swapsUsed.value >= seasonConfig.value.max_swaps
 )
 
-// Roster ordered MVP-first, with fixed position labels (MVP, P1, P2, P3).
+// Roster ordered MVP-first (drives the action-menu lookups). Row rendering and
+// position labels now live in the shared TeamRosterList component.
 const rosterSorted = computed(() =>
   [...activePlayers.value].sort((a, b) => (a.role === 'mvp' ? 0 : 1) - (b.role === 'mvp' ? 0 : 1)),
 )
-const positionLabel = computed<Record<string, string>>(() => {
-  const map: Record<string, string> = {}
-  let n = 0
-  for (const pl of rosterSorted.value) {
-    if (pl.role === 'mvp') map[pl.contestant_id] = 'MVP'
-    else map[pl.contestant_id] = `P${++n}`
-  }
-  return map
-})
 
 // Roster edits are only allowed with an upcoming episode and swaps remaining.
 const canManageRoster = computed(() => !!nextUpcomingEpisode.value && !atMaxSwaps.value)
@@ -213,12 +208,6 @@ const inGameContestants = computed(() =>
 
 const mergeEpNumber = computed(() => allEpisodes.value.find(e => e.is_merge)?.number ?? Infinity)
 
-type BountyState =
-  | { kind: 'hit'; points: number }
-  | { kind: 'missed' }
-  | { kind: 'upcoming' }
-  | { kind: 'locked' }
-
 // Episodes that have at least one recorded elimination (bounty is resolved).
 const episodesWithEliminations = computed(
   () => new Set(Object.values(eliminatedEpisodeIdByContestant.value).filter(Boolean) as string[]),
@@ -227,7 +216,7 @@ const episodesWithEliminations = computed(
 // Per-episode bounty history: the locked-in pick and whether it hit, newest first.
 // Includes completed episodes plus the next upcoming one (still editable).
 // Regular episodes resolve from eliminations; the finale resolves from the winner.
-const bountyHistory = computed(() =>
+const bountyHistory = computed<BountyHistoryRow[]>(() =>
   allEpisodes.value
     .filter(
       e =>
@@ -242,7 +231,7 @@ const bountyHistory = computed(() =>
       const resolved =
         ep.status === 'completed' &&
         (ep.is_finale ? !!ep.bounty_contestant_id : episodesWithEliminations.value.has(ep.id))
-      let state: BountyState
+      let state: BountyHistoryRow['state']
       if (resolved) {
         const hit = ep.is_finale
           ? !!contestantId && contestantId === ep.bounty_contestant_id
@@ -522,23 +511,6 @@ function contestantPhoto(id: string) {
   return allContestants.value.find(c => c.id === id)?.photo_url ?? null
 }
 
-function contestantTribe(id: string) {
-  return allContestants.value.find(c => c.id === id)?.tribe ?? ''
-}
-
-function contestantFirstName(id: string) {
-  return contestantName(id).split(' ')[0] ?? ''
-}
-function contestantLastName(id: string) {
-  return contestantName(id).split(' ').slice(1).join(' ')
-}
-
-function playerStatus(id: string): { out: boolean; ep: number | null } {
-  const epId = eliminatedEpisodeIdByContestant.value[id]
-  if (!epId) return { out: false, ep: null }
-  return { out: true, ep: allEpisodes.value.find(e => e.id === epId)?.number ?? null }
-}
-
 function openSwapModal(player: ActivePlayer) {
   swappingPlayer.value = player
   selectedReplacementId.value = null
@@ -796,136 +768,62 @@ onUnmounted(() => {
         </div>
 
         <!-- Roster management -->
-        <BaseCard v-if="existingTeam" padding="none" class="overflow-hidden mb-6">
-          <div class="px-4 py-3 flex items-center justify-between bg-surface-subtle border-b border-border-subtle">
-            <h3 class="text-sm font-semibold text-text-default">My Roster</h3>
+        <TeamRosterList
+          v-if="existingTeam"
+          class="mb-6"
+          title="My Roster"
+          :players="activePlayers"
+          :contestants="allContestants"
+          :eliminated-episode-id-by-contestant="eliminatedEpisodeIdByContestant"
+          :episodes="allEpisodes"
+          :points-by-id="myPlayerPoints"
+          :chip-interactive="canManageRoster"
+          @chip-click="toggleMenu"
+        >
+          <template #header-actions>
             <span class="text-xs text-text-muted">
               {{ swapsUsed }} swap{{ swapsUsed !== 1 ? 's' : '' }} used
               <template v-if="seasonConfig.max_swaps !== null"> · {{ seasonConfig.max_swaps - swapsUsed }} remaining</template>
             </span>
-          </div>
-          <div v-for="player in rosterSorted" :key="player.contestant_id"
-            class="flex items-center justify-between px-4 py-3 border-b last:border-0 border-border-subtle">
-            <div class="flex items-center gap-3">
-              <button
-                @click="toggleMenu(player, $event)"
-                :class="[
-                  'w-11 shrink-0 rounded-md py-1 text-center text-[10px] font-bold uppercase tracking-wide transition-colors',
-                  player.role === 'mvp' ? 'bg-survivor-sand/20 text-survivor-sand' : 'bg-surface-subtle text-text-subtle',
-                  canManageRoster ? 'cursor-pointer hover:opacity-80' : 'cursor-default',
-                ]"
-              >{{ positionLabel[player.contestant_id] }}</button>
-              <ContestantAvatar
-                :photo-url="contestantPhoto(player.contestant_id)"
-                :name="contestantName(player.contestant_id)"
-              />
-              <div>
-                <div class="flex items-center gap-1.5">
-                  <p class="font-medium text-sm leading-tight">
-                    <span class="text-text-default">{{ contestantFirstName(player.contestant_id) }}</span>
-                    <span
-                      v-if="contestantLastName(player.contestant_id)"
-                      class="ml-1 hidden text-text-subtle sm:inline"
-                    >{{ contestantLastName(player.contestant_id) }}</span>
-                  </p>
-                  <span
-                    class="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-[10px] font-bold text-white"
-                    :style="{ backgroundColor: getTribeColors(contestantTribe(player.contestant_id)).primary }"
-                    :title="contestantTribe(player.contestant_id)"
-                  >{{ contestantTribe(player.contestant_id).charAt(0).toUpperCase() }}</span>
-                </div>
-                <div class="mt-0.5 text-xs text-text-muted">
-                  Ep {{ player.effective_from_episode }}–now
-                </div>
-              </div>
+          </template>
+          <template #footer>
+            <div v-if="!nextUpcomingEpisode" class="px-4 py-3 text-xs text-text-muted">
+              <template v-if="lockedAiringEpisode">Roster locked — Episode {{ lockedAiringEpisode.number }} in progress</template>
+              <template v-else>Locked — no upcoming episode scheduled</template>
             </div>
-            <div class="text-right">
-              <p class="text-sm font-semibold text-text-default tabular-nums">
-                {{ fmtPts(myPlayerPoints[player.contestant_id] ?? 0) }}
+            <div v-else-if="atMaxSwaps" class="px-4 py-3 text-xs text-text-muted">Maximum swaps reached for this season</div>
+            <div v-if="nextUpcomingEpisode && !atMaxSwaps" class="px-4 py-2 bg-surface-subtle border-t border-border-subtle">
+              <p v-if="nextUpcomingEpisode.locks_at" class="text-xs font-medium text-text-subtle">
+                Roster locks {{ fmtEt(nextUpcomingEpisode.locks_at) }}
               </p>
-              <p
-                class="mt-0.5 text-xs"
-                :class="playerStatus(player.contestant_id).out ? 'text-status-error' : 'text-text-muted'"
-              >
-                {{ playerStatus(player.contestant_id).out
-                    ? `Voted Out Ep. ${playerStatus(player.contestant_id).ep}`
-                    : 'In the Game' }}
+              <p class="text-xs text-text-muted">
+                <template v-if="isGracePeriod">Free swap window active (through Episode {{ seasonConfig.grace_period_through_episode }})</template>
+                <template v-else>Swap cost: −{{ fmtPts(seasonConfig.swap_penalty_player) }} pts (player) · −{{ fmtPts(seasonConfig.swap_penalty_mvp) }} pts (MVP) · −{{ fmtPts(seasonConfig.swap_penalty_role_change) }} pts (role change)</template>
               </p>
             </div>
-          </div>
-          <div v-if="!nextUpcomingEpisode" class="px-4 py-3 text-xs text-text-muted">
-            <template v-if="lockedAiringEpisode">Roster locked — Episode {{ lockedAiringEpisode.number }} in progress</template>
-            <template v-else>Locked — no upcoming episode scheduled</template>
-          </div>
-          <div v-else-if="atMaxSwaps" class="px-4 py-3 text-xs text-text-muted">Maximum swaps reached for this season</div>
-          <div v-if="nextUpcomingEpisode && !atMaxSwaps" class="px-4 py-2 bg-surface-subtle border-t border-border-subtle">
-            <p v-if="nextUpcomingEpisode.locks_at" class="text-xs font-medium text-text-subtle">
-              Roster locks {{ fmtEt(nextUpcomingEpisode.locks_at) }}
-            </p>
-            <p class="text-xs text-text-muted">
-              <template v-if="isGracePeriod">Free swap window active (through Episode {{ seasonConfig.grace_period_through_episode }})</template>
-              <template v-else>Swap cost: −{{ fmtPts(seasonConfig.swap_penalty_player) }} pts (player) · −{{ fmtPts(seasonConfig.swap_penalty_mvp) }} pts (MVP) · −{{ fmtPts(seasonConfig.swap_penalty_role_change) }} pts (role change)</template>
-            </p>
-          </div>
-        </BaseCard>
+          </template>
+        </TeamRosterList>
 
         <!-- Bounty pick management -->
-        <BaseCard v-if="existingTeam" padding="none" class="overflow-hidden mb-4">
-          <div class="px-4 py-3 flex items-center justify-between bg-surface-subtle border-b border-border-subtle">
-            <h3 class="text-sm font-semibold text-text-default">Bounty Pick</h3>
+        <BountyHistoryList
+          v-if="existingTeam"
+          class="mb-4"
+          :rows="bountyHistory"
+          :contestants="allContestants"
+          :empty-text="nextUpcomingEpisode ? 'No bounty history yet' : 'Locked — no upcoming episodes'"
+        >
+          <template #header-actions>
             <span v-if="nextUpcomingEpisode" class="text-xs text-text-muted">Episode {{ nextUpcomingEpisode.number }}</span>
-          </div>
-          <div class="px-4 py-3">
-            <div v-if="bountyHistory.length > 0" class="divide-y divide-border-subtle">
-              <div
-                v-for="row in bountyHistory"
-                :key="row.episodeId"
-                class="flex items-center gap-3 py-2 first:pt-0 last:pb-0"
-                :class="{ 'opacity-60': row.state.kind === 'missed' }"
-              >
-                <span class="w-10 shrink-0 text-xs font-semibold text-text-muted">Ep {{ row.number }}</span>
-                <template v-if="row.contestantId">
-                  <ContestantAvatar
-                    :photo-url="contestantPhoto(row.contestantId)"
-                    :name="contestantName(row.contestantId)"
-                    :size="28"
-                  />
-                  <span class="flex-1 truncate text-sm text-text-default">{{ contestantName(row.contestantId) }}</span>
-                </template>
-                <span v-else class="flex-1 text-sm text-text-muted">No pick set</span>
-
-                <div class="flex shrink-0 items-center gap-2">
-                  <span
-                    v-if="row.state.kind === 'hit'"
-                    class="rounded-full bg-status-success-surface px-2 py-0.5 text-xs font-semibold text-status-success"
-                  >Hit +{{ fmtPts(row.state.points) }}</span>
-                  <span
-                    v-else-if="row.state.kind === 'missed'"
-                    class="rounded-full bg-surface-subtle px-2 py-0.5 text-xs font-semibold text-text-muted"
-                  >Missed</span>
-                  <span
-                    v-else-if="row.state.kind === 'locked'"
-                    class="inline-flex items-center gap-1 rounded-full bg-surface-subtle px-2 py-0.5 text-xs font-semibold text-text-muted"
-                  >
-                    <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                    </svg>
-                    Locked
-                  </span>
-                  <BaseButton
-                    v-if="row.isUpcoming"
-                    variant="secondary"
-                    size="sm"
-                    @click="openBountyModal"
-                  >{{ row.contestantId ? 'Update' : 'Set pick' }}</BaseButton>
-                </div>
-              </div>
-            </div>
-            <p v-else class="text-sm text-text-muted">
-              {{ nextUpcomingEpisode ? 'No bounty history yet' : 'Locked — no upcoming episodes' }}
-            </p>
-          </div>
-        </BaseCard>
+          </template>
+          <template #row-action="{ row }">
+            <BaseButton
+              v-if="row.isUpcoming"
+              variant="secondary"
+              size="sm"
+              @click="openBountyModal"
+            >{{ row.contestantId ? 'Update' : 'Set pick' }}</BaseButton>
+          </template>
+        </BountyHistoryList>
 
         <p v-if="existingTeam && errorMsg" class="text-status-error text-sm mt-4">{{ errorMsg }}</p>
       </template>
@@ -937,82 +835,12 @@ onUnmounted(() => {
     </div>
 
     <!-- Score breakdown modal -->
-    <BaseModal :show="breakdownModalOpen" title="Score Breakdown" size="md" @close="breakdownModalOpen = false">
-      <div v-if="breakdownLoading" class="py-6 text-center text-sm text-text-muted">Loading…</div>
-      <div v-else-if="breakdown" class="max-h-[60vh] overflow-y-auto">
-        <!-- Player contributions -->
-        <p class="mb-1 text-xs font-semibold uppercase tracking-wide text-text-muted">Players</p>
-        <div class="divide-y divide-border-subtle">
-          <div
-            v-for="(s, i) in breakdown.stints"
-            :key="i"
-            class="flex items-center justify-between gap-3 py-2"
-          >
-            <div class="min-w-0">
-              <p class="truncate text-sm font-medium text-text-default">
-                {{ s.name }}<span v-if="s.role === 'mvp'" class="ml-1 text-survivor-sand">★</span>
-              </p>
-              <p class="text-xs text-text-muted">
-                Ep {{ s.fromEpisode }}–{{ s.toEpisode ?? 'now' }}<template v-if="s.role === 'mvp'"> · MVP ×1.5</template>
-              </p>
-            </div>
-            <span class="shrink-0 text-sm font-semibold tabular-nums text-text-default">{{ fmtPts(s.points) }}</span>
-          </div>
-        </div>
-
-        <!-- Bounty hits -->
-        <template v-if="breakdown.bountyHits.length">
-          <p class="mb-1 mt-4 text-xs font-semibold uppercase tracking-wide text-text-muted">Bounty Hits</p>
-          <div class="divide-y divide-border-subtle">
-            <div
-              v-for="(b, i) in breakdown.bountyHits"
-              :key="i"
-              class="flex items-center justify-between gap-3 py-2"
-            >
-              <div class="min-w-0">
-                <p class="truncate text-sm font-medium text-text-default">{{ b.name }}</p>
-                <p class="text-xs text-text-muted">Ep {{ b.episodeNumber }}</p>
-              </div>
-              <span class="shrink-0 text-sm font-semibold tabular-nums text-status-success">+{{ fmtPts(b.points) }}</span>
-            </div>
-          </div>
-        </template>
-
-        <!-- Swaps -->
-        <template v-if="breakdown.swaps.length">
-          <p class="mb-1 mt-4 text-xs font-semibold uppercase tracking-wide text-text-muted">Swaps</p>
-          <div class="divide-y divide-border-subtle">
-            <div
-              v-for="(sw, i) in breakdown.swaps"
-              :key="i"
-              class="flex items-center justify-between gap-3 py-2"
-            >
-              <div class="min-w-0">
-                <p class="truncate text-sm font-medium text-text-default">
-                  {{ sw.type === 'role_change' ? 'MVP change' : 'Roster swap' }}
-                </p>
-                <p class="truncate text-xs text-text-muted">
-                  {{ sw.type === 'role_change'
-                      ? `Made ${sw.addedName} MVP before Ep ${sw.episode}`
-                      : `Swapped ${sw.removedName} for ${sw.addedName} before Ep ${sw.episode}` }}
-                </p>
-              </div>
-              <span
-                class="shrink-0 text-sm font-semibold tabular-nums"
-                :class="sw.penalty === 0 ? 'text-text-muted' : 'text-status-error'"
-              >{{ sw.penalty === 0 ? 'Free' : fmtPts(sw.penalty) }}</span>
-            </div>
-          </div>
-        </template>
-
-        <!-- Total -->
-        <div class="mt-4 flex items-center justify-between border-t border-border-default pt-3">
-          <p class="text-sm font-bold text-text-default">Total</p>
-          <span class="text-base font-bold tabular-nums text-text-default">{{ fmtPts(breakdown.totalPoints) }}</span>
-        </div>
-      </div>
-      <p v-else class="py-6 text-center text-sm text-text-muted">Couldn't load the breakdown.</p>
-    </BaseModal>
+    <ScoreBreakdownModal
+      :show="breakdownModalOpen"
+      :loading="breakdownLoading"
+      :breakdown="breakdown"
+      @close="breakdownModalOpen = false"
+    />
 
     <!-- Season selector modal -->
     <BaseModal :show="seasonModalOpen" title="Select Season" @close="seasonModalOpen = false">

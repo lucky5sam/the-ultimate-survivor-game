@@ -113,7 +113,10 @@ onMounted(async () => { await loadSeasons(); await loadLeaderboard() })
                     :class="row.rank === 1 ? 'text-survivor-sand' : 'text-text-subtle'"
                   >{{ row.rank }}</span>
                   <div class="min-w-0">
-                    <div class="truncate font-semibold text-text-default">{{ row.teamName ?? '(no name)' }}</div>
+                    <RouterLink
+                      :to="`/team/${row.teamId}`"
+                      class="block truncate font-semibold text-text-default hover:text-text-accent"
+                    >{{ row.teamName ?? '(no name)' }}</RouterLink>
                     <div v-if="row.ownerName" class="truncate text-xs text-text-muted">{{ row.ownerName }}</div>
                   </div>
                 </div>

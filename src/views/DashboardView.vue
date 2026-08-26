@@ -78,7 +78,10 @@ onMounted(async () => { await loadSeasons(); await loadLeaderboard() })
           class="w-6 shrink-0 text-center text-base font-bold tabular-nums"
           :class="i === 0 ? 'text-survivor-sand' : 'text-text-subtle'"
         >{{ i + 1 }}</span>
-        <span class="flex-1 truncate font-semibold text-text-default">{{ row.teamName ?? '(no name)' }}</span>
+        <RouterLink
+          :to="`/team/${row.teamId}`"
+          class="flex-1 truncate font-semibold text-text-default hover:text-text-accent"
+        >{{ row.teamName ?? '(no name)' }}</RouterLink>
         <span
           class="shrink-0 text-base font-bold tabular-nums"
           :class="row.totalPoints >= 0 ? 'text-text-default' : 'text-status-error'"

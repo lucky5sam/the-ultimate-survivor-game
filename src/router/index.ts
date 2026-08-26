@@ -17,6 +17,7 @@ const router = createRouter({
         { path: 'dashboard', component: () => import('../views/DashboardView.vue') },
         { path: 'leaderboard', component: () => import('../views/LeaderboardView.vue') },
         { path: 'my-team', component: () => import('../views/TeamView.vue') },
+        { path: 'team/:teamId', component: () => import('../views/PublicTeamView.vue') },
         { path: 'profile', component: () => import('../views/ProfileView.vue') },
       ],
     },
