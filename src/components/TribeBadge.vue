@@ -5,7 +5,7 @@
 import { ref } from 'vue'
 import { getTribeColors } from '../utils/tribeColors'
 
-const props = defineProps<{ tribe: string }>()
+const props = withDefaults(defineProps<{ tribe: string; size?: number }>(), { size: 20 })
 
 const showTip = ref(false)
 const tipPos = ref({ x: 0, y: 0 })
@@ -23,8 +23,13 @@ function onLeave() {
 
 <template>
   <span
-    class="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-[10px] font-bold text-white"
-    :style="{ backgroundColor: getTribeColors(tribe).primary }"
+    class="inline-flex shrink-0 items-center justify-center rounded-sm font-bold text-white"
+    :style="{
+      width: `${size}px`,
+      height: `${size}px`,
+      fontSize: `${Math.round(size * 0.5)}px`,
+      backgroundColor: getTribeColors(tribe).primary,
+    }"
     :aria-label="tribe"
     @mouseenter="onEnter"
     @mouseleave="onLeave"

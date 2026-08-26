@@ -51,6 +51,15 @@ const swapContestant = ref<Contestant | null>(null)
 const swapForm = ref({ tribe: '', fromEpisode: 1 })
 const savingSwap = ref(false)
 
+// Bulk tribe editor: edit every contestant's tribe at once, effective from a
+// single chosen episode (Ep 1 for pre-season setup, or a later episode for a
+// mid-season swap that shuffles many contestants).
+const bulkMode = ref(false)
+const bulkEpisode = ref(1)
+const bulkTribes = ref<Record<string, string>>({}) // contestant id -> tribe
+const bulkSetAll = ref('')
+const savingBulk = ref(false)
+
 // The tribe in force at the latest episode — the newest assignment by episode.
 function currentTribeOf(c: Contestant): string {
   if (c.assignments.length === 0) return ''
@@ -420,9 +429,114 @@ async function saveSwap() {
   }
 }
 
+// The tribe in force for a contestant at a given episode: the latest assignment
+// that took effect on or before it (append-only — a later assignment supersedes).
+function tribeAtEpisode(c: Contestant, epNum: number): string {
+  const eligible = c.assignments.filter((a) => a.effective_from_episode <= epNum)
+  if (eligible.length === 0) return ''
+  return eligible.reduce((a, b) => (b.effective_from_episode > a.effective_from_episode ? b : a))
+    .tribe
+}
+
+// Episode numbers to choose from for the bulk "effective from" — falls back to
+// [1] before any episodes exist (pre-season initial-tribe setup).
+const bulkEpisodeOptions = computed(() => {
+  const nums = episodes.value.map((e) => e.number)
+  return nums.length ? nums : [1]
+})
+
+function openBulk() {
+  bulkEpisode.value = bulkEpisodeOptions.value[0] ?? 1
+  bulkSetAll.value = ''
+  seedBulkTribes()
+  bulkMode.value = true
+}
+
+// Seed each row's dropdown with the tribe currently in force at the chosen episode.
+function seedBulkTribes() {
+  const map: Record<string, string> = {}
+  for (const c of contestants.value) map[c.id] = tribeAtEpisode(c, bulkEpisode.value)
+  bulkTribes.value = map
+}
+
+function applyBulkSetAll() {
+  if (!bulkSetAll.value) return
+  const map: Record<string, string> = {}
+  for (const c of contestants.value) map[c.id] = bulkSetAll.value
+  bulkTribes.value = map
+}
+
+function cancelBulk() {
+  bulkMode.value = false
+  bulkTribes.value = {}
+  bulkSetAll.value = ''
+}
+
+async function saveBulk() {
+  savingBulk.value = true
+  errorMsg.value = ''
+  const ep = bulkEpisode.value
+  try {
+    // Build the minimal set of writes: only touch a contestant when the chosen
+    // tribe actually changes what's in force at this episode. Mirrors the
+    // single-edit rule — correct the row at this episode in place if one exists,
+    // otherwise insert. A choice that matches the prior episode's tribe is a
+    // no-op (or removes a now-redundant swap row).
+    const ops: PromiseLike<{ error: { message: string } | null }>[] = []
+    for (const c of contestants.value) {
+      const desired = (bulkTribes.value[c.id] ?? '').trim()
+      if (!desired) continue // bulk editor never clears a tribe
+      const existingAtEp = c.assignments.find((a) => a.effective_from_episode === ep)
+      const priorTribe = ep > 1 ? tribeAtEpisode(c, ep - 1) : ''
+      const redundant = ep > 1 && desired === priorTribe
+
+      if (existingAtEp) {
+        if (redundant) {
+          ops.push(supabase.from('contestant_tribe_assignments').delete().eq('id', existingAtEp.id))
+        } else if (existingAtEp.tribe !== desired) {
+          ops.push(
+            supabase
+              .from('contestant_tribe_assignments')
+              .update({ tribe: desired })
+              .eq('id', existingAtEp.id),
+          )
+        }
+      } else if (!redundant) {
+        ops.push(
+          supabase.from('contestant_tribe_assignments').insert({
+            contestant_id: c.id,
+            tribe: desired,
+            effective_from_episode: ep,
+          }),
+        )
+      }
+    }
+
+    const results = await Promise.all(ops)
+    const failed = results.find((r) => r.error)
+    if (failed?.error) throw new Error(failed.error.message)
+
+    bulkMode.value = false
+    bulkTribes.value = {}
+    bulkSetAll.value = ''
+    await loadContestants()
+  } catch (e) {
+    errorMsg.value = e instanceof Error ? e.message : 'Failed to save tribes'
+  } finally {
+    savingBulk.value = false
+  }
+}
+
+// Re-seed the dropdowns when the effective episode changes mid-edit, so each
+// row reflects the tribe in force at the newly chosen episode.
+watch(bulkEpisode, () => {
+  if (bulkMode.value) seedBulkTribes()
+})
+
 // loadSeasons sets selectedSeasonId, which triggers this watch — so the initial
 // data load runs once (no duplicate load in onMounted).
 watch(selectedSeasonId, () => {
+  cancelBulk()
   loadContestants()
   loadEpisodes()
   loadTribesList()
@@ -434,7 +548,29 @@ onMounted(loadSeasons)
   <div>
     <div class="flex items-center justify-between mb-6">
       <h1 class="text-2xl font-bold">Contestants</h1>
-      <div class="flex gap-2">
+      <div v-if="bulkMode" class="flex gap-2">
+        <button
+          @click="cancelBulk"
+          class="bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 text-sm font-semibold px-4 py-2 rounded-lg"
+        >
+          Cancel
+        </button>
+        <button
+          @click="saveBulk"
+          :disabled="savingBulk"
+          class="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-lg"
+        >
+          {{ savingBulk ? 'Saving…' : 'Save Tribes' }}
+        </button>
+      </div>
+      <div v-else class="flex gap-2">
+        <button
+          @click="openBulk"
+          :disabled="!selectedSeasonId || contestants.length === 0"
+          class="bg-white hover:bg-gray-50 disabled:opacity-40 border border-gray-300 text-gray-700 text-sm font-semibold px-4 py-2 rounded-lg"
+        >
+          Bulk Edit Tribes
+        </button>
         <button
           @click="showCsvModal = true"
           :disabled="!selectedSeasonId"
@@ -474,49 +610,110 @@ onMounted(loadSeasons)
       No contestants yet for this season.
     </div>
 
-    <table v-else class="w-full text-sm bg-white rounded-xl shadow overflow-hidden">
-      <thead class="bg-gray-100 text-gray-600 text-left">
-        <tr>
-          <th class="px-4 py-3">Name</th>
-          <th class="px-4 py-3">Tribe</th>
-          <th class="px-4 py-3">Photo URL</th>
-          <th class="px-4 py-3"></th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="c in contestants" :key="c.id" class="border-t border-gray-100">
-          <td class="px-4 py-3 font-medium">{{ c.name }}</td>
-          <td class="px-4 py-3">
-            <span v-if="currentTribeOf(c)" class="text-gray-700">{{ currentTribeOf(c) }}</span>
-            <span v-else class="text-gray-300">—</span>
-            <span v-if="c.assignments.length > 1" class="ml-1 text-xs text-gray-400"
-              >(swapped)</span
+    <div v-else>
+      <!-- Bulk edit toolbar: set the effective episode and optionally fill every row. -->
+      <div
+        v-if="bulkMode"
+        class="mb-4 flex flex-wrap items-end gap-4 rounded-xl border border-blue-200 bg-blue-50 p-4"
+      >
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Effective from episode</label>
+          <select
+            v-model.number="bulkEpisode"
+            class="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option v-for="n in bulkEpisodeOptions" :key="n" :value="n">Episode {{ n }}</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Set all to</label>
+          <div class="flex gap-2">
+            <select
+              v-model="bulkSetAll"
+              class="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-          </td>
-          <td class="px-4 py-3 text-gray-400 truncate max-w-xs">{{ c.photo_url ?? '—' }}</td>
-          <td class="px-4 py-3 text-right space-x-3">
+              <option value="">Select tribe…</option>
+              <option v-for="t in tribeNames" :key="t" :value="t">{{ t }}</option>
+            </select>
             <button
-              @click="openSwap(c)"
-              class="text-indigo-600 hover:text-indigo-800 text-xs font-medium"
+              @click="applyBulkSetAll"
+              :disabled="!bulkSetAll"
+              class="bg-white hover:bg-gray-50 disabled:opacity-40 border border-gray-300 text-gray-700 text-sm font-semibold px-3 py-2 rounded-lg"
             >
-              Tribe
+              Apply to all
             </button>
-            <button
-              @click="openEdit(c)"
-              class="text-blue-600 hover:text-blue-800 text-xs font-medium"
-            >
-              Edit
-            </button>
-            <button
-              @click="deleteContestant(c.id, c.name)"
-              class="text-red-500 hover:text-red-700 text-xs font-medium"
-            >
-              Delete
-            </button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+          </div>
+        </div>
+        <p class="text-xs text-gray-500 pb-2">
+          Editing the tribe in force from Episode {{ bulkEpisode }} onward.
+        </p>
+      </div>
+
+      <table class="w-full text-sm bg-white rounded-xl shadow overflow-hidden">
+        <thead class="bg-gray-100 text-gray-600 text-left">
+          <tr>
+            <th class="px-4 py-3">Name</th>
+            <th class="px-4 py-3">Tribe</th>
+            <th v-if="!bulkMode" class="px-4 py-3">Photo URL</th>
+            <th class="px-4 py-3"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="c in contestants" :key="c.id" class="border-t border-gray-100">
+            <td class="px-4 py-3 font-medium">{{ c.name }}</td>
+            <td class="px-4 py-3">
+              <div v-if="bulkMode" class="flex items-center gap-2">
+                <span
+                  class="inline-block h-3 w-3 shrink-0 rounded-sm border border-gray-200"
+                  :style="{
+                    backgroundColor: tribeColorOf(bulkTribes[c.id] ?? '') || 'transparent',
+                  }"
+                ></span>
+                <select
+                  v-model="bulkTribes[c.id]"
+                  class="border border-gray-300 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">—</option>
+                  <option v-for="t in tribeOptions(bulkTribes[c.id] ?? '')" :key="t" :value="t">
+                    {{ t }}
+                  </option>
+                </select>
+              </div>
+              <template v-else>
+                <span v-if="currentTribeOf(c)" class="text-gray-700">{{ currentTribeOf(c) }}</span>
+                <span v-else class="text-gray-300">—</span>
+                <span v-if="c.assignments.length > 1" class="ml-1 text-xs text-gray-400"
+                  >(swapped)</span
+                >
+              </template>
+            </td>
+            <td v-if="!bulkMode" class="px-4 py-3 text-gray-400 truncate max-w-xs">
+              {{ c.photo_url ?? '—' }}
+            </td>
+            <td v-if="!bulkMode" class="px-4 py-3 text-right space-x-3">
+              <button
+                @click="openSwap(c)"
+                class="text-indigo-600 hover:text-indigo-800 text-xs font-medium"
+              >
+                Tribe
+              </button>
+              <button
+                @click="openEdit(c)"
+                class="text-blue-600 hover:text-blue-800 text-xs font-medium"
+              >
+                Edit
+              </button>
+              <button
+                @click="deleteContestant(c.id, c.name)"
+                class="text-red-500 hover:text-red-700 text-xs font-medium"
+              >
+                Delete
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
     <!-- CSV Import Modal -->
     <div

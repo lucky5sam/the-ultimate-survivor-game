@@ -9,7 +9,6 @@
 // the chip as a static label.
 import { computed } from 'vue'
 import ContestantAvatar from './ContestantAvatar.vue'
-import TribeBadge from './TribeBadge.vue'
 import type { ContestantFull } from '../types/contestant'
 
 type ActivePlayer = {
@@ -115,19 +114,18 @@ function playerStatus(id: string): { out: boolean; ep: number | null } {
         <ContestantAvatar
           :photo-url="contestantPhoto(player.contestant_id)"
           :name="contestantName(player.contestant_id)"
+          :tribe="contestantTribe(player.contestant_id)"
+          show-tribe
         />
         <div>
-          <div class="flex items-center gap-1.5">
-            <p class="text-sm font-medium leading-tight">
-              <span class="text-text-default">{{ contestantFirstName(player.contestant_id) }}</span>
-              <span
-                v-if="contestantLastName(player.contestant_id)"
-                class="ml-1 hidden text-text-subtle sm:inline"
-                >{{ contestantLastName(player.contestant_id) }}</span
-              >
-            </p>
-            <TribeBadge :tribe="contestantTribe(player.contestant_id)" />
-          </div>
+          <p class="text-sm font-medium leading-tight">
+            <span class="text-text-default">{{ contestantFirstName(player.contestant_id) }}</span>
+            <span
+              v-if="contestantLastName(player.contestant_id)"
+              class="ml-1 hidden text-text-subtle sm:inline"
+              >{{ contestantLastName(player.contestant_id) }}</span
+            >
+          </p>
           <div class="mt-0.5 text-xs text-text-muted">
             Ep {{ player.effective_from_episode }}–now
           </div>
