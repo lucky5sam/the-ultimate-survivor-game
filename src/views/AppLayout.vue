@@ -13,6 +13,7 @@ const router = useRouter()
 const tabs = [
   { label: 'Dashboard', to: '/dashboard' },
   { label: 'Leaderboard', to: '/leaderboard' },
+  { label: 'Event Log', to: '/event-log' },
   { label: 'My Team', to: '/my-team' },
 ]
 
