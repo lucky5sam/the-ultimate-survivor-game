@@ -20,6 +20,7 @@ export type LeaderboardPlayer = { contestantId: string; name: string; isMvp: boo
 export type LeaderboardRow = {
   teamId: string
   teamName: string | null
+  ownerName: string
   players: LeaderboardPlayer[]
   actionPoints: number
   bountyPoints: number
@@ -82,13 +83,27 @@ export async function computeLeaderboard(seasonId: string): Promise<LeaderboardR
   // Teams for the season
   const { data: teamsData, error: teamsErr } = await supabase
     .from('teams')
-    .select('id, team_name')
+    .select('id, team_name, user_id')
     .eq('season_id', seasonId)
   if (teamsErr) throw new Error(teamsErr.message)
   const teams = teamsData ?? []
   const teamIds = teams.map(t => t.id)
 
   if (teamIds.length === 0) return []
+
+  // Owner names for each team (subject to profiles RLS — degrades to '' if a
+  // profile isn't readable).
+  const ownerIds = [...new Set(teams.map(t => t.user_id).filter(Boolean))]
+  const ownerNameMap: Record<string, string> = {}
+  if (ownerIds.length > 0) {
+    const { data: profs } = await supabase
+      .from('profiles')
+      .select('id, first_name, last_name')
+      .in('id', ownerIds)
+    for (const p of profs ?? []) {
+      ownerNameMap[p.id] = `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim()
+    }
+  }
 
   // All team_player records (including historical) with effective date range
   const { data: tpData, error: tpErr } = await supabase
@@ -208,6 +223,7 @@ export async function computeLeaderboard(seasonId: string): Promise<LeaderboardR
       return {
         teamId: team.id,
         teamName: team.team_name,
+        ownerName: ownerNameMap[team.user_id] ?? '',
         players,
         actionPoints,
         bountyPoints,

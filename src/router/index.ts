@@ -13,9 +13,10 @@ const router = createRouter({
       component: () => import('../views/AppLayout.vue'),
       meta: { requiresAuth: true },
       children: [
-        { path: '', redirect: '/my-team' },
-        { path: 'my-team', component: () => import('../views/TeamView.vue') },
+        { path: '', redirect: '/dashboard' },
+        { path: 'dashboard', component: () => import('../views/DashboardView.vue') },
         { path: 'leaderboard', component: () => import('../views/LeaderboardView.vue') },
+        { path: 'my-team', component: () => import('../views/TeamView.vue') },
       ],
     },
     {

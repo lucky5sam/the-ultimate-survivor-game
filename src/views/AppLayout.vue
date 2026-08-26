@@ -11,11 +11,12 @@ const route = useRoute()
 const router = useRouter()
 
 const tabs = [
+  { label: 'Dashboard', to: '/dashboard' },
   { label: 'Leaderboard', to: '/leaderboard' },
   { label: 'My Team', to: '/my-team' },
 ]
 
-const activeTab = computed(() => tabs.find(t => t.to === route.path) ?? tabs[1]!)
+const activeTab = computed(() => tabs.find(t => t.to === route.path) ?? tabs[0]!)
 const menuOpen = ref(false)
 
 const ownerName = computed(() =>

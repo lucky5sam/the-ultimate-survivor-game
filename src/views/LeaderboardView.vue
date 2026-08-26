@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { supabase } from '../lib/supabase'
 import { computeLeaderboard, type LeaderboardRow } from '../composables/useLeaderboard'
 import BaseCard from '../components/base/BaseCard.vue'
@@ -39,12 +39,26 @@ function fmtPts(n: number) {
   return n.toFixed(1)
 }
 
+// Widest roster in the field, so every team gets the same number of player columns.
+const maxPlayers = computed(() => rows.value.reduce((m, r) => Math.max(m, r.players.length), 0) || 4)
+
+// Ranked rows with each roster sorted MVP-first, then by individual score.
+const displayRows = computed(() =>
+  rows.value.map((r, i) => ({
+    ...r,
+    rank: i + 1,
+    roster: [...r.players].sort(
+      (a, b) => (b.isMvp ? 1 : 0) - (a.isMvp ? 1 : 0) || b.points - a.points,
+    ),
+  })),
+)
+
 watch(selectedSeasonId, loadLeaderboard)
 onMounted(async () => { await loadSeasons(); await loadLeaderboard() })
 </script>
 
 <template>
-  <div class="mx-auto w-full max-w-3xl px-6 py-8">
+  <div class="w-full px-4 py-8 sm:px-6">
     <div class="mb-6 flex items-center justify-between">
       <h2 class="text-2xl font-bold text-text-default">Leaderboard</h2>
       <div v-if="seasons.length === 1" class="text-sm text-text-subtle">{{ seasons[0]?.name }}</div>
@@ -69,20 +83,69 @@ onMounted(async () => { await loadSeasons(); await loadLeaderboard() })
     </div>
 
     <BaseCard v-else padding="none" class="overflow-hidden">
-      <div
-        v-for="(row, i) in rows"
-        :key="row.teamId"
-        class="flex items-center gap-4 border-t border-border-subtle px-4 py-3 first:border-t-0"
-      >
-        <span
-          class="w-6 shrink-0 text-center text-base font-bold tabular-nums"
-          :class="i === 0 ? 'text-survivor-sand' : 'text-text-subtle'"
-        >{{ i + 1 }}</span>
-        <span class="flex-1 truncate font-semibold text-text-default">{{ row.teamName ?? '(no name)' }}</span>
-        <span
-          class="shrink-0 text-base font-bold tabular-nums"
-          :class="row.totalPoints >= 0 ? 'text-text-default' : 'text-status-error'"
-        >{{ fmtPts(row.totalPoints) }}</span>
+      <div class="overflow-x-auto">
+        <table class="w-full border-collapse text-sm">
+          <thead class="bg-surface-subtle text-xs uppercase tracking-wide text-text-muted">
+            <tr>
+              <th class="sticky left-0 z-10 w-52 bg-surface-subtle px-4 py-3 text-left">Team</th>
+              <th class="sticky left-52 z-10 w-20 bg-surface-subtle px-4 py-3 text-right">Total</th>
+              <th
+                v-for="n in maxPlayers"
+                :key="n"
+                class="min-w-[8rem] px-4 py-3 text-left"
+              >Player {{ n }}</th>
+              <th class="px-4 py-3 text-right">Actions</th>
+              <th class="px-4 py-3 text-right">Bounty</th>
+              <th class="px-4 py-3 text-right">Swaps</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="row in displayRows"
+              :key="row.teamId"
+              class="border-t border-border-subtle"
+            >
+              <!-- Team (sticky): rank + name + owner -->
+              <td class="sticky left-0 z-10 w-52 bg-surface-default px-4 py-3">
+                <div class="flex items-center gap-3">
+                  <span
+                    class="w-5 shrink-0 text-center font-bold tabular-nums"
+                    :class="row.rank === 1 ? 'text-survivor-sand' : 'text-text-subtle'"
+                  >{{ row.rank }}</span>
+                  <div class="min-w-0">
+                    <div class="truncate font-semibold text-text-default">{{ row.teamName ?? '(no name)' }}</div>
+                    <div v-if="row.ownerName" class="truncate text-xs text-text-muted">{{ row.ownerName }}</div>
+                  </div>
+                </div>
+              </td>
+
+              <!-- Total (sticky, next to team) -->
+              <td
+                class="sticky left-52 z-10 w-20 bg-surface-default px-4 py-3 text-right font-bold tabular-nums"
+                :class="row.totalPoints >= 0 ? 'text-text-default' : 'text-status-error'"
+              >{{ fmtPts(row.totalPoints) }}</td>
+
+              <!-- Player columns: name + individual score -->
+              <td v-for="n in maxPlayers" :key="n" class="px-4 py-3 align-top">
+                <template v-if="row.roster[n - 1]">
+                  <div class="truncate text-text-default">
+                    {{ row.roster[n - 1]!.name }}<span v-if="row.roster[n - 1]!.isMvp" class="text-survivor-sand"> ★</span>
+                  </div>
+                  <div class="tabular-nums text-xs text-text-muted">{{ fmtPts(row.roster[n - 1]!.points) }}</div>
+                </template>
+                <span v-else class="text-text-subtle">—</span>
+              </td>
+
+              <td class="whitespace-nowrap px-4 py-3 text-right tabular-nums text-text-default">{{ fmtPts(row.actionPoints) }}</td>
+              <td class="whitespace-nowrap px-4 py-3 text-right tabular-nums text-status-success">
+                {{ row.bountyPoints > 0 ? '+' + fmtPts(row.bountyPoints) : '—' }}
+              </td>
+              <td class="whitespace-nowrap px-4 py-3 text-right tabular-nums text-status-error">
+                {{ row.swapPenalty < 0 ? fmtPts(row.swapPenalty) : '—' }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </BaseCard>
   </div>
