@@ -38,10 +38,30 @@ function currentTribeOf(c: Contestant): string {
   return c.assignments.reduce((a, b) => (b.effective_from_episode > a.effective_from_episode ? b : a)).tribe
 }
 
-// Distinct tribe names seen this season, for the input suggestions datalist.
-const seasonTribes = computed(() =>
-  [...new Set(contestants.value.flatMap(c => c.assignments.map(a => a.tribe)).filter(Boolean))].sort(),
-)
+// Tribes defined for this season (the tribe picker pulls from these).
+type SeasonTribe = { name: string; color: string }
+const tribes = ref<SeasonTribe[]>([])
+const tribeNames = computed(() => tribes.value.map(t => t.name))
+
+// Options for a tribe <select>, including the current value even if it's a
+// legacy name no longer in the season's tribe list (so it isn't silently lost).
+function tribeOptions(current: string): string[] {
+  const names = tribeNames.value
+  return current && !names.includes(current) ? [current, ...names] : names
+}
+function tribeColorOf(name: string): string {
+  return tribes.value.find(t => t.name === name)?.color ?? ''
+}
+
+async function loadTribesList() {
+  if (!selectedSeasonId.value) { tribes.value = []; return }
+  const { data } = await supabase
+    .from('tribes')
+    .select('name, color')
+    .eq('season_id', selectedSeasonId.value)
+    .order('name')
+  tribes.value = data ?? []
+}
 
 // CSV import state
 const showCsvModal = ref(false)
@@ -317,8 +337,8 @@ async function saveSwap() {
   savingSwap.value = false
 }
 
-watch(selectedSeasonId, () => { loadContestants(); loadEpisodes() })
-onMounted(async () => { await loadSeasons(); await Promise.all([loadContestants(), loadEpisodes()]) })
+watch(selectedSeasonId, () => { loadContestants(); loadEpisodes(); loadTribesList() })
+onMounted(async () => { await loadSeasons(); await Promise.all([loadContestants(), loadEpisodes(), loadTribesList()]) })
 </script>
 
 <template>
@@ -392,10 +412,6 @@ onMounted(async () => { await loadSeasons(); await Promise.all([loadContestants(
       </tbody>
     </table>
 
-    <!-- Shared tribe suggestions -->
-    <datalist id="season-tribes">
-      <option v-for="t in seasonTribes" :key="t" :value="t" />
-    </datalist>
 
     <!-- CSV Import Modal -->
     <div
@@ -498,14 +514,25 @@ onMounted(async () => { await loadSeasons(); await Promise.all([loadContestants(
             <label class="block text-sm font-medium text-gray-700 mb-1">
               Starting tribe <span class="text-gray-400 font-normal">(Ep 1)</span>
             </label>
-            <input
-              v-model="form.tribe"
-              type="text"
-              list="season-tribes"
-              placeholder="e.g. Tagi"
-              class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <p class="mt-1 text-xs text-gray-400">Use “Tribe” on the list to record a mid-season swap.</p>
+            <div v-if="tribeNames.length" class="flex items-center gap-2">
+              <span
+                v-if="tribeColorOf(form.tribe)"
+                class="inline-block h-5 w-5 shrink-0 rounded"
+                :style="{ backgroundColor: tribeColorOf(form.tribe) }"
+              />
+              <select
+                v-model="form.tribe"
+                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">— none —</option>
+                <option v-for="name in tribeOptions(form.tribe)" :key="name" :value="name">{{ name }}</option>
+              </select>
+            </div>
+            <p v-else class="text-sm text-gray-400">
+              No tribes defined for this season yet — add them in
+              <span class="font-medium">Admin → Seasons → Tribes</span>.
+            </p>
+            <p v-if="tribeNames.length" class="mt-1 text-xs text-gray-400">Use “Tribe” on the list to record a mid-season swap.</p>
           </div>
 
           <div>
@@ -609,14 +636,24 @@ onMounted(async () => { await loadSeasons(); await Promise.all([loadContestants(
         <form @submit.prevent="saveSwap" class="space-y-4">
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">New tribe</label>
-            <input
-              v-model="swapForm.tribe"
-              type="text"
-              list="season-tribes"
-              required
-              placeholder="e.g. Kucha"
-              class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+            <div v-if="tribeNames.length" class="flex items-center gap-2">
+              <span
+                v-if="tribeColorOf(swapForm.tribe)"
+                class="inline-block h-5 w-5 shrink-0 rounded"
+                :style="{ backgroundColor: tribeColorOf(swapForm.tribe) }"
+              />
+              <select
+                v-model="swapForm.tribe"
+                required
+                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="" disabled>Select…</option>
+                <option v-for="name in tribeOptions(swapForm.tribe)" :key="name" :value="name">{{ name }}</option>
+              </select>
+            </div>
+            <p v-else class="text-sm text-gray-400">
+              No tribes defined for this season — add them in Admin → Seasons → Tribes.
+            </p>
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Effective from episode</label>
