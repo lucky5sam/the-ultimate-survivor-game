@@ -303,6 +303,23 @@ const seasonStartDisplay = computed(() =>
 // The invite link tracks the league's current season regardless of what's being viewed.
 const appCurrentSeason = computed(() => seasons.value.find(s => s.id === currentSeasonId.value) ?? null)
 const inviteLinkOpen = computed(() => registrationOpenFor(appCurrentSeason.value))
+const appCurrentSeasonStartDisplay = computed(() =>
+  appCurrentSeason.value?.starts_at ? fmtEt(appCurrentSeason.value.starts_at) : null,
+)
+// Live countdown to the current season's start (null if no date or already started).
+const countdown = computed(() => {
+  const iso = appCurrentSeason.value?.starts_at
+  if (!iso) return null
+  const diff = new Date(iso).getTime() - now.value
+  if (diff <= 0) return null
+  const totalSec = Math.floor(diff / 1000)
+  return {
+    days: Math.floor(totalSec / 86400),
+    hours: Math.floor((totalSec % 86400) / 3600),
+    minutes: Math.floor((totalSec % 3600) / 60),
+    seconds: totalSec % 60,
+  }
+})
 
 const currentEpisodeNumber = computed(() => {
   const epId = currentSeason.value?.current_episode_id
@@ -622,11 +639,6 @@ async function copyInviteLink() {
   toast.success('Invite link copied to clipboard')
 }
 
-async function handleSignOut() {
-  await supabase.auth.signOut()
-  router.push('/login')
-}
-
 watch(selectedSeasonId, async () => {
   loading.value = true
   await Promise.all([loadContestants(), loadMyTeam()])
@@ -636,7 +648,7 @@ watch(selectedSeasonId, async () => {
 })
 
 onMounted(async () => {
-  nowTimer = setInterval(() => { now.value = Date.now() }, 30_000)
+  nowTimer = setInterval(() => { now.value = Date.now() }, 1_000)
   await loadSeasons()
   await Promise.all([loadContestants(), loadMyTeam()])
   await Promise.all([loadEpisodesAndBounty(), loadSeasonConfig()])
@@ -650,18 +662,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-surface-page flex flex-col">
-    <header class="bg-surface-default border-b border-border-subtle px-6 py-4 flex items-center justify-between shrink-0">
-      <h1 class="text-xl font-bold text-text-default">The Ultimate Survivor Game</h1>
-      <div class="flex items-center gap-4 text-sm">
-        <RouterLink to="/leaderboard" class="text-text-accent hover:text-interactive-accent-hover">Leaderboard</RouterLink>
-        <button v-if="inviteLinkOpen" @click="copyInviteLink" class="text-text-accent hover:text-interactive-accent-hover">Copy invite link</button>
-        <RouterLink v-if="auth.isAdmin" to="/admin" class="text-text-accent hover:text-interactive-accent-hover">Admin</RouterLink>
-        <span class="text-text-muted">{{ ownerName }}</span>
-        <button @click="handleSignOut" class="text-status-error hover:opacity-80">Sign out</button>
-      </div>
-    </header>
-
+  <div class="flex flex-1 flex-col">
     <!-- Viewing a previous season -->
     <div
       v-if="!loading && currentSeasonId && !isOnCurrentSeason"
@@ -719,6 +720,50 @@ onUnmounted(() => {
     <!-- Constrained team management view when team exists -->
     <div v-else class="max-w-3xl mx-auto px-6 py-8 w-full">
       <template v-if="seasons.length > 0">
+        <!-- Invite banner — live countdown to season start, primary copy action -->
+        <div
+          v-if="inviteLinkOpen"
+          class="mb-6 flex flex-col gap-3 rounded-lg border border-border-accent bg-surface-accent px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div class="min-w-0">
+            <p class="truncate text-sm font-semibold text-text-default">
+              Invite friends to {{ appCurrentSeason?.name }}
+            </p>
+            <p class="text-xs text-text-muted">
+              <template v-if="appCurrentSeasonStartDisplay">Season starts on {{ appCurrentSeasonStartDisplay }}</template>
+              <template v-else>Registration is open</template>
+            </p>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <!-- Countdown -->
+            <div v-if="countdown" class="flex items-center gap-1.5">
+              <div
+                v-for="seg in [
+                  { v: countdown.days, l: 'days' },
+                  { v: countdown.hours, l: 'hrs' },
+                  { v: countdown.minutes, l: 'min' },
+                  { v: countdown.seconds, l: 'sec' },
+                ]"
+                :key="seg.l"
+                class="flex w-11 flex-col items-center rounded-md bg-surface-default py-1"
+              >
+                <span class="text-base font-bold tabular-nums leading-none text-text-default">
+                  {{ seg.l === 'days' ? seg.v : String(seg.v).padStart(2, '0') }}
+                </span>
+                <span class="mt-0.5 text-[10px] uppercase tracking-wide text-text-muted">{{ seg.l }}</span>
+              </div>
+            </div>
+
+            <BaseButton variant="primary" size="sm" @click="copyInviteLink">
+              <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+              Copy link
+            </BaseButton>
+          </div>
+        </div>
+
         <!-- Team header — team name is the primary identity -->
         <div class="mb-6">
           <h2 class="text-2xl font-bold text-text-default">{{ existingTeam?.team_name || 'My Team' }}</h2>

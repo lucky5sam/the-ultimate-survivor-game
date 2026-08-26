@@ -8,9 +8,16 @@ const router = createRouter({
   routes: [
     { path: '/login', component: LoginView },
     { path: '/reset-password', component: () => import('../views/ResetPasswordView.vue') },
-    { path: '/', redirect: '/my-team' },
-    { path: '/my-team', component: () => import('../views/TeamView.vue'), meta: { requiresAuth: true } },
-    { path: '/leaderboard', component: () => import('../views/LeaderboardView.vue'), meta: { requiresAuth: true } },
+    {
+      path: '/',
+      component: () => import('../views/AppLayout.vue'),
+      meta: { requiresAuth: true },
+      children: [
+        { path: '', redirect: '/my-team' },
+        { path: 'my-team', component: () => import('../views/TeamView.vue') },
+        { path: 'leaderboard', component: () => import('../views/LeaderboardView.vue') },
+      ],
+    },
     {
       path: '/admin',
       component: () => import('../views/admin/AdminLayout.vue'),
