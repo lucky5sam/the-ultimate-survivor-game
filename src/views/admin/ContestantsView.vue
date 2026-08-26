@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { supabase } from '../../lib/supabase'
 
 type Season = { id: string; name: string }
+type TribeAssignment = { id: string; tribe: string; effective_from_episode: number }
+type Episode = { id: string; number: number; title: string | null }
 type Contestant = {
   id: string; season_id: string; name: string; photo_url: string | null
   bio: string | null; age: number | null; hometown: string | null; occupation: string | null
+  assignments: TribeAssignment[]
 }
 type CsvRow = {
   name: string; tribe: string; photo_url: string
@@ -15,13 +18,30 @@ type CsvRow = {
 const seasons = ref<Season[]>([])
 const selectedSeasonId = ref<string>('')
 const contestants = ref<Contestant[]>([])
+const episodes = ref<Episode[]>([])
 const loading = ref(false)
 const errorMsg = ref('')
 const showForm = ref(false)
 const saving = ref(false)
 const editingId = ref<string | null>(null)
 
-const form = ref({ name: '', photo_url: '', bio: '', age: '', hometown: '', occupation: '' })
+const form = ref({ name: '', photo_url: '', bio: '', age: '', hometown: '', occupation: '', tribe: '' })
+
+// Tribe-swap modal (records an append-only assignment effective from a chosen episode)
+const swapContestant = ref<Contestant | null>(null)
+const swapForm = ref({ tribe: '', fromEpisode: 1 })
+const savingSwap = ref(false)
+
+// The tribe in force at the latest episode — the newest assignment by episode.
+function currentTribeOf(c: Contestant): string {
+  if (c.assignments.length === 0) return ''
+  return c.assignments.reduce((a, b) => (b.effective_from_episode > a.effective_from_episode ? b : a)).tribe
+}
+
+// Distinct tribe names seen this season, for the input suggestions datalist.
+const seasonTribes = computed(() =>
+  [...new Set(contestants.value.flatMap(c => c.assignments.map(a => a.tribe)).filter(Boolean))].sort(),
+)
 
 // CSV import state
 const showCsvModal = ref(false)
@@ -155,12 +175,28 @@ async function loadContestants() {
   loading.value = true
   const { data, error } = await supabase
     .from('contestants')
-    .select('*')
+    .select('*, contestant_tribe_assignments(id, tribe, effective_from_episode)')
     .eq('season_id', selectedSeasonId.value)
     .order('name')
   if (error) errorMsg.value = error.message
-  else contestants.value = data ?? []
+  else
+    contestants.value = (data ?? []).map((c: any) => ({
+      ...c,
+      assignments: ((c.contestant_tribe_assignments as TribeAssignment[]) ?? []).sort(
+        (a, b) => a.effective_from_episode - b.effective_from_episode,
+      ),
+    }))
   loading.value = false
+}
+
+async function loadEpisodes() {
+  if (!selectedSeasonId.value) { episodes.value = []; return }
+  const { data } = await supabase
+    .from('episodes')
+    .select('id, number, title')
+    .eq('season_id', selectedSeasonId.value)
+    .order('number')
+  episodes.value = data ?? []
 }
 
 async function saveContestant() {
@@ -176,12 +212,39 @@ async function saveContestant() {
     season_id: selectedSeasonId.value,
   }
 
+  const tribe = form.value.tribe.trim()
+
   if (editingId.value) {
     const { error } = await supabase.from('contestants').update(payload).eq('id', editingId.value)
     if (error) { errorMsg.value = error.message; saving.value = false; return }
+
+    // The form's Tribe field is the *initial* (Ep 1) tribe. Correct it in place
+    // if it changed; mid-season changes are recorded via the Change tribe flow.
+    const existing = contestants.value
+      .find(c => c.id === editingId.value)
+      ?.assignments.find(a => a.effective_from_episode === 1)
+    if (tribe && existing && existing.tribe !== tribe) {
+      const { error: e } = await supabase
+        .from('contestant_tribe_assignments')
+        .update({ tribe }).eq('id', existing.id)
+      if (e) { errorMsg.value = e.message; saving.value = false; return }
+    } else if (tribe && !existing) {
+      const { error: e } = await supabase
+        .from('contestant_tribe_assignments')
+        .insert({ contestant_id: editingId.value, tribe, effective_from_episode: 1 })
+      if (e) { errorMsg.value = e.message; saving.value = false; return }
+    }
   } else {
-    const { error } = await supabase.from('contestants').insert(payload)
-    if (error) { errorMsg.value = error.message; saving.value = false; return }
+    const { data: inserted, error } = await supabase
+      .from('contestants').insert(payload).select('id').single()
+    if (error || !inserted) { errorMsg.value = error?.message ?? 'Insert failed.'; saving.value = false; return }
+
+    if (tribe) {
+      const { error: e } = await supabase
+        .from('contestant_tribe_assignments')
+        .insert({ contestant_id: inserted.id, tribe, effective_from_episode: 1 })
+      if (e) { errorMsg.value = e.message; saving.value = false; return }
+    }
   }
 
   showForm.value = false
@@ -212,16 +275,50 @@ function openEdit(c: Contestant) {
     age: c.age !== null ? String(c.age) : '',
     hometown: c.hometown ?? '',
     occupation: c.occupation ?? '',
+    tribe: c.assignments.find(a => a.effective_from_episode === 1)?.tribe ?? '',
   }
   showForm.value = true
 }
 
 function resetForm() {
-  form.value = { name: '', photo_url: '', bio: '', age: '', hometown: '', occupation: '' }
+  form.value = { name: '', photo_url: '', bio: '', age: '', hometown: '', occupation: '', tribe: '' }
 }
 
-watch(selectedSeasonId, loadContestants)
-onMounted(async () => { await loadSeasons(); await loadContestants() })
+function openSwap(c: Contestant) {
+  swapContestant.value = c
+  const nextEp = episodes.value.find(e => !c.assignments.some(a => a.effective_from_episode === e.number))
+  swapForm.value = {
+    tribe: '',
+    fromEpisode: nextEp?.number ?? (episodes.value[episodes.value.length - 1]?.number ?? 2),
+  }
+}
+
+async function saveSwap() {
+  if (!swapContestant.value) return
+  const tribe = swapForm.value.tribe.trim()
+  if (!tribe) return
+  savingSwap.value = true
+  errorMsg.value = ''
+  // Append-only: a tribe change is a new assignment row effective from the
+  // chosen episode. If a row already exists for that episode, correct it.
+  const existing = swapContestant.value.assignments.find(
+    a => a.effective_from_episode === swapForm.value.fromEpisode,
+  )
+  const { error } = existing
+    ? await supabase.from('contestant_tribe_assignments').update({ tribe }).eq('id', existing.id)
+    : await supabase.from('contestant_tribe_assignments').insert({
+        contestant_id: swapContestant.value.id,
+        tribe,
+        effective_from_episode: swapForm.value.fromEpisode,
+      })
+  if (error) { errorMsg.value = error.message; savingSwap.value = false; return }
+  swapContestant.value = null
+  await loadContestants()
+  savingSwap.value = false
+}
+
+watch(selectedSeasonId, () => { loadContestants(); loadEpisodes() })
+onMounted(async () => { await loadSeasons(); await Promise.all([loadContestants(), loadEpisodes()]) })
 </script>
 
 <template>
@@ -272,6 +369,7 @@ onMounted(async () => { await loadSeasons(); await loadContestants() })
       <thead class="bg-gray-100 text-gray-600 text-left">
         <tr>
           <th class="px-4 py-3">Name</th>
+          <th class="px-4 py-3">Tribe</th>
           <th class="px-4 py-3">Photo URL</th>
           <th class="px-4 py-3"></th>
         </tr>
@@ -279,14 +377,25 @@ onMounted(async () => { await loadSeasons(); await loadContestants() })
       <tbody>
         <tr v-for="c in contestants" :key="c.id" class="border-t border-gray-100">
           <td class="px-4 py-3 font-medium">{{ c.name }}</td>
+          <td class="px-4 py-3">
+            <span v-if="currentTribeOf(c)" class="text-gray-700">{{ currentTribeOf(c) }}</span>
+            <span v-else class="text-gray-300">—</span>
+            <span v-if="c.assignments.length > 1" class="ml-1 text-xs text-gray-400">(swapped)</span>
+          </td>
           <td class="px-4 py-3 text-gray-400 truncate max-w-xs">{{ c.photo_url ?? '—' }}</td>
           <td class="px-4 py-3 text-right space-x-3">
+            <button @click="openSwap(c)" class="text-indigo-600 hover:text-indigo-800 text-xs font-medium">Tribe</button>
             <button @click="openEdit(c)" class="text-blue-600 hover:text-blue-800 text-xs font-medium">Edit</button>
             <button @click="deleteContestant(c.id, c.name)" class="text-red-500 hover:text-red-700 text-xs font-medium">Delete</button>
           </td>
         </tr>
       </tbody>
     </table>
+
+    <!-- Shared tribe suggestions -->
+    <datalist id="season-tribes">
+      <option v-for="t in seasonTribes" :key="t" :value="t" />
+    </datalist>
 
     <!-- CSV Import Modal -->
     <div
@@ -386,6 +495,20 @@ onMounted(async () => { await loadSeasons(); await loadContestants() })
           </div>
 
           <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              Starting tribe <span class="text-gray-400 font-normal">(Ep 1)</span>
+            </label>
+            <input
+              v-model="form.tribe"
+              type="text"
+              list="season-tribes"
+              placeholder="e.g. Tagi"
+              class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <p class="mt-1 text-xs text-gray-400">Use “Tribe” on the list to record a mid-season swap.</p>
+          </div>
+
+          <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Photo URL <span class="text-gray-400 font-normal">(optional)</span></label>
             <input
               v-model="form.photo_url"
@@ -454,6 +577,86 @@ onMounted(async () => { await loadSeasons(); await loadContestants() })
               class="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-lg"
             >
               {{ saving ? 'Saving…' : editingId ? 'Save changes' : 'Add contestant' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Tribe swap modal -->
+    <div
+      v-if="swapContestant"
+      class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+      @click.self="swapContestant = null"
+    >
+      <div class="bg-white rounded-xl shadow-lg w-full max-w-sm p-6">
+        <h2 class="text-lg font-bold mb-1">Change tribe</h2>
+        <p class="text-sm text-gray-500 mb-4">{{ swapContestant.name }}</p>
+
+        <!-- Assignment history -->
+        <div v-if="swapContestant.assignments.length" class="mb-4 rounded-lg bg-gray-50 p-3 text-sm">
+          <p class="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">History</p>
+          <div
+            v-for="a in swapContestant.assignments"
+            :key="a.id"
+            class="flex justify-between py-0.5 text-gray-600"
+          >
+            <span>{{ a.tribe }}</span>
+            <span class="text-gray-400">from Ep {{ a.effective_from_episode }}</span>
+          </div>
+        </div>
+
+        <form @submit.prevent="saveSwap" class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">New tribe</label>
+            <input
+              v-model="swapForm.tribe"
+              type="text"
+              list="season-tribes"
+              required
+              placeholder="e.g. Kucha"
+              class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Effective from episode</label>
+            <select
+              v-if="episodes.length"
+              v-model.number="swapForm.fromEpisode"
+              class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option v-for="e in episodes" :key="e.id" :value="e.number">
+                Episode {{ e.number }}{{ e.title ? ': ' + e.title : '' }}
+              </option>
+            </select>
+            <input
+              v-else
+              v-model.number="swapForm.fromEpisode"
+              type="number"
+              min="1"
+              class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <p class="mt-1 text-xs text-gray-400">
+              The contestant counts on the new tribe from this episode onward.
+            </p>
+          </div>
+
+          <p v-if="errorMsg" class="text-sm text-red-600">{{ errorMsg }}</p>
+
+          <div class="flex justify-end gap-3 pt-2">
+            <button
+              type="button"
+              @click="swapContestant = null"
+              class="text-sm text-gray-500 hover:text-gray-700 px-4 py-2"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              :disabled="savingSwap || !swapForm.tribe.trim()"
+              class="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-lg"
+            >
+              {{ savingSwap ? 'Saving…' : 'Record change' }}
             </button>
           </div>
         </form>
