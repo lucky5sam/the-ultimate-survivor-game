@@ -152,6 +152,7 @@ const seasonConfig = ref<SeasonConfig>({
   bounty_points_finale: 20,
 })
 const swapsUsed = ref(0)
+const swapModalOpen = ref(false)
 const swappingPlayer = ref<ActivePlayer | null>(null)
 const selectedReplacementId = ref<string | null>(null)
 const savingSwap = ref(false)
@@ -596,6 +597,22 @@ function contestantPhoto(id: string) {
 function openSwapModal(player: ActivePlayer) {
   swappingPlayer.value = player
   selectedReplacementId.value = null
+  swapModalOpen.value = true
+}
+
+// Open the swap modal with nothing preselected (the "Edit" roster button); the
+// user picks both the player to swap out and the replacement inside the modal.
+function openEditRoster() {
+  if (!canManageRoster.value) return
+  swappingPlayer.value = null
+  selectedReplacementId.value = null
+  swapModalOpen.value = true
+}
+
+function closeSwapModal() {
+  swapModalOpen.value = false
+  swappingPlayer.value = null
+  selectedReplacementId.value = null
 }
 
 async function confirmSwap() {
@@ -642,7 +659,7 @@ async function confirmSwap() {
     })
     if (e3) throw new Error(e3.message)
 
-    swappingPlayer.value = null
+    closeSwapModal()
     // Refresh roster, swap count, AND standing (a swap penalty changes the score).
     await Promise.all([loadMyTeam(), loadSeasonConfig(), loadMyStanding()])
   } catch (e) {
@@ -933,12 +950,9 @@ onUnmounted(() => {
           @chip-click="toggleMenu"
         >
           <template #header-actions>
-            <span class="text-xs text-text-muted">
-              {{ swapsUsed }} swap{{ swapsUsed !== 1 ? 's' : '' }} used
-              <template v-if="seasonConfig.max_swaps !== null">
-                · {{ seasonConfig.max_swaps - swapsUsed }} remaining</template
-              >
-            </span>
+            <BaseButton v-if="canManageRoster" variant="secondary" size="sm" @click="openEditRoster"
+              >Edit</BaseButton
+            >
           </template>
           <template #footer>
             <div v-if="!nextUpcomingEpisode" class="px-4 py-3 text-xs text-text-muted">
@@ -1041,13 +1055,8 @@ onUnmounted(() => {
     </BaseModal>
 
     <!-- Swap modal -->
-    <BaseModal
-      :show="!!swappingPlayer"
-      title="Swap Player"
-      size="lg"
-      @close="swappingPlayer = null"
-    >
-      <template v-if="swappingPlayer">
+    <BaseModal :show="swapModalOpen" title="Swap Player" size="lg" @close="closeSwapModal">
+      <template v-if="swapModalOpen">
         <div class="grid grid-cols-1 items-start gap-3 sm:grid-cols-[1fr_auto_1fr]">
           <!-- Swapping out -->
           <div>
@@ -1089,8 +1098,9 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <!-- Transaction cost (highlighted) -->
+        <!-- Transaction cost (highlighted) — shown once a player is selected to swap out -->
         <div
+          v-if="swappingPlayer"
           class="mt-5 rounded-md px-3 py-2 text-center text-sm font-semibold"
           :class="
             swapCostForRole(swappingPlayer.role) === 0
@@ -1104,15 +1114,21 @@ onUnmounted(() => {
               : `Cost: −${fmtPts(swapCostForRole(swappingPlayer.role))} pts`
           }}
         </div>
+        <p v-else class="mt-5 text-center text-sm text-text-muted">
+          Select a player to swap out to see the cost.
+        </p>
       </template>
       <template #footer>
         <button
-          @click="swappingPlayer = null"
+          @click="closeSwapModal"
           class="text-sm text-text-subtle hover:text-text-default px-4 py-2"
         >
           Cancel
         </button>
-        <BaseButton :loading="savingSwap" :disabled="!selectedReplacementId" @click="confirmSwap"
+        <BaseButton
+          :loading="savingSwap"
+          :disabled="!swappingPlayer || !selectedReplacementId"
+          @click="confirmSwap"
           >Confirm swap</BaseButton
         >
       </template>

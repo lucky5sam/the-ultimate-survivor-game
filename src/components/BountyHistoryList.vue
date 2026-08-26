@@ -26,6 +26,9 @@ function contestantName(id: string) {
 function contestantPhoto(id: string) {
   return props.contestants.find((c) => c.id === id)?.photo_url ?? null
 }
+function contestantTribe(id: string) {
+  return props.contestants.find((c) => c.id === id)?.tribe ?? ''
+}
 </script>
 
 <template>
@@ -51,7 +54,8 @@ function contestantPhoto(id: string) {
             <ContestantAvatar
               :photo-url="contestantPhoto(row.contestantId)"
               :name="contestantName(row.contestantId)"
-              :size="28"
+              :tribe="contestantTribe(row.contestantId)"
+              show-tribe
             />
             <span class="flex-1 truncate text-sm text-text-default">{{
               contestantName(row.contestantId)
