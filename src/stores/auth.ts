@@ -35,8 +35,9 @@ export const useAuthStore = defineStore('auth', () => {
           const profile = await fetchProfile(user.value.id)
           if (!profile?.first_name) {
             const meta = session?.user?.user_metadata
-            const fn = meta?.given_name ?? meta?.full_name?.split(' ')[0] ?? ''
-            const ln = meta?.family_name ?? meta?.full_name?.split(' ').slice(1).join(' ') ?? ''
+            // Our email signup stores first_name/last_name; Google stores given_name/full_name.
+            const fn = meta?.first_name ?? meta?.given_name ?? meta?.full_name?.split(' ')[0] ?? ''
+            const ln = meta?.last_name ?? meta?.family_name ?? meta?.full_name?.split(' ').slice(1).join(' ') ?? ''
             if (fn || ln) {
               await supabase.from('profiles').upsert(
                 { id: user.value.id, first_name: fn, last_name: ln },

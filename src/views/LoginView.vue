@@ -49,11 +49,20 @@ async function handleSignUp() {
   }
   loading.value = true
   errorMsg.value = ''
-  const { data, error } = await supabase.auth.signUp({ email: email.value, password: password.value })
+  const { data, error } = await supabase.auth.signUp({
+    email: email.value,
+    password: password.value,
+    // Stash the name in auth metadata — this persists even before the email is
+    // confirmed (when there's no session to write to profiles yet). The profile
+    // row is populated from this metadata on first authenticated load.
+    options: { data: { first_name: firstName.value, last_name: lastName.value } },
+  })
   if (error) {
     errorMsg.value = error.message
   } else {
-    if (data.user) {
+    // If confirmation is off, a session exists now and this write succeeds; if
+    // confirmation is on it's a no-op (no session) and the metadata backfill covers it.
+    if (data.session && data.user) {
       await supabase.from('profiles').upsert(
         { id: data.user.id, first_name: firstName.value, last_name: lastName.value },
         { onConflict: 'id' }
