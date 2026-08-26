@@ -316,6 +316,11 @@ async function onTeamCreated() {
   await runLoad()
 }
 
+function chooseSeason(id: string) {
+  selectedSeasonId.value = id
+  seasonModalOpen.value = false
+}
+
 const roleChangeTargetName = computed(
   () => allContestants.value.find((c) => c.id === roleChangeTargetId.value)?.name ?? '',
 )
@@ -1020,7 +1025,7 @@ onUnmounted(() => {
         <button
           v-for="s in seasons"
           :key="s.id"
-          @click="selectedSeasonId = s.id; seasonModalOpen = false"
+          @click="chooseSeason(s.id)"
           class="flex w-full items-center justify-between gap-3 rounded-md px-3 py-2.5 text-left transition-colors hover:bg-surface-subtle"
           :class="s.id === selectedSeasonId ? 'bg-surface-subtle' : ''"
         >

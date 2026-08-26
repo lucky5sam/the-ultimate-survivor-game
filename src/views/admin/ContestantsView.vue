@@ -375,6 +375,11 @@ function resetForm() {
   }
 }
 
+function closeForm() {
+  showForm.value = false
+  resetForm()
+}
+
 function openSwap(c: Contestant) {
   swapContestant.value = c
   const nextEp = episodes.value.find(
@@ -730,7 +735,7 @@ onMounted(loadSeasons)
           <div class="flex justify-end gap-3 pt-2">
             <button
               type="button"
-              @click="showForm = false; resetForm()"
+              @click="closeForm"
               class="text-sm text-gray-500 hover:text-gray-700 px-4 py-2"
             >
               Cancel

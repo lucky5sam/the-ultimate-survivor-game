@@ -298,6 +298,11 @@ async function openEdit(season: Season) {
   showForm.value = true
 }
 
+function closeForm() {
+  showForm.value = false
+  resetForm()
+}
+
 function resetForm() {
   form.value = {
     name: '',
@@ -730,7 +735,7 @@ onMounted(loadSeasons)
         <div class="flex justify-end gap-3 pt-5 mt-2 border-t border-gray-100">
           <button
             type="button"
-            @click="showForm = false; resetForm()"
+            @click="closeForm"
             class="text-sm text-gray-500 hover:text-gray-700 px-4 py-2"
           >
             Cancel

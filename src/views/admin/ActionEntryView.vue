@@ -51,6 +51,16 @@ function toggleActionDropdown() {
   showActionDropdown.value = !showActionDropdown.value
   if (showActionDropdown.value) nextTick(() => actionSearchInput.value?.focus())
 }
+
+function closeContestantDropdown() {
+  showContestantDropdown.value = false
+  contestantSearch.value = ''
+}
+
+function closeActionDropdown() {
+  showActionDropdown.value = false
+  actionSearch.value = ''
+}
 const bulkForm = ref({ tribe: '', actionTypeId: '' })
 
 const byType = computed(() => {
@@ -331,7 +341,7 @@ onMounted(async () => {
             <div
               v-if="showContestantDropdown"
               class="fixed inset-0 z-10"
-              @click="showContestantDropdown = false; contestantSearch = ''"
+              @click="closeContestantDropdown"
             />
 
             <div
@@ -394,7 +404,7 @@ onMounted(async () => {
             <div
               v-if="showActionDropdown"
               class="fixed inset-0 z-10"
-              @click="showActionDropdown = false; actionSearch = ''"
+              @click="closeActionDropdown"
             />
 
             <div
