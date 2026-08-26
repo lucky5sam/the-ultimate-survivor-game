@@ -42,7 +42,9 @@ async function handleSignOut() {
       <h1 class="text-xl font-bold text-text-default">The Ultimate Survivor Game</h1>
       <div class="flex items-center gap-4 text-sm">
         <RouterLink v-if="auth.isAdmin" to="/admin" class="text-text-accent hover:text-interactive-accent-hover">Admin</RouterLink>
-        <span class="hidden text-text-muted sm:inline">{{ ownerName }}</span>
+        <RouterLink to="/profile" class="text-text-accent hover:text-interactive-accent-hover">
+          {{ ownerName || 'Profile' }}
+        </RouterLink>
         <button @click="handleSignOut" class="text-status-error hover:opacity-80">Sign out</button>
       </div>
     </header>
