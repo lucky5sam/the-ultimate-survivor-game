@@ -31,7 +31,10 @@ const router = createRouter({
         { path: 'seasons', component: () => import('../views/admin/SeasonsView.vue') },
         { path: 'contestants', component: () => import('../views/admin/ContestantsView.vue') },
         { path: 'episodes', component: () => import('../views/admin/EpisodesView.vue') },
-        { path: 'episodes/:episodeId/actions', component: () => import('../views/admin/ActionEntryView.vue') },
+        {
+          path: 'episodes/:episodeId/actions',
+          component: () => import('../views/admin/ActionEntryView.vue'),
+        },
         { path: 'action-types', component: () => import('../views/admin/ActionTypesView.vue') },
         { path: 'settings', component: () => import('../views/admin/SettingsView.vue') },
       ],
@@ -41,8 +44,23 @@ const router = createRouter({
 
 function waitForReady(auth: ReturnType<typeof useAuthStore>) {
   if (auth.ready) return Promise.resolve()
-  return new Promise<void>(resolve => {
-    const stop = watch(() => auth.ready, (val) => { if (val) { stop(); resolve() } })
+  return new Promise<void>((resolve) => {
+    let settled = false
+    const finish = () => {
+      if (settled) return
+      settled = true
+      stop()
+      clearTimeout(timer)
+      resolve()
+    }
+    const stop = watch(
+      () => auth.ready,
+      (val) => {
+        if (val) finish()
+      },
+    )
+    // Failsafe: never block navigation forever if `ready` somehow never flips.
+    const timer = setTimeout(finish, 5000)
   })
 }
 

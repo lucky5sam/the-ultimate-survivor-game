@@ -61,11 +61,11 @@ const form = ref({
 const localActionTypes = ref<LocalSeasonAction[]>([])
 const masterCheckboxRef = ref<HTMLInputElement | null>(null)
 
-const allEnabled = computed(() =>
-  localActionTypes.value.length > 0 && localActionTypes.value.every(a => a.enabled)
+const allEnabled = computed(
+  () => localActionTypes.value.length > 0 && localActionTypes.value.every((a) => a.enabled),
 )
-const someEnabled = computed(() => localActionTypes.value.some(a => a.enabled))
-const enabledCount = computed(() => localActionTypes.value.filter(a => a.enabled).length)
+const someEnabled = computed(() => localActionTypes.value.some((a) => a.enabled))
+const enabledCount = computed(() => localActionTypes.value.filter((a) => a.enabled).length)
 
 watchEffect(() => {
   if (masterCheckboxRef.value) {
@@ -75,7 +75,7 @@ watchEffect(() => {
 
 function toggleEnableAll() {
   const next = !allEnabled.value
-  localActionTypes.value.forEach(a => (a.enabled = next))
+  localActionTypes.value.forEach((a) => (a.enabled = next))
 }
 
 async function loadCatalog() {
@@ -83,7 +83,7 @@ async function loadCatalog() {
     .from('action_types')
     .select('id, type, category, points, sort_order')
     .order('sort_order')
-  localActionTypes.value = (data ?? []).map(c => ({
+  localActionTypes.value = (data ?? []).map((c) => ({
     catalogId: c.id,
     seasonActionTypeId: undefined,
     type: c.type,
@@ -96,15 +96,19 @@ async function loadCatalog() {
 
 async function loadActionTypes(seasonId: string) {
   const [{ data: catalog }, { data: seasonActions }] = await Promise.all([
-    supabase.from('action_types').select('id, type, category, points, sort_order').order('sort_order'),
-    supabase.from('season_action_types').select('id, action_type_id, points').eq('season_id', seasonId),
+    supabase
+      .from('action_types')
+      .select('id, type, category, points, sort_order')
+      .order('sort_order'),
+    supabase
+      .from('season_action_types')
+      .select('id, action_type_id, points')
+      .eq('season_id', seasonId),
   ])
 
-  const seasonMap = new Map(
-    (seasonActions ?? []).map(a => [a.action_type_id, a])
-  )
+  const seasonMap = new Map((seasonActions ?? []).map((a) => [a.action_type_id, a]))
 
-  localActionTypes.value = (catalog ?? []).map(c => {
+  localActionTypes.value = (catalog ?? []).map((c) => {
     const existing = seasonMap.get(c.id)
     return {
       catalogId: c.id,
@@ -119,11 +123,20 @@ async function loadActionTypes(seasonId: string) {
 }
 
 async function saveActionTypes(seasonId: string) {
-  const enabled = localActionTypes.value.filter(a => a.enabled)
-  const disabledWithExisting = localActionTypes.value.filter(a => !a.enabled && a.seasonActionTypeId)
+  const enabled = localActionTypes.value.filter((a) => a.enabled)
+  const disabledWithExisting = localActionTypes.value.filter(
+    (a) => !a.enabled && a.seasonActionTypeId,
+  )
 
   if (disabledWithExisting.length) {
-    await supabase.from('season_action_types').delete().in('id', disabledWithExisting.map(a => a.seasonActionTypeId!))
+    const { error } = await supabase
+      .from('season_action_types')
+      .delete()
+      .in(
+        'id',
+        disabledWithExisting.map((a) => a.seasonActionTypeId!),
+      )
+    if (error) throw new Error(error.message)
   }
 
   const toUpsert = enabled.map((a, i) => ({
@@ -135,7 +148,10 @@ async function saveActionTypes(seasonId: string) {
   }))
 
   if (toUpsert.length) {
-    await supabase.from('season_action_types').upsert(toUpsert, { onConflict: 'id' })
+    const { error } = await supabase
+      .from('season_action_types')
+      .upsert(toUpsert, { onConflict: 'id' })
+    if (error) throw new Error(error.message)
   }
 }
 
@@ -150,17 +166,21 @@ async function loadTribes(seasonId: string) {
       .eq('season_id', seasonId),
   ])
 
-  originalTribeIds.value = new Set((tribeRows ?? []).map(t => t.id))
-  const byName = new Map((tribeRows ?? []).map(t => [t.name, t]))
+  originalTribeIds.value = new Set((tribeRows ?? []).map((t) => t.id))
+  const byName = new Map((tribeRows ?? []).map((t) => [t.name, t]))
 
   const usedNames = new Set<string>()
   for (const c of contRows ?? []) {
-    for (const a of ((c.contestant_tribe_assignments as any[]) ?? [])) {
+    for (const a of (c.contestant_tribe_assignments as any[]) ?? []) {
       if (a.tribe) usedNames.add(a.tribe)
     }
   }
 
-  const list: LocalTribe[] = (tribeRows ?? []).map(t => ({ id: t.id, name: t.name, color: t.color }))
+  const list: LocalTribe[] = (tribeRows ?? []).map((t) => ({
+    id: t.id,
+    name: t.name,
+    color: t.color,
+  }))
   for (const name of usedNames) {
     if (!byName.has(name)) list.push({ name, color: getTribeColors(name).primary })
   }
@@ -168,9 +188,9 @@ async function loadTribes(seasonId: string) {
 }
 
 async function saveTribes(seasonId: string) {
-  const rows = localTribes.value.filter(t => t.name.trim())
+  const rows = localTribes.value.filter((t) => t.name.trim())
 
-  const toUpsert = rows.map(t => ({
+  const toUpsert = rows.map((t) => ({
     ...(t.id ? { id: t.id } : {}),
     season_id: seasonId,
     name: t.name.trim(),
@@ -182,8 +202,8 @@ async function saveTribes(seasonId: string) {
   }
 
   // Delete tribes the admin removed from the list.
-  const keptIds = new Set(rows.filter(t => t.id).map(t => t.id!))
-  const toDelete = [...originalTribeIds.value].filter(id => !keptIds.has(id))
+  const keptIds = new Set(rows.filter((t) => t.id).map((t) => t.id!))
+  const toDelete = [...originalTribeIds.value].filter((id) => !keptIds.has(id))
   if (toDelete.length) {
     const { error } = await supabase.from('tribes').delete().in('id', toDelete)
     if (error) throw new Error(error.message)
@@ -211,34 +231,34 @@ async function loadSeasons() {
 async function saveSeason() {
   saving.value = true
   errorMsg.value = ''
-
-  let seasonId = editingId.value
-
-  // starts_at is entered as an ET wall-clock string; store it as a UTC instant.
-  const payload = { ...form.value, starts_at: etInputToIso(form.value.starts_at) }
-
-  if (editingId.value) {
-    const { error } = await supabase.from('seasons').update(payload).eq('id', editingId.value)
-    if (error) { errorMsg.value = error.message; saving.value = false; return }
-  } else {
-    const { data, error } = await supabase.from('seasons').insert(payload).select('id').single()
-    if (error) { errorMsg.value = error.message; saving.value = false; return }
-    seasonId = data.id
-  }
-
-  await saveActionTypes(seasonId!)
   try {
-    await saveTribes(seasonId!)
-  } catch (e) {
-    errorMsg.value = e instanceof Error ? e.message : 'Failed to save tribes'
-    saving.value = false
-    return
-  }
+    // starts_at is entered as an ET wall-clock string; store it as a UTC instant.
+    const payload = { ...form.value, starts_at: etInputToIso(form.value.starts_at) }
+    let seasonId = editingId.value
 
-  showForm.value = false
-  resetForm()
-  await loadSeasons()
-  saving.value = false
+    if (editingId.value) {
+      const { error } = await supabase.from('seasons').update(payload).eq('id', editingId.value)
+      if (error) throw new Error(error.message)
+    } else {
+      const { data, error } = await supabase.from('seasons').insert(payload).select('id').single()
+      if (error) throw new Error(error.message)
+      seasonId = data.id
+      // Promote to edit mode immediately so a failure in the steps below can't
+      // create a duplicate season if the user retries the still-open form.
+      editingId.value = seasonId
+    }
+
+    await saveActionTypes(seasonId!)
+    await saveTribes(seasonId!)
+
+    showForm.value = false
+    resetForm()
+    await loadSeasons()
+  } catch (e) {
+    errorMsg.value = e instanceof Error ? e.message : 'Failed to save season'
+  } finally {
+    saving.value = false
+  }
 }
 
 async function deleteSeason(id: string, name: string) {
@@ -344,17 +364,39 @@ onMounted(loadSeasons)
         <tr v-for="season in seasons" :key="season.id" class="border-t border-gray-100">
           <td class="px-4 py-3 font-medium">{{ season.name }}</td>
           <td class="px-4 py-3">
-            <span :class="['px-2 py-0.5 rounded-full text-xs font-medium', statusColor[season.status]]">
+            <span
+              :class="['px-2 py-0.5 rounded-full text-xs font-medium', statusColor[season.status]]"
+            >
               {{ statusLabel[season.status] ?? season.status }}
             </span>
           </td>
-          <td class="px-4 py-3 text-gray-500">{{ season.starts_at ? fmtEt(season.starts_at) : '—' }}</td>
-          <td class="px-4 py-3">{{ season.bounty_points_pre_merge }} / {{ season.bounty_points_post_merge }} / {{ season.bounty_points_finale }}</td>
-          <td class="px-4 py-3">{{ season.swap_penalty_mvp }} / {{ season.swap_penalty_player }} / {{ season.swap_penalty_role_change }}</td>
-          <td class="px-4 py-3">Ep {{ season.grace_period_through_episode }} / {{ season.max_swaps ?? '∞' }}</td>
+          <td class="px-4 py-3 text-gray-500">
+            {{ season.starts_at ? fmtEt(season.starts_at) : '—' }}
+          </td>
+          <td class="px-4 py-3">
+            {{ season.bounty_points_pre_merge }} / {{ season.bounty_points_post_merge }} /
+            {{ season.bounty_points_finale }}
+          </td>
+          <td class="px-4 py-3">
+            {{ season.swap_penalty_mvp }} / {{ season.swap_penalty_player }} /
+            {{ season.swap_penalty_role_change }}
+          </td>
+          <td class="px-4 py-3">
+            Ep {{ season.grace_period_through_episode }} / {{ season.max_swaps ?? '∞' }}
+          </td>
           <td class="px-4 py-3 text-right space-x-3">
-            <button @click="openEdit(season)" class="text-blue-600 hover:text-blue-800 text-xs font-medium">Edit</button>
-            <button @click="deleteSeason(season.id, season.name)" class="text-red-500 hover:text-red-700 text-xs font-medium">Delete</button>
+            <button
+              @click="openEdit(season)"
+              class="text-blue-600 hover:text-blue-800 text-xs font-medium"
+            >
+              Edit
+            </button>
+            <button
+              @click="deleteSeason(season.id, season.name)"
+              class="text-red-500 hover:text-red-700 text-xs font-medium"
+            >
+              Delete
+            </button>
           </td>
         </tr>
       </tbody>
@@ -373,21 +415,42 @@ onMounted(loadSeasons)
         <div class="flex gap-1 mb-5 bg-gray-100 rounded-lg p-1">
           <button
             @click="activeTab = 'config'"
-            :class="['flex-1 text-sm font-medium py-1.5 rounded-md transition-colors', activeTab === 'config' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700']"
-          >Season Config</button>
+            :class="[
+              'flex-1 text-sm font-medium py-1.5 rounded-md transition-colors',
+              activeTab === 'config'
+                ? 'bg-white shadow text-gray-900'
+                : 'text-gray-500 hover:text-gray-700',
+            ]"
+          >
+            Season Config
+          </button>
           <button
             @click="activeTab = 'actions'"
-            :class="['flex-1 text-sm font-medium py-1.5 rounded-md transition-colors', activeTab === 'actions' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700']"
+            :class="[
+              'flex-1 text-sm font-medium py-1.5 rounded-md transition-colors',
+              activeTab === 'actions'
+                ? 'bg-white shadow text-gray-900'
+                : 'text-gray-500 hover:text-gray-700',
+            ]"
           >
             Action Types
-            <span v-if="localActionTypes.length" class="ml-1 text-xs text-gray-400">({{ enabledCount }}/{{ localActionTypes.length }})</span>
+            <span v-if="localActionTypes.length" class="ml-1 text-xs text-gray-400"
+              >({{ enabledCount }}/{{ localActionTypes.length }})</span
+            >
           </button>
           <button
             @click="activeTab = 'tribes'"
-            :class="['flex-1 text-sm font-medium py-1.5 rounded-md transition-colors', activeTab === 'tribes' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700']"
+            :class="[
+              'flex-1 text-sm font-medium py-1.5 rounded-md transition-colors',
+              activeTab === 'tribes'
+                ? 'bg-white shadow text-gray-900'
+                : 'text-gray-500 hover:text-gray-700',
+            ]"
           >
             Tribes
-            <span v-if="localTribes.length" class="ml-1 text-xs text-gray-400">({{ localTribes.length }})</span>
+            <span v-if="localTribes.length" class="ml-1 text-xs text-gray-400"
+              >({{ localTribes.length }})</span
+            >
           </button>
         </div>
 
@@ -396,14 +459,21 @@ onMounted(loadSeasons)
           <form @submit.prevent class="space-y-4">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Season name</label>
-              <input v-model="form.name" type="text" required placeholder="e.g. Survivor 50"
-                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input
+                v-model="form.name"
+                type="text"
+                required
+                placeholder="e.g. Survivor 50"
+                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
             </div>
 
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
-              <select v-model="form.status"
-                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <select
+                v-model="form.status"
+                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
                 <option value="upcoming">Upcoming</option>
                 <option value="active">Active</option>
                 <option value="completed">Completed</option>
@@ -412,69 +482,113 @@ onMounted(loadSeasons)
 
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">
-                Season starts <span class="text-gray-400 font-normal">(ET — registration closes)</span>
+                Season starts
+                <span class="text-gray-400 font-normal">(ET — registration closes)</span>
               </label>
-              <input v-model="form.starts_at" type="datetime-local"
-                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input
+                v-model="form.starts_at"
+                type="datetime-local"
+                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
               <p class="mt-1 text-xs text-gray-400">
-                New teams can be created until this time (Eastern). After it passes, the league is locked to new players. Leave blank to keep registration open.
+                New teams can be created until this time (Eastern). After it passes, the league is
+                locked to new players. Leave blank to keep registration open.
               </p>
             </div>
 
             <div>
-              <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Bounty points</p>
+              <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                Bounty points
+              </p>
               <div class="grid grid-cols-3 gap-3">
                 <div>
                   <label class="block text-xs font-medium text-gray-700 mb-1">Pre-merge</label>
-                  <input v-model.number="form.bounty_points_pre_merge" type="number" min="0"
-                    class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  <input
+                    v-model.number="form.bounty_points_pre_merge"
+                    type="number"
+                    min="0"
+                    class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
                 </div>
                 <div>
                   <label class="block text-xs font-medium text-gray-700 mb-1">Post-merge</label>
-                  <input v-model.number="form.bounty_points_post_merge" type="number" min="0"
-                    class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  <input
+                    v-model.number="form.bounty_points_post_merge"
+                    type="number"
+                    min="0"
+                    class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
                 </div>
                 <div>
                   <label class="block text-xs font-medium text-gray-700 mb-1">Finale</label>
-                  <input v-model.number="form.bounty_points_finale" type="number" min="0"
-                    class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  <input
+                    v-model.number="form.bounty_points_finale"
+                    type="number"
+                    min="0"
+                    class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
                 </div>
               </div>
             </div>
 
             <div>
-              <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Swap penalties</p>
+              <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                Swap penalties
+              </p>
               <div class="grid grid-cols-3 gap-3">
                 <div>
                   <label class="block text-xs font-medium text-gray-700 mb-1">MVP swap</label>
-                  <input v-model.number="form.swap_penalty_mvp" type="number" min="0"
-                    class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  <input
+                    v-model.number="form.swap_penalty_mvp"
+                    type="number"
+                    min="0"
+                    class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
                 </div>
                 <div>
                   <label class="block text-xs font-medium text-gray-700 mb-1">Player swap</label>
-                  <input v-model.number="form.swap_penalty_player" type="number" min="0"
-                    class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  <input
+                    v-model.number="form.swap_penalty_player"
+                    type="number"
+                    min="0"
+                    class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
                 </div>
                 <div>
                   <label class="block text-xs font-medium text-gray-700 mb-1">Role change</label>
-                  <input v-model.number="form.swap_penalty_role_change" type="number" min="0"
-                    class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  <input
+                    v-model.number="form.swap_penalty_role_change"
+                    type="number"
+                    min="0"
+                    class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
                 </div>
               </div>
             </div>
 
             <div class="grid grid-cols-2 gap-4">
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Grace period through episode</label>
-                <input v-model.number="form.grace_period_through_episode" type="number" min="0"
-                  class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <label class="block text-sm font-medium text-gray-700 mb-1"
+                  >Grace period through episode</label
+                >
+                <input
+                  v-model.number="form.grace_period_through_episode"
+                  type="number"
+                  min="0"
+                  class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
               </div>
               <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">
                   Max swaps <span class="text-gray-400 font-normal">(blank = unlimited)</span>
                 </label>
-                <input v-model.number="form.max_swaps" type="number" min="1" placeholder="∞"
-                  class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <input
+                  v-model.number="form.max_swaps"
+                  type="number"
+                  min="1"
+                  placeholder="∞"
+                  class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
               </div>
             </div>
           </form>
@@ -484,12 +598,18 @@ onMounted(loadSeasons)
         <div v-else-if="activeTab === 'actions'">
           <div class="flex items-center justify-between mb-3">
             <p class="text-sm text-gray-500">
-              <span class="font-medium text-gray-700">{{ enabledCount }}</span> of {{ localActionTypes.length }} enabled
+              <span class="font-medium text-gray-700">{{ enabledCount }}</span> of
+              {{ localActionTypes.length }} enabled
             </p>
-            <p class="text-xs text-gray-400">To add or remove actions, edit the global catalog in Admin → Action Types.</p>
+            <p class="text-xs text-gray-400">
+              To add or remove actions, edit the global catalog in Admin → Action Types.
+            </p>
           </div>
 
-          <div v-if="localActionTypes.length === 0" class="text-center py-8 text-sm text-gray-400 border border-gray-200 rounded-lg">
+          <div
+            v-if="localActionTypes.length === 0"
+            class="text-center py-8 text-sm text-gray-400 border border-gray-200 rounded-lg"
+          >
             No actions in the catalog yet. Add some in Admin → Action Types.
           </div>
 
@@ -509,14 +629,19 @@ onMounted(loadSeasons)
                   <th class="px-3 py-2 text-left text-xs font-medium text-gray-600 w-36">Type</th>
                   <th class="px-3 py-2 text-left text-xs font-medium text-gray-600">Category</th>
                   <th class="px-3 py-2 text-left text-xs font-medium text-gray-600 w-24">Points</th>
-                  <th class="px-3 py-2 text-left text-xs font-medium text-gray-400 w-20">Default</th>
+                  <th class="px-3 py-2 text-left text-xs font-medium text-gray-400 w-20">
+                    Default
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 <tr
                   v-for="action in localActionTypes"
                   :key="action.catalogId"
-                  :class="['border-t border-gray-100 transition-colors', action.enabled ? '' : 'opacity-40']"
+                  :class="[
+                    'border-t border-gray-100 transition-colors',
+                    action.enabled ? '' : 'opacity-40',
+                  ]"
                 >
                   <td class="px-3 py-1.5 text-center">
                     <input
@@ -526,7 +651,9 @@ onMounted(loadSeasons)
                     />
                   </td>
                   <td class="px-3 py-1.5 text-xs text-gray-600">{{ action.type }}</td>
-                  <td class="px-3 py-1.5 text-xs font-medium text-gray-800">{{ action.category }}</td>
+                  <td class="px-3 py-1.5 text-xs font-medium text-gray-800">
+                    {{ action.category }}
+                  </td>
                   <td class="px-3 py-1.5">
                     <input
                       v-model.number="action.points"
@@ -545,15 +672,22 @@ onMounted(loadSeasons)
         <!-- Tribes tab -->
         <div v-else-if="activeTab === 'tribes'">
           <div class="flex items-center justify-between mb-3">
-            <p class="text-sm text-gray-500">Pick a color for each tribe. Used for the tribe badges across the app.</p>
+            <p class="text-sm text-gray-500">
+              Pick a color for each tribe. Used for the tribe badges across the app.
+            </p>
             <button
               type="button"
               @click="addTribe"
               class="text-blue-600 hover:text-blue-800 text-sm font-medium shrink-0"
-            >+ Add tribe</button>
+            >
+              + Add tribe
+            </button>
           </div>
 
-          <div v-if="localTribes.length === 0" class="text-center py-8 text-sm text-gray-400 border border-gray-200 rounded-lg">
+          <div
+            v-if="localTribes.length === 0"
+            class="text-center py-8 text-sm text-gray-400 border border-gray-200 rounded-lg"
+          >
             No tribes yet. Add one here, or set starting tribes in Admin → Contestants.
           </div>
 
@@ -578,12 +712,15 @@ onMounted(loadSeasons)
                 class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-xs font-bold text-white"
                 :style="{ backgroundColor: t.color }"
                 :title="t.name"
-              >{{ t.name.charAt(0).toUpperCase() || '?' }}</span>
+                >{{ t.name.charAt(0).toUpperCase() || '?' }}</span
+              >
               <button
                 type="button"
                 @click="removeTribe(i)"
                 class="text-red-500 hover:text-red-700 text-xs font-medium shrink-0"
-              >Remove</button>
+              >
+                Remove
+              </button>
             </div>
           </div>
         </div>
@@ -591,10 +728,18 @@ onMounted(loadSeasons)
         <p v-if="errorMsg" class="text-sm text-red-600 mt-4">{{ errorMsg }}</p>
 
         <div class="flex justify-end gap-3 pt-5 mt-2 border-t border-gray-100">
-          <button type="button" @click="showForm = false; resetForm()"
-            class="text-sm text-gray-500 hover:text-gray-700 px-4 py-2">Cancel</button>
-          <button @click="saveSeason" :disabled="saving"
-            class="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-lg">
+          <button
+            type="button"
+            @click="showForm = false; resetForm()"
+            class="text-sm text-gray-500 hover:text-gray-700 px-4 py-2"
+          >
+            Cancel
+          </button>
+          <button
+            @click="saveSeason"
+            :disabled="saving"
+            class="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-lg"
+          >
             {{ saving ? 'Saving…' : editingId ? 'Save changes' : 'Create season' }}
           </button>
         </div>

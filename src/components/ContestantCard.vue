@@ -50,7 +50,9 @@ const cardStyle = computed(() => ({
       />
       <div v-else class="absolute inset-0 flex items-center justify-center">
         <svg class="w-12 h-12 text-stone-600" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
+          <path
+            d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"
+          />
         </svg>
       </div>
     </div>
@@ -65,9 +67,16 @@ const cardStyle = computed(() => ({
       :class="showCrown ? 'bg-amber-500' : 'bg-white'"
     >
       <svg v-if="showCrown" class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
-        <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm0 2h14v2H5v-2z"/>
+        <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm0 2h14v2H5v-2z" />
       </svg>
-      <svg v-else class="w-4 h-4 text-stone-900" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+      <svg
+        v-else
+        class="w-4 h-4 text-stone-900"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        stroke-width="3"
+      >
         <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
       </svg>
     </div>
@@ -79,15 +88,27 @@ const cardStyle = computed(() => ({
       :class="hovered ? 'opacity-100' : 'opacity-0'"
       @click.stop="emit('view-details')"
     >
-      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      <svg
+        class="w-3.5 h-3.5"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        stroke-width="2.5"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+        />
       </svg>
     </button>
 
     <!-- Bottom info -->
     <div class="absolute bottom-0 left-0 right-0 p-3 z-10">
       <p class="font-bold text-white text-sm leading-tight drop-shadow-sm">{{ contestant.name }}</p>
-      <p class="text-xs mt-0.5 font-medium" :style="{ color: colors.text }">{{ contestant.tribe }}</p>
+      <p class="text-xs mt-0.5 font-medium" :style="{ color: colors.text }">
+        {{ contestant.tribe }}
+      </p>
     </div>
   </div>
 </template>

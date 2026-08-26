@@ -17,7 +17,7 @@ const tabs = [
   { label: 'My Team', to: '/my-team' },
 ]
 
-const activeTab = computed(() => tabs.find(t => t.to === route.path) ?? tabs[0]!)
+const activeTab = computed(() => tabs.find((t) => t.to === route.path) ?? tabs[0]!)
 const menuOpen = ref(false)
 
 const ownerName = computed(() =>
@@ -39,10 +39,17 @@ async function handleSignOut() {
 
 <template>
   <div class="min-h-screen bg-surface-page flex flex-col">
-    <header class="bg-surface-default border-b border-border-subtle px-6 py-4 flex items-center justify-between shrink-0">
+    <header
+      class="bg-surface-default border-b border-border-subtle px-6 py-4 flex items-center justify-between shrink-0"
+    >
       <h1 class="text-xl font-bold text-text-default">The Ultimate Survivor Game</h1>
       <div class="flex items-center gap-4 text-sm">
-        <RouterLink v-if="auth.isAdmin" to="/admin" class="text-text-accent hover:text-interactive-accent-hover">Admin</RouterLink>
+        <RouterLink
+          v-if="auth.isAdmin"
+          to="/admin"
+          class="text-text-accent hover:text-interactive-accent-hover"
+          >Admin</RouterLink
+        >
         <RouterLink to="/profile" class="text-text-accent hover:text-interactive-accent-hover">
           {{ ownerName || 'Profile' }}
         </RouterLink>
@@ -57,7 +64,9 @@ async function handleSignOut() {
         :key="t.to"
         :to="t.to"
         class="relative px-4 py-3 text-sm font-medium transition-colors"
-        :class="route.path === t.to ? 'text-text-accent' : 'text-text-muted hover:text-text-default'"
+        :class="
+          route.path === t.to ? 'text-text-accent' : 'text-text-muted hover:text-text-default'
+        "
       >
         {{ t.label }}
         <span
@@ -68,7 +77,9 @@ async function handleSignOut() {
     </nav>
 
     <!-- Primary tabs condensed into a dropdown (mobile) -->
-    <div class="relative shrink-0 border-b border-border-subtle bg-surface-default px-4 py-2 sm:hidden">
+    <div
+      class="relative shrink-0 border-b border-border-subtle bg-surface-default px-4 py-2 sm:hidden"
+    >
       <button
         @click="menuOpen = !menuOpen"
         class="flex w-full items-center justify-between rounded-md border border-interactive-input-border bg-interactive-input px-3 py-2 text-sm font-medium text-text-default"
@@ -77,7 +88,10 @@ async function handleSignOut() {
         <svg
           class="h-4 w-4 text-icon-subtle transition-transform"
           :class="menuOpen ? 'rotate-180' : ''"
-          fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          stroke-width="2"
         >
           <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
         </svg>

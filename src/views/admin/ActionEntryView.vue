@@ -29,7 +29,12 @@ const loading = ref(true)
 const saving = ref(false)
 const errorMsg = ref('')
 
-const form = ref({ contestantIds: [] as string[], actionTypeIds: [] as string[], count: 1, note: '' })
+const form = ref({
+  contestantIds: [] as string[],
+  actionTypeIds: [] as string[],
+  count: 1,
+  note: '',
+})
 const showContestantDropdown = ref(false)
 const showActionDropdown = ref(false)
 const contestantSearch = ref('')
@@ -57,21 +62,21 @@ const byType = computed(() => {
   return map
 })
 
-const tribes = computed(() => [...new Set(contestants.value.map(c => c.tribe))].sort())
+const tribes = computed(() => [...new Set(contestants.value.map((c) => c.tribe))].sort())
 
 const selectedContestantNames = computed(() =>
-  form.value.contestantIds.map(id => contestants.value.find(c => c.id === id)?.name ?? '')
+  form.value.contestantIds.map((id) => contestants.value.find((c) => c.id === id)?.name ?? ''),
 )
 
 const selectedActionNames = computed(() =>
-  form.value.actionTypeIds.map(id => actionTypes.value.find(a => a.id === id)?.category ?? '')
+  form.value.actionTypeIds.map((id) => actionTypes.value.find((a) => a.id === id)?.category ?? ''),
 )
 
 const filteredByTribe = computed(() => {
   const q = contestantSearch.value.toLowerCase()
   const map: Record<string, Contestant[]> = {}
   for (const [tribe, members] of Object.entries(byTribe.value)) {
-    const filtered = q ? members.filter(c => c.name.toLowerCase().includes(q)) : members
+    const filtered = q ? members.filter((c) => c.name.toLowerCase().includes(q)) : members
     if (filtered.length) map[tribe] = filtered
   }
   return map
@@ -81,7 +86,7 @@ const filteredByType = computed(() => {
   const q = actionSearch.value.toLowerCase()
   const map: Record<string, ActionType[]> = {}
   for (const [type, actions] of Object.entries(byType.value)) {
-    const filtered = q ? actions.filter(a => a.category.toLowerCase().includes(q)) : actions
+    const filtered = q ? actions.filter((a) => a.category.toLowerCase().includes(q)) : actions
     if (filtered.length) map[type] = filtered
   }
   return map
@@ -97,7 +102,7 @@ const byTribe = computed(() => {
 })
 
 const totalPoints = computed(() =>
-  entries.value.reduce((sum, e) => sum + e.action_types.points * e.count, 0)
+  entries.value.reduce((sum, e) => sum + e.action_types.points * e.count, 0),
 )
 
 async function loadEpisode() {
@@ -122,15 +127,20 @@ async function loadContestants() {
   const epNum = episode.value.number
 
   const [{ data: cData }, { data: tData }] = await Promise.all([
-    supabase.from('contestants').select('id, name').eq('season_id', episode.value.season_id).order('name'),
-    supabase.from('contestant_tribe_assignments')
+    supabase
+      .from('contestants')
+      .select('id, name')
+      .eq('season_id', episode.value.season_id)
+      .order('name'),
+    supabase
+      .from('contestant_tribe_assignments')
       .select('contestant_id, tribe')
       .lte('effective_from_episode', epNum)
       .or(`effective_to_episode.is.null,effective_to_episode.gte.${epNum}`),
   ])
 
-  const tribeMap = Object.fromEntries((tData ?? []).map(t => [t.contestant_id, t.tribe]))
-  contestants.value = (cData ?? []).map(c => ({ ...c, tribe: tribeMap[c.id] ?? 'Unknown' }))
+  const tribeMap = Object.fromEntries((tData ?? []).map((t) => [t.contestant_id, t.tribe]))
+  contestants.value = (cData ?? []).map((c) => ({ ...c, tribe: tribeMap[c.id] ?? 'Unknown' }))
 }
 
 async function loadActionTypes() {
@@ -140,10 +150,11 @@ async function loadActionTypes() {
     .select('id, points, sort_order, action_types!inner(id, type, category)')
     .eq('season_id', episode.value.season_id)
     .order('sort_order')
-  actionTypes.value = (data ?? []).map(sat => ({
+  actionTypes.value = (data ?? []).map((sat) => ({
     id: (sat.action_types as unknown as { id: string; type: string; category: string }).id,
     type: (sat.action_types as unknown as { id: string; type: string; category: string }).type,
-    category: (sat.action_types as unknown as { id: string; type: string; category: string }).category,
+    category: (sat.action_types as unknown as { id: string; type: string; category: string })
+      .category,
     points: sat.points,
   }))
 }
@@ -163,26 +174,28 @@ async function addEntry() {
   saving.value = true
   errorMsg.value = ''
 
-  const rows = form.value.contestantIds.flatMap(cId =>
-    form.value.actionTypeIds.map(aId => ({
+  const rows = form.value.contestantIds.flatMap((cId) =>
+    form.value.actionTypeIds.map((aId) => ({
       episode_id: episodeId,
       contestant_id: cId,
       action_type_id: aId,
       count: form.value.count,
       note: form.value.note || null,
       created_by: auth.user!.id,
-    }))
+    })),
   )
 
-  const { error } = await supabase.from('contestant_actions').insert(rows)
-  if (error) { errorMsg.value = error.message; saving.value = false; return }
-
-  form.value = { contestantIds: [], actionTypeIds: [], count: 1, note: '' }
-  await loadEntries()
-  saving.value = false
+  try {
+    const { error } = await supabase.from('contestant_actions').insert(rows)
+    if (error) throw new Error(error.message)
+    form.value = { contestantIds: [], actionTypeIds: [], count: 1, note: '' }
+    await loadEntries()
+  } catch (e) {
+    errorMsg.value = e instanceof Error ? e.message : 'Failed to add action'
+  } finally {
+    saving.value = false
+  }
 }
-
-
 
 async function bulkAddByTribe() {
   const members = byTribe.value[bulkForm.value.tribe] ?? []
@@ -190,7 +203,7 @@ async function bulkAddByTribe() {
   saving.value = true
   errorMsg.value = ''
 
-  const rows = members.map(c => ({
+  const rows = members.map((c) => ({
     episode_id: episodeId,
     contestant_id: c.id,
     action_type_id: bulkForm.value.actionTypeId,
@@ -198,12 +211,16 @@ async function bulkAddByTribe() {
     created_by: auth.user!.id,
   }))
 
-  const { error } = await supabase.from('contestant_actions').insert(rows)
-  if (error) { errorMsg.value = error.message; saving.value = false; return }
-
-  bulkForm.value = { tribe: '', actionTypeId: '' }
-  await loadEntries()
-  saving.value = false
+  try {
+    const { error } = await supabase.from('contestant_actions').insert(rows)
+    if (error) throw new Error(error.message)
+    bulkForm.value = { tribe: '', actionTypeId: '' }
+    await loadEntries()
+  } catch (e) {
+    errorMsg.value = e instanceof Error ? e.message : 'Failed to add actions'
+  } finally {
+    saving.value = false
+  }
 }
 
 async function deleteEntry(id: string) {
@@ -246,7 +263,9 @@ onMounted(async () => {
       <!-- Tribe bulk add -->
       <div class="bg-white rounded-xl shadow p-5 mb-4">
         <h2 class="text-sm font-semibold text-gray-700 mb-1">Tribe Quick Add</h2>
-        <p class="text-xs text-gray-400 mb-4">Add one action for every contestant currently on a tribe.</p>
+        <p class="text-xs text-gray-400 mb-4">
+          Add one action for every contestant currently on a tribe.
+        </p>
         <div class="flex flex-wrap gap-3 items-end">
           <div>
             <label class="block text-xs font-medium text-gray-600 mb-1">Tribe</label>
@@ -298,13 +317,22 @@ onMounted(async () => {
               class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-left flex flex-wrap items-center gap-1 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[38px]"
             >
               <template v-if="selectedContestantNames.length">
-                <span v-for="name in selectedContestantNames" :key="name" class="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-0.5 rounded-full">{{ name }}</span>
+                <span
+                  v-for="name in selectedContestantNames"
+                  :key="name"
+                  class="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-0.5 rounded-full"
+                  >{{ name }}</span
+                >
               </template>
               <span v-else class="text-gray-400">Select…</span>
               <span class="ml-auto text-gray-400 text-xs">▾</span>
             </button>
 
-            <div v-if="showContestantDropdown" class="fixed inset-0 z-10" @click="showContestantDropdown = false; contestantSearch = ''" />
+            <div
+              v-if="showContestantDropdown"
+              class="fixed inset-0 z-10"
+              @click="showContestantDropdown = false; contestantSearch = ''"
+            />
 
             <div
               v-if="showContestantDropdown"
@@ -320,19 +348,26 @@ onMounted(async () => {
                 />
               </div>
               <div class="overflow-y-auto">
-              <div v-for="(members, tribe) in filteredByTribe" :key="tribe">
-                <div class="px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-gray-400 bg-gray-50 sticky top-0">
-                  {{ tribe }}
+                <div v-for="(members, tribe) in filteredByTribe" :key="tribe">
+                  <div
+                    class="px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-gray-400 bg-gray-50 sticky top-0"
+                  >
+                    {{ tribe }}
+                  </div>
+                  <label
+                    v-for="c in members"
+                    :key="c.id"
+                    class="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      :value="c.id"
+                      v-model="form.contestantIds"
+                      class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span class="text-sm">{{ c.name }}</span>
+                  </label>
                 </div>
-                <label
-                  v-for="c in members"
-                  :key="c.id"
-                  class="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer"
-                >
-                  <input type="checkbox" :value="c.id" v-model="form.contestantIds" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-                  <span class="text-sm">{{ c.name }}</span>
-                </label>
-              </div>
               </div>
             </div>
           </div>
@@ -345,13 +380,22 @@ onMounted(async () => {
               class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-left flex flex-wrap items-center gap-1 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[38px]"
             >
               <template v-if="selectedActionNames.length">
-                <span v-for="name in selectedActionNames" :key="name" class="bg-indigo-100 text-indigo-800 text-xs font-medium px-2 py-0.5 rounded-full">{{ name }}</span>
+                <span
+                  v-for="name in selectedActionNames"
+                  :key="name"
+                  class="bg-indigo-100 text-indigo-800 text-xs font-medium px-2 py-0.5 rounded-full"
+                  >{{ name }}</span
+                >
               </template>
               <span v-else class="text-gray-400">Select…</span>
               <span class="ml-auto text-gray-400 text-xs">▾</span>
             </button>
 
-            <div v-if="showActionDropdown" class="fixed inset-0 z-10" @click="showActionDropdown = false; actionSearch = ''" />
+            <div
+              v-if="showActionDropdown"
+              class="fixed inset-0 z-10"
+              @click="showActionDropdown = false; actionSearch = ''"
+            />
 
             <div
               v-if="showActionDropdown"
@@ -367,20 +411,31 @@ onMounted(async () => {
                 />
               </div>
               <div class="overflow-y-auto">
-              <div v-for="(actions, type) in filteredByType" :key="type">
-                <div class="px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-gray-400 bg-gray-50 sticky top-0">
-                  {{ type }}
+                <div v-for="(actions, type) in filteredByType" :key="type">
+                  <div
+                    class="px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-gray-400 bg-gray-50 sticky top-0"
+                  >
+                    {{ type }}
+                  </div>
+                  <label
+                    v-for="a in actions"
+                    :key="a.id"
+                    class="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      :value="a.id"
+                      v-model="form.actionTypeIds"
+                      class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span class="text-sm flex-1">{{ a.category }}</span>
+                    <span
+                      class="text-xs font-mono"
+                      :class="a.points >= 0 ? 'text-green-600' : 'text-red-500'"
+                      >{{ pointsLabel(a.points) }}</span
+                    >
+                  </label>
                 </div>
-                <label
-                  v-for="a in actions"
-                  :key="a.id"
-                  class="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer"
-                >
-                  <input type="checkbox" :value="a.id" v-model="form.actionTypeIds" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-                  <span class="text-sm flex-1">{{ a.category }}</span>
-                  <span class="text-xs font-mono" :class="a.points >= 0 ? 'text-green-600' : 'text-red-500'">{{ pointsLabel(a.points) }}</span>
-                </label>
-              </div>
               </div>
             </div>
           </div>
@@ -421,11 +476,16 @@ onMounted(async () => {
 
       <!-- Action log -->
       <div class="bg-white rounded-xl shadow overflow-hidden">
-        <div class="px-4 py-3 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
+        <div
+          class="px-4 py-3 bg-gray-50 border-b border-gray-100 flex items-center justify-between"
+        >
           <h2 class="text-sm font-semibold text-gray-700">
             Action Log <span class="text-gray-400 font-normal">({{ entries.length }} entries)</span>
           </h2>
-          <span class="text-sm font-semibold" :class="totalPoints >= 0 ? 'text-green-600' : 'text-red-600'">
+          <span
+            class="text-sm font-semibold"
+            :class="totalPoints >= 0 ? 'text-green-600' : 'text-red-600'"
+          >
             {{ pointsLabel(totalPoints) }} pts total
           </span>
         </div>
@@ -449,13 +509,21 @@ onMounted(async () => {
             <tr v-for="entry in entries" :key="entry.id" class="border-t border-gray-100">
               <td class="px-4 py-2 font-medium">{{ entry.contestants.name }}</td>
               <td class="px-4 py-2">{{ entry.action_types.category }}</td>
-              <td class="px-4 py-2 font-mono" :class="entry.action_types.points >= 0 ? 'text-green-600' : 'text-red-500'">
+              <td
+                class="px-4 py-2 font-mono"
+                :class="entry.action_types.points >= 0 ? 'text-green-600' : 'text-red-500'"
+              >
                 {{ pointsLabel(entry.action_types.points) }}
               </td>
               <td class="px-4 py-2">{{ entry.count > 1 ? `×${entry.count}` : '—' }}</td>
               <td class="px-4 py-2 text-gray-400">{{ entry.note ?? '—' }}</td>
               <td class="px-4 py-2 text-right">
-                <button @click="deleteEntry(entry.id)" class="text-red-400 hover:text-red-600 text-xs font-medium">Delete</button>
+                <button
+                  @click="deleteEntry(entry.id)"
+                  class="text-red-400 hover:text-red-600 text-xs font-medium"
+                >
+                  Delete
+                </button>
               </td>
             </tr>
           </tbody>

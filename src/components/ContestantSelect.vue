@@ -15,10 +15,10 @@ const emit = defineEmits<{ 'update:modelValue': [value: string | null] }>()
 const open = ref(false)
 const search = ref('')
 
-const selected = computed(() => props.options.find(c => c.id === props.modelValue) ?? null)
+const selected = computed(() => props.options.find((c) => c.id === props.modelValue) ?? null)
 const filtered = computed(() => {
   const q = search.value.trim().toLowerCase()
-  return q ? props.options.filter(c => c.name.toLowerCase().includes(q)) : props.options
+  return q ? props.options.filter((c) => c.name.toLowerCase().includes(q)) : props.options
 })
 
 function toggle() {
@@ -39,12 +39,24 @@ function choose(id: string) {
       @click="toggle"
       class="flex w-full items-center gap-2.5 rounded-md border border-interactive-input-border bg-interactive-input px-3 py-2 text-left transition-colors hover:border-border-strong"
     >
-      <ContestantAvatar v-if="selected" :photo-url="selected.photo_url" :name="selected.name" :size="32" />
+      <ContestantAvatar
+        v-if="selected"
+        :photo-url="selected.photo_url"
+        :name="selected.name"
+        :size="32"
+      />
       <span
         class="flex-1 truncate text-sm"
         :class="selected ? 'font-medium text-text-default' : 'text-text-muted'"
-      >{{ selected ? selected.name : (placeholder ?? 'Select…') }}</span>
-      <svg class="h-4 w-4 shrink-0 text-icon-subtle" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        >{{ selected ? selected.name : (placeholder ?? 'Select…') }}</span
+      >
+      <svg
+        class="h-4 w-4 shrink-0 text-icon-subtle"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        stroke-width="2"
+      >
         <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
       </svg>
     </button>

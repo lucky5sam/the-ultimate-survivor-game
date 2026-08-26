@@ -6,13 +6,24 @@ type Season = { id: string; name: string }
 type TribeAssignment = { id: string; tribe: string; effective_from_episode: number }
 type Episode = { id: string; number: number; title: string | null }
 type Contestant = {
-  id: string; season_id: string; name: string; photo_url: string | null
-  bio: string | null; age: number | null; hometown: string | null; occupation: string | null
+  id: string
+  season_id: string
+  name: string
+  photo_url: string | null
+  bio: string | null
+  age: number | null
+  hometown: string | null
+  occupation: string | null
   assignments: TribeAssignment[]
 }
 type CsvRow = {
-  name: string; tribe: string; photo_url: string
-  age: string; hometown: string; occupation: string; bio: string
+  name: string
+  tribe: string
+  photo_url: string
+  age: string
+  hometown: string
+  occupation: string
+  bio: string
 }
 
 const seasons = ref<Season[]>([])
@@ -25,7 +36,15 @@ const showForm = ref(false)
 const saving = ref(false)
 const editingId = ref<string | null>(null)
 
-const form = ref({ name: '', photo_url: '', bio: '', age: '', hometown: '', occupation: '', tribe: '' })
+const form = ref({
+  name: '',
+  photo_url: '',
+  bio: '',
+  age: '',
+  hometown: '',
+  occupation: '',
+  tribe: '',
+})
 
 // Tribe-swap modal (records an append-only assignment effective from a chosen episode)
 const swapContestant = ref<Contestant | null>(null)
@@ -35,13 +54,15 @@ const savingSwap = ref(false)
 // The tribe in force at the latest episode — the newest assignment by episode.
 function currentTribeOf(c: Contestant): string {
   if (c.assignments.length === 0) return ''
-  return c.assignments.reduce((a, b) => (b.effective_from_episode > a.effective_from_episode ? b : a)).tribe
+  return c.assignments.reduce((a, b) =>
+    b.effective_from_episode > a.effective_from_episode ? b : a,
+  ).tribe
 }
 
 // Tribes defined for this season (the tribe picker pulls from these).
 type SeasonTribe = { name: string; color: string }
 const tribes = ref<SeasonTribe[]>([])
-const tribeNames = computed(() => tribes.value.map(t => t.name))
+const tribeNames = computed(() => tribes.value.map((t) => t.name))
 
 // Options for a tribe <select>, including the current value even if it's a
 // legacy name no longer in the season's tribe list (so it isn't silently lost).
@@ -50,11 +71,14 @@ function tribeOptions(current: string): string[] {
   return current && !names.includes(current) ? [current, ...names] : names
 }
 function tribeColorOf(name: string): string {
-  return tribes.value.find(t => t.name === name)?.color ?? ''
+  return tribes.value.find((t) => t.name === name)?.color ?? ''
 }
 
 async function loadTribesList() {
-  if (!selectedSeasonId.value) { tribes.value = []; return }
+  if (!selectedSeasonId.value) {
+    tribes.value = []
+    return
+  }
   const { data } = await supabase
     .from('tribes')
     .select('name, color')
@@ -70,7 +94,8 @@ const csvError = ref('')
 const csvImporting = ref(false)
 const csvFileInput = ref<HTMLInputElement | null>(null)
 
-const CSV_TEMPLATE = 'name,tribe,photo_url,age,hometown,occupation,bio\n"Jane Smith","Tagi","https://example.com/jane.jpg",28,"Austin, TX","Engineer","Short bio here."'
+const CSV_TEMPLATE =
+  'name,tribe,photo_url,age,hometown,occupation,bio\n"Jane Smith","Tagi","https://example.com/jane.jpg",28,"Austin, TX","Engineer","Short bio here."'
 
 function downloadTemplate() {
   const blob = new Blob([CSV_TEMPLATE], { type: 'text/csv' })
@@ -89,8 +114,10 @@ function parseCsvLine(line: string): string[] {
   for (let i = 0; i < line.length; i++) {
     const ch = line[i]!
     if (ch === '"') {
-      if (inQuotes && line[i + 1] === '"') { current += '"'; i++ }
-      else inQuotes = !inQuotes
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"'
+        i++
+      } else inQuotes = !inQuotes
     } else if (ch === ',' && !inQuotes) {
       result.push(current.trim())
       current = ''
@@ -110,20 +137,37 @@ function onCsvFile(e: Event) {
   const reader = new FileReader()
   reader.onload = (ev) => {
     const text = (ev.target?.result as string) ?? ''
-    const lines = text.split(/\r?\n/).filter(l => l.trim())
-    if (lines.length < 2) { csvError.value = 'CSV must have a header row and at least one data row.'; return }
-    const headers = parseCsvLine(lines[0]!).map(h => h.toLowerCase().replace(/\s+/g, '_'))
+    const lines = text.split(/\r?\n/).filter((l) => l.trim())
+    if (lines.length < 2) {
+      csvError.value = 'CSV must have a header row and at least one data row.'
+      return
+    }
+    const headers = parseCsvLine(lines[0]!).map((h) => h.toLowerCase().replace(/\s+/g, '_'))
     const col = (name: string) => headers.indexOf(name)
-    if (col('name') === -1) { csvError.value = 'CSV must have a "name" column.'; return }
+    if (col('name') === -1) {
+      csvError.value = 'CSV must have a "name" column.'
+      return
+    }
     const rows: CsvRow[] = []
     for (let i = 1; i < lines.length; i++) {
       const cells = parseCsvLine(lines[i]!)
       const get = (key: string) => (col(key) >= 0 ? (cells[col(key)] ?? '') : '').trim()
       const name = get('name')
       if (!name) continue
-      rows.push({ name, tribe: get('tribe'), photo_url: get('photo_url'), age: get('age'), hometown: get('hometown'), occupation: get('occupation'), bio: get('bio') })
+      rows.push({
+        name,
+        tribe: get('tribe'),
+        photo_url: get('photo_url'),
+        age: get('age'),
+        hometown: get('hometown'),
+        occupation: get('occupation'),
+        bio: get('bio'),
+      })
     }
-    if (rows.length === 0) { csvError.value = 'No valid rows found.'; return }
+    if (rows.length === 0) {
+      csvError.value = 'No valid rows found.'
+      return
+    }
     csvRows.value = rows
   }
   reader.readAsText(file)
@@ -134,7 +178,7 @@ async function importCsv() {
   csvImporting.value = true
   csvError.value = ''
 
-  const contestantPayloads = csvRows.value.map(r => ({
+  const contestantPayloads = csvRows.value.map((r) => ({
     name: r.name,
     season_id: selectedSeasonId.value,
     photo_url: r.photo_url || null,
@@ -144,35 +188,39 @@ async function importCsv() {
     occupation: r.occupation || null,
   }))
 
-  const { data: inserted, error: e1 } = await supabase
-    .from('contestants')
-    .insert(contestantPayloads)
-    .select('id, name')
+  try {
+    const { data: inserted, error: e1 } = await supabase
+      .from('contestants')
+      .insert(contestantPayloads)
+      .select('id, name')
+    if (e1 || !inserted) throw new Error(e1?.message ?? 'Insert failed.')
 
-  if (e1 || !inserted) {
-    csvError.value = e1?.message ?? 'Insert failed.'
+    // Build a name → id map for tribe assignments
+    const nameToId = new Map(inserted.map((c) => [c.name, c.id]))
+
+    const tribeRows = csvRows.value
+      .filter((r) => r.tribe)
+      .map((r) => ({
+        contestant_id: nameToId.get(r.name),
+        tribe: r.tribe,
+        effective_from_episode: 1,
+      }))
+      .filter((r) => r.contestant_id)
+
+    if (tribeRows.length > 0) {
+      const { error: e2 } = await supabase.from('contestant_tribe_assignments').insert(tribeRows)
+      if (e2) throw new Error(e2.message)
+    }
+
+    showCsvModal.value = false
+    csvRows.value = []
+    if (csvFileInput.value) csvFileInput.value.value = ''
+    await loadContestants()
+  } catch (e) {
+    csvError.value = e instanceof Error ? e.message : 'Import failed'
+  } finally {
     csvImporting.value = false
-    return
   }
-
-  // Build a name → id map for tribe assignments
-  const nameToId = new Map(inserted.map(c => [c.name, c.id]))
-
-  const tribeRows = csvRows.value
-    .filter(r => r.tribe)
-    .map(r => ({ contestant_id: nameToId.get(r.name), tribe: r.tribe, effective_from_episode: 1 }))
-    .filter(r => r.contestant_id)
-
-  if (tribeRows.length > 0) {
-    const { error: e2 } = await supabase.from('contestant_tribe_assignments').insert(tribeRows)
-    if (e2) { csvError.value = e2.message; csvImporting.value = false; return }
-  }
-
-  showCsvModal.value = false
-  csvRows.value = []
-  if (csvFileInput.value) csvFileInput.value.value = ''
-  await loadContestants()
-  csvImporting.value = false
 }
 
 function closeCsvModal() {
@@ -183,7 +231,10 @@ function closeCsvModal() {
 }
 
 async function loadSeasons() {
-  const { data } = await supabase.from('seasons').select('id, name').order('created_at', { ascending: false })
+  const { data } = await supabase
+    .from('seasons')
+    .select('id, name')
+    .order('created_at', { ascending: false })
   seasons.value = data ?? []
   if (seasons.value.length > 0 && !selectedSeasonId.value) {
     selectedSeasonId.value = seasons.value[0]!.id
@@ -210,7 +261,10 @@ async function loadContestants() {
 }
 
 async function loadEpisodes() {
-  if (!selectedSeasonId.value) { episodes.value = []; return }
+  if (!selectedSeasonId.value) {
+    episodes.value = []
+    return
+  }
   const { data } = await supabase
     .from('episodes')
     .select('id, number, title')
@@ -234,43 +288,52 @@ async function saveContestant() {
 
   const tribe = form.value.tribe.trim()
 
-  if (editingId.value) {
-    const { error } = await supabase.from('contestants').update(payload).eq('id', editingId.value)
-    if (error) { errorMsg.value = error.message; saving.value = false; return }
+  try {
+    if (editingId.value) {
+      const { error } = await supabase.from('contestants').update(payload).eq('id', editingId.value)
+      if (error) throw new Error(error.message)
 
-    // The form's Tribe field is the *initial* (Ep 1) tribe. Correct it in place
-    // if it changed; mid-season changes are recorded via the Change tribe flow.
-    const existing = contestants.value
-      .find(c => c.id === editingId.value)
-      ?.assignments.find(a => a.effective_from_episode === 1)
-    if (tribe && existing && existing.tribe !== tribe) {
-      const { error: e } = await supabase
-        .from('contestant_tribe_assignments')
-        .update({ tribe }).eq('id', existing.id)
-      if (e) { errorMsg.value = e.message; saving.value = false; return }
-    } else if (tribe && !existing) {
-      const { error: e } = await supabase
-        .from('contestant_tribe_assignments')
-        .insert({ contestant_id: editingId.value, tribe, effective_from_episode: 1 })
-      if (e) { errorMsg.value = e.message; saving.value = false; return }
-    }
-  } else {
-    const { data: inserted, error } = await supabase
-      .from('contestants').insert(payload).select('id').single()
-    if (error || !inserted) { errorMsg.value = error?.message ?? 'Insert failed.'; saving.value = false; return }
+      // The form's Tribe field is the *initial* (Ep 1) tribe. Correct it in place
+      // if it changed; mid-season changes are recorded via the Change tribe flow.
+      const existing = contestants.value
+        .find((c) => c.id === editingId.value)
+        ?.assignments.find((a) => a.effective_from_episode === 1)
+      if (tribe && existing && existing.tribe !== tribe) {
+        const { error: e } = await supabase
+          .from('contestant_tribe_assignments')
+          .update({ tribe })
+          .eq('id', existing.id)
+        if (e) throw new Error(e.message)
+      } else if (tribe && !existing) {
+        const { error: e } = await supabase
+          .from('contestant_tribe_assignments')
+          .insert({ contestant_id: editingId.value, tribe, effective_from_episode: 1 })
+        if (e) throw new Error(e.message)
+      }
+    } else {
+      const { data: inserted, error } = await supabase
+        .from('contestants')
+        .insert(payload)
+        .select('id')
+        .single()
+      if (error || !inserted) throw new Error(error?.message ?? 'Insert failed.')
 
-    if (tribe) {
-      const { error: e } = await supabase
-        .from('contestant_tribe_assignments')
-        .insert({ contestant_id: inserted.id, tribe, effective_from_episode: 1 })
-      if (e) { errorMsg.value = e.message; saving.value = false; return }
+      if (tribe) {
+        const { error: e } = await supabase
+          .from('contestant_tribe_assignments')
+          .insert({ contestant_id: inserted.id, tribe, effective_from_episode: 1 })
+        if (e) throw new Error(e.message)
+      }
     }
+
+    showForm.value = false
+    resetForm()
+    await loadContestants()
+  } catch (e) {
+    errorMsg.value = e instanceof Error ? e.message : 'Failed to save contestant'
+  } finally {
+    saving.value = false
   }
-
-  showForm.value = false
-  resetForm()
-  await loadContestants()
-  saving.value = false
 }
 
 async function deleteContestant(id: string, name: string) {
@@ -295,21 +358,31 @@ function openEdit(c: Contestant) {
     age: c.age !== null ? String(c.age) : '',
     hometown: c.hometown ?? '',
     occupation: c.occupation ?? '',
-    tribe: c.assignments.find(a => a.effective_from_episode === 1)?.tribe ?? '',
+    tribe: c.assignments.find((a) => a.effective_from_episode === 1)?.tribe ?? '',
   }
   showForm.value = true
 }
 
 function resetForm() {
-  form.value = { name: '', photo_url: '', bio: '', age: '', hometown: '', occupation: '', tribe: '' }
+  form.value = {
+    name: '',
+    photo_url: '',
+    bio: '',
+    age: '',
+    hometown: '',
+    occupation: '',
+    tribe: '',
+  }
 }
 
 function openSwap(c: Contestant) {
   swapContestant.value = c
-  const nextEp = episodes.value.find(e => !c.assignments.some(a => a.effective_from_episode === e.number))
+  const nextEp = episodes.value.find(
+    (e) => !c.assignments.some((a) => a.effective_from_episode === e.number),
+  )
   swapForm.value = {
     tribe: '',
-    fromEpisode: nextEp?.number ?? (episodes.value[episodes.value.length - 1]?.number ?? 2),
+    fromEpisode: nextEp?.number ?? episodes.value[episodes.value.length - 1]?.number ?? 2,
   }
 }
 
@@ -319,26 +392,37 @@ async function saveSwap() {
   if (!tribe) return
   savingSwap.value = true
   errorMsg.value = ''
-  // Append-only: a tribe change is a new assignment row effective from the
-  // chosen episode. If a row already exists for that episode, correct it.
-  const existing = swapContestant.value.assignments.find(
-    a => a.effective_from_episode === swapForm.value.fromEpisode,
-  )
-  const { error } = existing
-    ? await supabase.from('contestant_tribe_assignments').update({ tribe }).eq('id', existing.id)
-    : await supabase.from('contestant_tribe_assignments').insert({
-        contestant_id: swapContestant.value.id,
-        tribe,
-        effective_from_episode: swapForm.value.fromEpisode,
-      })
-  if (error) { errorMsg.value = error.message; savingSwap.value = false; return }
-  swapContestant.value = null
-  await loadContestants()
-  savingSwap.value = false
+  try {
+    // Append-only: a tribe change is a new assignment row effective from the
+    // chosen episode. If a row already exists for that episode, correct it.
+    const existing = swapContestant.value.assignments.find(
+      (a) => a.effective_from_episode === swapForm.value.fromEpisode,
+    )
+    const { error } = existing
+      ? await supabase.from('contestant_tribe_assignments').update({ tribe }).eq('id', existing.id)
+      : await supabase.from('contestant_tribe_assignments').insert({
+          contestant_id: swapContestant.value.id,
+          tribe,
+          effective_from_episode: swapForm.value.fromEpisode,
+        })
+    if (error) throw new Error(error.message)
+    swapContestant.value = null
+    await loadContestants()
+  } catch (e) {
+    errorMsg.value = e instanceof Error ? e.message : 'Failed to record tribe change'
+  } finally {
+    savingSwap.value = false
+  }
 }
 
-watch(selectedSeasonId, () => { loadContestants(); loadEpisodes(); loadTribesList() })
-onMounted(async () => { await loadSeasons(); await Promise.all([loadContestants(), loadEpisodes(), loadTribesList()]) })
+// loadSeasons sets selectedSeasonId, which triggers this watch — so the initial
+// data load runs once (no duplicate load in onMounted).
+watch(selectedSeasonId, () => {
+  loadContestants()
+  loadEpisodes()
+  loadTribesList()
+})
+onMounted(loadSeasons)
 </script>
 
 <template>
@@ -400,18 +484,34 @@ onMounted(async () => { await loadSeasons(); await Promise.all([loadContestants(
           <td class="px-4 py-3">
             <span v-if="currentTribeOf(c)" class="text-gray-700">{{ currentTribeOf(c) }}</span>
             <span v-else class="text-gray-300">—</span>
-            <span v-if="c.assignments.length > 1" class="ml-1 text-xs text-gray-400">(swapped)</span>
+            <span v-if="c.assignments.length > 1" class="ml-1 text-xs text-gray-400"
+              >(swapped)</span
+            >
           </td>
           <td class="px-4 py-3 text-gray-400 truncate max-w-xs">{{ c.photo_url ?? '—' }}</td>
           <td class="px-4 py-3 text-right space-x-3">
-            <button @click="openSwap(c)" class="text-indigo-600 hover:text-indigo-800 text-xs font-medium">Tribe</button>
-            <button @click="openEdit(c)" class="text-blue-600 hover:text-blue-800 text-xs font-medium">Edit</button>
-            <button @click="deleteContestant(c.id, c.name)" class="text-red-500 hover:text-red-700 text-xs font-medium">Delete</button>
+            <button
+              @click="openSwap(c)"
+              class="text-indigo-600 hover:text-indigo-800 text-xs font-medium"
+            >
+              Tribe
+            </button>
+            <button
+              @click="openEdit(c)"
+              class="text-blue-600 hover:text-blue-800 text-xs font-medium"
+            >
+              Edit
+            </button>
+            <button
+              @click="deleteContestant(c.id, c.name)"
+              class="text-red-500 hover:text-red-700 text-xs font-medium"
+            >
+              Delete
+            </button>
           </td>
         </tr>
       </tbody>
     </table>
-
 
     <!-- CSV Import Modal -->
     <div
@@ -422,13 +522,26 @@ onMounted(async () => { await loadSeasons(); await Promise.all([loadContestants(
       <div class="bg-white rounded-xl shadow-lg w-full max-w-2xl p-6 max-h-[90vh] flex flex-col">
         <div class="flex items-center justify-between mb-4">
           <h2 class="text-lg font-bold">Import Cast from CSV</h2>
-          <button @click="closeCsvModal" class="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+          <button
+            @click="closeCsvModal"
+            class="text-gray-400 hover:text-gray-600 text-xl leading-none"
+          >
+            &times;
+          </button>
         </div>
 
         <div class="mb-4 p-3 bg-gray-50 rounded-lg text-sm text-gray-600 space-y-1">
           <p>Required column: <span class="font-mono font-semibold">name</span></p>
-          <p>Optional columns: <span class="font-mono font-semibold">tribe, photo_url, age, hometown, occupation, bio</span></p>
-          <button @click="downloadTemplate" class="text-blue-600 hover:text-blue-800 text-xs font-medium underline mt-1">
+          <p>
+            Optional columns:
+            <span class="font-mono font-semibold"
+              >tribe, photo_url, age, hometown, occupation, bio</span
+            >
+          </p>
+          <button
+            @click="downloadTemplate"
+            class="text-blue-600 hover:text-blue-800 text-xs font-medium underline mt-1"
+          >
             Download template CSV
           </button>
         </div>
@@ -448,7 +561,9 @@ onMounted(async () => { await loadSeasons(); await Promise.all([loadContestants(
 
         <!-- Preview -->
         <div v-if="csvRows.length > 0" class="flex-1 overflow-y-auto min-h-0 mb-4">
-          <p class="text-sm text-gray-500 mb-2">{{ csvRows.length }} contestant{{ csvRows.length !== 1 ? 's' : '' }} found — preview:</p>
+          <p class="text-sm text-gray-500 mb-2">
+            {{ csvRows.length }} contestant{{ csvRows.length !== 1 ? 's' : '' }} found — preview:
+          </p>
           <table class="w-full text-xs border border-gray-200 rounded-lg overflow-hidden">
             <thead class="bg-gray-100 text-gray-600 text-left">
               <tr>
@@ -463,7 +578,9 @@ onMounted(async () => { await loadSeasons(); await Promise.all([loadContestants(
               <tr v-for="(r, i) in csvRows" :key="i" class="border-t border-gray-100">
                 <td class="px-3 py-2 font-medium">{{ r.name }}</td>
                 <td class="px-3 py-2 text-gray-500">{{ r.tribe || '—' }}</td>
-                <td class="px-3 py-2 text-gray-400 max-w-[140px] truncate">{{ r.photo_url || '—' }}</td>
+                <td class="px-3 py-2 text-gray-400 max-w-[140px] truncate">
+                  {{ r.photo_url || '—' }}
+                </td>
                 <td class="px-3 py-2 text-gray-500">{{ r.age || '—' }}</td>
                 <td class="px-3 py-2 text-gray-500">{{ r.hometown || '—' }}</td>
               </tr>
@@ -483,7 +600,11 @@ onMounted(async () => { await loadSeasons(); await Promise.all([loadContestants(
             :disabled="csvRows.length === 0 || csvImporting"
             class="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold px-5 py-2 rounded-lg"
           >
-            {{ csvImporting ? 'Importing…' : `Import ${csvRows.length} Contestant${csvRows.length !== 1 ? 's' : ''}` }}
+            {{
+              csvImporting
+                ? 'Importing…'
+                : `Import ${csvRows.length} Contestant${csvRows.length !== 1 ? 's' : ''}`
+            }}
           </button>
         </div>
       </div>
@@ -496,7 +617,9 @@ onMounted(async () => { await loadSeasons(); await Promise.all([loadContestants(
       @click.self="showForm = false"
     >
       <div class="bg-white rounded-xl shadow-lg w-full max-w-sm p-6">
-        <h2 class="text-lg font-bold mb-4">{{ editingId ? 'Edit Contestant' : 'Add Contestant' }}</h2>
+        <h2 class="text-lg font-bold mb-4">
+          {{ editingId ? 'Edit Contestant' : 'Add Contestant' }}
+        </h2>
 
         <form @submit.prevent="saveContestant" class="space-y-4">
           <div>
@@ -525,18 +648,24 @@ onMounted(async () => { await loadSeasons(); await Promise.all([loadContestants(
                 class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">— none —</option>
-                <option v-for="name in tribeOptions(form.tribe)" :key="name" :value="name">{{ name }}</option>
+                <option v-for="name in tribeOptions(form.tribe)" :key="name" :value="name">
+                  {{ name }}
+                </option>
               </select>
             </div>
             <p v-else class="text-sm text-gray-400">
               No tribes defined for this season yet — add them in
               <span class="font-medium">Admin → Seasons → Tribes</span>.
             </p>
-            <p v-if="tribeNames.length" class="mt-1 text-xs text-gray-400">Use “Tribe” on the list to record a mid-season swap.</p>
+            <p v-if="tribeNames.length" class="mt-1 text-xs text-gray-400">
+              Use “Tribe” on the list to record a mid-season swap.
+            </p>
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Photo URL <span class="text-gray-400 font-normal">(optional)</span></label>
+            <label class="block text-sm font-medium text-gray-700 mb-1"
+              >Photo URL <span class="text-gray-400 font-normal">(optional)</span></label
+            >
             <input
               v-model="form.photo_url"
               type="url"
@@ -547,7 +676,9 @@ onMounted(async () => { await loadSeasons(); await Promise.all([loadContestants(
 
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Age <span class="text-gray-400 font-normal">(optional)</span></label>
+              <label class="block text-sm font-medium text-gray-700 mb-1"
+                >Age <span class="text-gray-400 font-normal">(optional)</span></label
+              >
               <input
                 v-model="form.age"
                 type="number"
@@ -558,7 +689,9 @@ onMounted(async () => { await loadSeasons(); await Promise.all([loadContestants(
               />
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Hometown <span class="text-gray-400 font-normal">(optional)</span></label>
+              <label class="block text-sm font-medium text-gray-700 mb-1"
+                >Hometown <span class="text-gray-400 font-normal">(optional)</span></label
+              >
               <input
                 v-model="form.hometown"
                 type="text"
@@ -569,7 +702,9 @@ onMounted(async () => { await loadSeasons(); await Promise.all([loadContestants(
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Occupation <span class="text-gray-400 font-normal">(optional)</span></label>
+            <label class="block text-sm font-medium text-gray-700 mb-1"
+              >Occupation <span class="text-gray-400 font-normal">(optional)</span></label
+            >
             <input
               v-model="form.occupation"
               type="text"
@@ -579,7 +714,9 @@ onMounted(async () => { await loadSeasons(); await Promise.all([loadContestants(
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Bio <span class="text-gray-400 font-normal">(optional)</span></label>
+            <label class="block text-sm font-medium text-gray-700 mb-1"
+              >Bio <span class="text-gray-400 font-normal">(optional)</span></label
+            >
             <textarea
               v-model="form.bio"
               rows="3"
@@ -621,7 +758,10 @@ onMounted(async () => { await loadSeasons(); await Promise.all([loadContestants(
         <p class="text-sm text-gray-500 mb-4">{{ swapContestant.name }}</p>
 
         <!-- Assignment history -->
-        <div v-if="swapContestant.assignments.length" class="mb-4 rounded-lg bg-gray-50 p-3 text-sm">
+        <div
+          v-if="swapContestant.assignments.length"
+          class="mb-4 rounded-lg bg-gray-50 p-3 text-sm"
+        >
           <p class="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">History</p>
           <div
             v-for="a in swapContestant.assignments"
@@ -648,7 +788,9 @@ onMounted(async () => { await loadSeasons(); await Promise.all([loadContestants(
                 class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="" disabled>Select…</option>
-                <option v-for="name in tribeOptions(swapForm.tribe)" :key="name" :value="name">{{ name }}</option>
+                <option v-for="name in tribeOptions(swapForm.tribe)" :key="name" :value="name">
+                  {{ name }}
+                </option>
               </select>
             </div>
             <p v-else class="text-sm text-gray-400">
@@ -656,7 +798,9 @@ onMounted(async () => { await loadSeasons(); await Promise.all([loadContestants(
             </p>
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Effective from episode</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1"
+              >Effective from episode</label
+            >
             <select
               v-if="episodes.length"
               v-model.number="swapForm.fromEpisode"

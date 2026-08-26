@@ -8,7 +8,10 @@ import TropicalFrond from './TropicalFrond.vue'
 </script>
 
 <template>
-  <div class="theme-atmosphere pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+  <div
+    class="theme-atmosphere pointer-events-none absolute inset-0 overflow-hidden"
+    aria-hidden="true"
+  >
     <FireGlow class="left-1/2 top-1/2 h-80 w-80 -translate-x-1/2 -translate-y-1/2" />
     <TropicalFrond
       class="absolute -bottom-10 -left-12 w-60 rotate-[8deg] text-material-frond opacity-25"

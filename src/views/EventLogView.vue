@@ -11,7 +11,13 @@ import BaseModal from '../components/base/BaseModal.vue'
 import TribeBadge from '../components/TribeBadge.vue'
 
 type Season = { id: string; name: string }
-type EpisodeInfo = { id: string; number: number; title: string | null; air_date: string | null; status: string }
+type EpisodeInfo = {
+  id: string
+  number: number
+  title: string | null
+  air_date: string | null
+  status: string
+}
 type EventRow = {
   id: string
   episodeId: string
@@ -33,7 +39,12 @@ const loading = ref(false)
 const errorMsg = ref('')
 
 // Full-note modal (notes can be long, so the column is just a link).
-const activeNote = ref<{ category: string; recipient: string; episodeNumber: number; note: string } | null>(null)
+const activeNote = ref<{
+  category: string
+  recipient: string
+  episodeNumber: number
+  note: string
+} | null>(null)
 
 function openNote(row: EventRow, episode: EpisodeInfo) {
   if (!row.note) return
@@ -64,9 +75,9 @@ const episodeGroups = computed(() => {
   const byEpisode: Record<string, EventRow[]> = {}
   for (const e of events.value) (byEpisode[e.episodeId] ??= []).push(e)
   return [...episodes.value]
-    .filter(ep => byEpisode[ep.id]?.length)
+    .filter((ep) => byEpisode[ep.id]?.length)
     .sort(epSortDesc)
-    .map(ep => ({
+    .map((ep) => ({
       episode: ep,
       rows: byEpisode[ep.id]!.sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
     }))
@@ -91,27 +102,41 @@ async function loadSeasons() {
   if (seasons.value.length > 0) selectedSeasonId.value = seasons.value[0]!.id
 }
 
+// Guards against overlapping loads: if the season changes mid-fetch, only the
+// latest request is allowed to commit results (stale responses are dropped).
+let loadSeq = 0
+
 async function loadEvents() {
-  if (!selectedSeasonId.value) return
+  if (!selectedSeasonId.value) {
+    episodes.value = []
+    events.value = []
+    return
+  }
+  const seq = ++loadSeq
+  const seasonId = selectedSeasonId.value
   loading.value = true
   errorMsg.value = ''
-  loadTribeColors(selectedSeasonId.value)
   try {
+    await loadTribeColors(seasonId)
+
     const { data: eps, error: epsErr } = await supabase
       .from('episodes')
       .select('id, number, title, air_date, status')
-      .eq('season_id', selectedSeasonId.value)
+      .eq('season_id', seasonId)
       .order('number')
     if (epsErr) throw new Error(epsErr.message)
-    episodes.value = eps ?? []
+    const epList = (eps ?? []) as EpisodeInfo[]
 
-    const episodeIds = episodes.value.map(e => e.id)
+    const episodeIds = epList.map((e) => e.id)
     if (episodeIds.length === 0) {
-      events.value = []
+      if (seq === loadSeq) {
+        episodes.value = epList
+        events.value = []
+      }
       return
     }
     const epNumById: Record<string, number> = {}
-    for (const ep of episodes.value) epNumById[ep.id] = ep.number
+    for (const ep of epList) epNumById[ep.id] = ep.number
 
     // Versioned tribe assignments for this season's contestants, so each event
     // shows the tribe the recipient was on *at that episode* (not just now).
@@ -120,32 +145,38 @@ async function loadEvents() {
     const { data: contRows } = await supabase
       .from('contestants')
       .select('id, contestant_tribe_assignments(tribe, effective_from_episode)')
-      .eq('season_id', selectedSeasonId.value)
+      .eq('season_id', seasonId)
     const assignmentsByContestant: Record<string, TribeAssignment[]> = {}
     for (const c of contRows ?? []) {
-      assignmentsByContestant[c.id] = ((c.contestant_tribe_assignments as any[]) ?? []).map(a => ({
-        tribe: a.tribe,
-        effective_from_episode: a.effective_from_episode,
-      }))
+      assignmentsByContestant[c.id] = ((c.contestant_tribe_assignments as any[]) ?? []).map(
+        (a) => ({
+          tribe: a.tribe,
+          effective_from_episode: a.effective_from_episode,
+        }),
+      )
     }
     // The tribe in force for a contestant at a given episode number: the latest
     // assignment that took effect on or before it (append-only — a later
     // assignment supersedes, so no "ended" marker is needed).
     function tribeAt(contestantId: string, epNum: number): string {
       const eligible = (assignmentsByContestant[contestantId] ?? []).filter(
-        a => a.effective_from_episode <= epNum,
+        (a) => a.effective_from_episode <= epNum,
       )
       if (eligible.length === 0) return ''
-      return eligible.reduce((a, b) => (b.effective_from_episode > a.effective_from_episode ? b : a)).tribe
+      return eligible.reduce((a, b) =>
+        b.effective_from_episode > a.effective_from_episode ? b : a,
+      ).tribe
     }
 
     const { data, error } = await supabase
       .from('contestant_actions')
-      .select('id, episode_id, count, note, created_at, contestant_id, contestants(name), action_types(category, points)')
+      .select(
+        'id, episode_id, count, note, created_at, contestant_id, contestants(name), action_types(category, points)',
+      )
       .in('episode_id', episodeIds)
     if (error) throw new Error(error.message)
 
-    events.value = (data ?? []).map((a: any) => ({
+    const eventRows: EventRow[] = (data ?? []).map((a: any) => ({
       id: a.id,
       episodeId: a.episode_id,
       category: a.action_types?.category ?? '—',
@@ -156,15 +187,22 @@ async function loadEvents() {
       note: a.note ?? null,
       createdAt: a.created_at ?? '',
     }))
+
+    if (seq !== loadSeq) return
+    episodes.value = epList
+    events.value = eventRows
   } catch (e) {
+    if (seq !== loadSeq) return
     errorMsg.value = e instanceof Error ? e.message : 'Failed to load the event log'
   } finally {
-    loading.value = false
+    if (seq === loadSeq) loading.value = false
   }
 }
 
+// loadSeasons sets selectedSeasonId, which triggers this watch — so the initial
+// load happens exactly once (no duplicate call in onMounted).
 watch(selectedSeasonId, loadEvents)
-onMounted(async () => { await loadSeasons(); await loadEvents() })
+onMounted(loadSeasons)
 </script>
 
 <template>
@@ -200,9 +238,12 @@ onMounted(async () => { await loadSeasons(); await loadEvents() })
         class="overflow-hidden"
       >
         <!-- Episode header -->
-        <div class="flex items-baseline justify-between gap-3 border-b border-border-subtle bg-surface-subtle px-4 py-3">
+        <div
+          class="flex items-baseline justify-between gap-3 border-b border-border-subtle bg-surface-subtle px-4 py-3"
+        >
           <h3 class="truncate text-sm font-semibold text-text-default">
-            Episode {{ group.episode.number }}<template v-if="group.episode.title">: {{ group.episode.title }}</template>
+            Episode {{ group.episode.number
+            }}<template v-if="group.episode.title">: {{ group.episode.title }}</template>
           </h3>
           <span v-if="group.episode.air_date" class="shrink-0 text-xs text-text-muted">
             {{ fmtDate(group.episode.air_date) }}
@@ -233,13 +274,17 @@ onMounted(async () => { await loadSeasons(); await loadEvents() })
                 class="border-b border-border-subtle last:border-0"
               >
                 <td class="px-4 py-2.5 align-top text-text-default">
-                  <span class="break-words">{{ row.category }}</span><span v-if="row.count > 1" class="ml-1 text-text-muted">×{{ row.count }}</span>
+                  <span class="break-words">{{ row.category }}</span
+                  ><span v-if="row.count > 1" class="ml-1 text-text-muted">×{{ row.count }}</span>
                 </td>
                 <td
                   class="whitespace-nowrap px-4 py-2.5 text-right align-top font-semibold tabular-nums"
                   :class="row.points >= 0 ? 'text-status-success' : 'text-status-error'"
                 >
-                  {{ pointsLabel(row.points) }}<span v-if="row.count > 1" class="text-text-muted"> ({{ pointsLabel(row.points * row.count) }})</span>
+                  {{ pointsLabel(row.points)
+                  }}<span v-if="row.count > 1" class="text-text-muted">
+                    ({{ pointsLabel(row.points * row.count) }})</span
+                  >
                 </td>
                 <td class="px-4 py-2.5 align-top text-text-default">
                   <div class="flex items-center gap-2">
@@ -252,7 +297,9 @@ onMounted(async () => { await loadSeasons(); await loadEvents() })
                     v-if="row.note"
                     @click="openNote(row, group.episode)"
                     class="text-text-accent hover:text-interactive-accent-hover"
-                  >View Note</button>
+                  >
+                    View Note
+                  </button>
                   <span v-else class="text-text-muted">—</span>
                 </td>
               </tr>
@@ -268,7 +315,9 @@ onMounted(async () => { await loadSeasons(); await loadEvents() })
         <p class="text-xs text-text-muted">
           Ep {{ activeNote.episodeNumber }} · {{ activeNote.category }} · {{ activeNote.recipient }}
         </p>
-        <p class="mt-2 whitespace-pre-wrap break-words text-sm text-text-default">{{ activeNote.note }}</p>
+        <p class="mt-2 whitespace-pre-wrap break-words text-sm text-text-default">
+          {{ activeNote.note }}
+        </p>
       </div>
     </BaseModal>
   </div>

@@ -35,22 +35,27 @@ async function saveProfile() {
   const first = firstName.value.trim()
   const last = lastName.value.trim()
 
-  const { error: metaErr } = await supabase.auth.updateUser({
-    data: { first_name: first, last_name: last },
-  })
-  if (metaErr) { nameError.value = metaErr.message; savingName.value = false; return }
+  try {
+    const { error: metaErr } = await supabase.auth.updateUser({
+      data: { first_name: first, last_name: last },
+    })
+    if (metaErr) throw new Error(metaErr.message)
 
-  if (auth.user) {
-    const { error: profErr } = await supabase
-      .from('profiles')
-      .upsert({ id: auth.user.id, first_name: first, last_name: last }, { onConflict: 'id' })
-    if (profErr) { nameError.value = profErr.message; savingName.value = false; return }
+    if (auth.user) {
+      const { error: profErr } = await supabase
+        .from('profiles')
+        .upsert({ id: auth.user.id, first_name: first, last_name: last }, { onConflict: 'id' })
+      if (profErr) throw new Error(profErr.message)
+    }
+
+    auth.firstName = first
+    auth.lastName = last
+    toast.success('Profile updated')
+  } catch (e) {
+    nameError.value = e instanceof Error ? e.message : 'Failed to update profile'
+  } finally {
+    savingName.value = false
   }
-
-  auth.firstName = first
-  auth.lastName = last
-  savingName.value = false
-  toast.success('Profile updated')
 }
 
 async function changePassword() {
@@ -64,12 +69,17 @@ async function changePassword() {
     return
   }
   savingPassword.value = true
-  const { error } = await supabase.auth.updateUser({ password: newPassword.value })
-  if (error) { passwordError.value = error.message; savingPassword.value = false; return }
-  newPassword.value = ''
-  confirmPassword.value = ''
-  savingPassword.value = false
-  toast.success('Password updated')
+  try {
+    const { error } = await supabase.auth.updateUser({ password: newPassword.value })
+    if (error) throw new Error(error.message)
+    newPassword.value = ''
+    confirmPassword.value = ''
+    toast.success('Password updated')
+  } catch (e) {
+    passwordError.value = e instanceof Error ? e.message : 'Failed to update password'
+  } finally {
+    savingPassword.value = false
+  }
 }
 </script>
 
@@ -83,14 +93,26 @@ async function changePassword() {
 
       <div class="mb-4">
         <label class="mb-1 block text-sm font-medium text-text-default">Email</label>
-        <p class="rounded-md border border-dashed border-border-subtle bg-surface-page px-3 py-2 text-sm text-text-subtle">
+        <p
+          class="rounded-md border border-dashed border-border-subtle bg-surface-page px-3 py-2 text-sm text-text-subtle"
+        >
           {{ auth.user?.email }}
         </p>
       </div>
 
       <form class="space-y-4" @submit.prevent="saveProfile">
-        <BaseInput v-model="firstName" label="First name" autocomplete="given-name" placeholder="First name" />
-        <BaseInput v-model="lastName" label="Last name" autocomplete="family-name" placeholder="Last name" />
+        <BaseInput
+          v-model="firstName"
+          label="First name"
+          autocomplete="given-name"
+          placeholder="First name"
+        />
+        <BaseInput
+          v-model="lastName"
+          label="Last name"
+          autocomplete="family-name"
+          placeholder="Last name"
+        />
         <p v-if="nameError" class="text-sm text-status-error">{{ nameError }}</p>
         <div class="flex justify-end">
           <BaseButton type="submit" :loading="savingName">Save changes</BaseButton>
@@ -102,15 +124,28 @@ async function changePassword() {
     <BaseCard>
       <h3 class="mb-4 text-sm font-semibold text-text-default">Change password</h3>
       <form class="space-y-4" @submit.prevent="changePassword">
-        <BaseInput v-model="newPassword" type="password" label="New password" autocomplete="new-password" placeholder="••••••••" />
-        <BaseInput v-model="confirmPassword" type="password" label="Confirm new password" autocomplete="new-password" placeholder="••••••••" />
+        <BaseInput
+          v-model="newPassword"
+          type="password"
+          label="New password"
+          autocomplete="new-password"
+          placeholder="••••••••"
+        />
+        <BaseInput
+          v-model="confirmPassword"
+          type="password"
+          label="Confirm new password"
+          autocomplete="new-password"
+          placeholder="••••••••"
+        />
         <p v-if="passwordError" class="text-sm text-status-error">{{ passwordError }}</p>
         <div class="flex justify-end">
           <BaseButton
             type="submit"
             :loading="savingPassword"
             :disabled="!newPassword && !confirmPassword"
-          >Update password</BaseButton>
+            >Update password</BaseButton
+          >
         </div>
       </form>
     </BaseCard>

@@ -62,7 +62,10 @@ export function setTribeColorOverrides(map: Record<string, string>) {
 // Load a season's custom tribe colors into the active overrides. Safe to call on
 // every view load / season switch; falls back silently if the table isn't there.
 export async function loadTribeColors(seasonId: string): Promise<void> {
-  if (!seasonId) { setTribeColorOverrides({}); return }
+  if (!seasonId) {
+    setTribeColorOverrides({})
+    return
+  }
   const { data, error } = await supabase
     .from('tribes')
     .select('name, color')

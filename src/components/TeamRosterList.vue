@@ -12,7 +12,11 @@ import ContestantAvatar from './ContestantAvatar.vue'
 import TribeBadge from './TribeBadge.vue'
 import type { ContestantFull } from '../types/contestant'
 
-type ActivePlayer = { contestant_id: string; role: 'mvp' | 'player'; effective_from_episode: number }
+type ActivePlayer = {
+  contestant_id: string
+  role: 'mvp' | 'player'
+  effective_from_episode: number
+}
 
 const props = withDefaults(
   defineProps<{
@@ -49,13 +53,13 @@ const positionLabel = computed<Record<string, string>>(() => {
 })
 
 function contestantName(id: string) {
-  return props.contestants.find(c => c.id === id)?.name ?? '?'
+  return props.contestants.find((c) => c.id === id)?.name ?? '?'
 }
 function contestantPhoto(id: string) {
-  return props.contestants.find(c => c.id === id)?.photo_url ?? null
+  return props.contestants.find((c) => c.id === id)?.photo_url ?? null
 }
 function contestantTribe(id: string) {
-  return props.contestants.find(c => c.id === id)?.tribe ?? ''
+  return props.contestants.find((c) => c.id === id)?.tribe ?? ''
 }
 function contestantFirstName(id: string) {
   return contestantName(id).split(' ')[0] ?? ''
@@ -66,13 +70,15 @@ function contestantLastName(id: string) {
 function playerStatus(id: string): { out: boolean; ep: number | null } {
   const epId = props.eliminatedEpisodeIdByContestant[id]
   if (!epId) return { out: false, ep: null }
-  return { out: true, ep: props.episodes.find(e => e.id === epId)?.number ?? null }
+  return { out: true, ep: props.episodes.find((e) => e.id === epId)?.number ?? null }
 }
 </script>
 
 <template>
   <div class="overflow-hidden rounded-lg border border-border-subtle bg-surface-default">
-    <div class="flex items-center justify-between border-b border-border-subtle bg-surface-subtle px-4 py-3">
+    <div
+      class="flex items-center justify-between border-b border-border-subtle bg-surface-subtle px-4 py-3"
+    >
       <h3 class="text-sm font-semibold text-text-default">{{ title }}</h3>
       <slot name="header-actions" />
     </div>
@@ -88,16 +94,23 @@ function playerStatus(id: string): { out: boolean; ep: number | null } {
           @click="emit('chip-click', player, $event)"
           :class="[
             'w-11 shrink-0 cursor-pointer rounded-md py-1 text-center text-[10px] font-bold uppercase tracking-wide transition-colors hover:opacity-80',
-            player.role === 'mvp' ? 'bg-survivor-sand/20 text-survivor-sand' : 'bg-surface-subtle text-text-subtle',
+            player.role === 'mvp'
+              ? 'bg-survivor-sand/20 text-survivor-sand'
+              : 'bg-surface-subtle text-text-subtle',
           ]"
-        >{{ positionLabel[player.contestant_id] }}</button>
+        >
+          {{ positionLabel[player.contestant_id] }}
+        </button>
         <span
           v-else
           :class="[
             'w-11 shrink-0 rounded-md py-1 text-center text-[10px] font-bold uppercase tracking-wide',
-            player.role === 'mvp' ? 'bg-survivor-sand/20 text-survivor-sand' : 'bg-surface-subtle text-text-subtle',
+            player.role === 'mvp'
+              ? 'bg-survivor-sand/20 text-survivor-sand'
+              : 'bg-surface-subtle text-text-subtle',
           ]"
-        >{{ positionLabel[player.contestant_id] }}</span>
+          >{{ positionLabel[player.contestant_id] }}</span
+        >
 
         <ContestantAvatar
           :photo-url="contestantPhoto(player.contestant_id)"
@@ -110,7 +123,8 @@ function playerStatus(id: string): { out: boolean; ep: number | null } {
               <span
                 v-if="contestantLastName(player.contestant_id)"
                 class="ml-1 hidden text-text-subtle sm:inline"
-              >{{ contestantLastName(player.contestant_id) }}</span>
+                >{{ contestantLastName(player.contestant_id) }}</span
+              >
             </p>
             <TribeBadge :tribe="contestantTribe(player.contestant_id)" />
           </div>
@@ -127,9 +141,11 @@ function playerStatus(id: string): { out: boolean; ep: number | null } {
           class="mt-0.5 text-xs"
           :class="playerStatus(player.contestant_id).out ? 'text-status-error' : 'text-text-muted'"
         >
-          {{ playerStatus(player.contestant_id).out
+          {{
+            playerStatus(player.contestant_id).out
               ? `Voted Out Ep. ${playerStatus(player.contestant_id).ep}`
-              : 'In the Game' }}
+              : 'In the Game'
+          }}
         </p>
       </div>
     </div>

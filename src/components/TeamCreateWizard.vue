@@ -19,7 +19,14 @@ const props = defineProps<{
 const emit = defineEmits<{ created: [] }>()
 
 const TOTAL_STEPS = 6
-const STEP_LABELS = ['League Code', 'Team Name', 'Pick Players', 'Declare MVP', 'Bounty Pick', 'Review']
+const STEP_LABELS = [
+  'League Code',
+  'Team Name',
+  'Pick Players',
+  'Declare MVP',
+  'Bounty Pick',
+  'Review',
+]
 
 const step = ref(1)
 const leagueCode = ref('')
@@ -36,11 +43,11 @@ const sortedContestants = computed(() =>
 )
 
 const selectedContestants = computed(() =>
-  selectedIds.value.map(id => props.contestants.find(c => c.id === id)!).filter(Boolean)
+  selectedIds.value.map((id) => props.contestants.find((c) => c.id === id)!).filter(Boolean),
 )
 
-const bountyContestant = computed(() =>
-  props.contestants.find(c => c.id === bountyId.value) ?? null
+const bountyContestant = computed(
+  () => props.contestants.find((c) => c.id === bountyId.value) ?? null,
 )
 
 onMounted(() => {
@@ -62,18 +69,35 @@ async function nextStep() {
   errorMsg.value = ''
 
   if (step.value === 1) {
-    if (!leagueCode.value.trim()) { errorMsg.value = 'Enter the league code'; return }
+    if (!leagueCode.value.trim()) {
+      errorMsg.value = 'Enter the league code'
+      return
+    }
     loading.value = true
-    const { data: valid, error } = await supabase.rpc('check_registration_code', { code: leagueCode.value.trim() })
+    const { data: valid, error } = await supabase.rpc('check_registration_code', {
+      code: leagueCode.value.trim(),
+    })
     loading.value = false
-    if (error || !valid) { errorMsg.value = 'Invalid league code'; return }
+    if (error || !valid) {
+      errorMsg.value = 'Invalid league code'
+      return
+    }
     sessionStorage.removeItem('pending_league_code')
   }
 
-  if (step.value === 2 && !teamName.value.trim()) { errorMsg.value = 'Enter a team name'; return }
+  if (step.value === 2 && !teamName.value.trim()) {
+    errorMsg.value = 'Enter a team name'
+    return
+  }
   if (step.value === 3 && selectedIds.value.length < 4) return
-  if (step.value === 4 && !mvpId.value) { errorMsg.value = 'Choose your MVP'; return }
-  if (step.value === 5 && !bountyId.value) { errorMsg.value = 'Choose a bounty pick'; return }
+  if (step.value === 4 && !mvpId.value) {
+    errorMsg.value = 'Choose your MVP'
+    return
+  }
+  if (step.value === 5 && !bountyId.value) {
+    errorMsg.value = 'Choose a bounty pick'
+    return
+  }
 
   step.value++
 }
@@ -87,17 +111,25 @@ async function lockIn() {
     .insert({ user_id: props.userId, season_id: props.seasonId, team_name: teamName.value.trim() })
     .select('id')
     .single()
-  if (e1) { errorMsg.value = e1.message; loading.value = false; return }
+  if (e1) {
+    errorMsg.value = e1.message
+    loading.value = false
+    return
+  }
 
   const { error: e2 } = await supabase.from('team_players').insert(
-    selectedIds.value.map(id => ({
+    selectedIds.value.map((id) => ({
       team_id: team.id,
       contestant_id: id,
       role: id === mvpId.value ? 'mvp' : 'player',
       effective_from_episode: 1,
-    }))
+    })),
   )
-  if (e2) { errorMsg.value = e2.message; loading.value = false; return }
+  if (e2) {
+    errorMsg.value = e2.message
+    loading.value = false
+    return
+  }
 
   const { error: e3 } = await supabase.from('bounty_picks').insert({
     team_id: team.id,
@@ -105,7 +137,11 @@ async function lockIn() {
     contestant_id: bountyId.value,
     effective_from_episode: 1,
   })
-  if (e3) { errorMsg.value = e3.message; loading.value = false; return }
+  if (e3) {
+    errorMsg.value = e3.message
+    loading.value = false
+    return
+  }
 
   loading.value = false
   emit('created')
@@ -118,7 +154,6 @@ async function lockIn() {
   <div class="relative overflow-x-clip bg-surface-page">
     <ThemeAtmosphere />
     <div class="relative z-10 px-8 sm:px-12 lg:px-20 pt-8 pb-16">
-
       <!-- Header -->
       <div class="text-center mb-10">
         <h1 class="text-3xl font-bold tracking-tight text-text-default">Build Your Tribe</h1>
@@ -131,9 +166,11 @@ async function lockIn() {
           <div
             class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-all duration-300"
             :class="[
-              step > n  ? 'bg-interactive-accent text-text-on-accent' :
-              step === n ? 'bg-interactive-accent text-text-on-accent ring-4 ring-interactive-accent/20' :
-                           'bg-surface-subtle text-text-muted border border-border-subtle'
+              step > n
+                ? 'bg-interactive-accent text-text-on-accent'
+                : step === n
+                  ? 'bg-interactive-accent text-text-on-accent ring-4 ring-interactive-accent/20'
+                  : 'bg-surface-subtle text-text-muted border border-border-subtle',
             ]"
           >
             <span v-if="step > n">✓</span>
@@ -148,19 +185,19 @@ async function lockIn() {
       </div>
       <!-- Step labels -->
       <div class="flex max-w-2xl mx-auto mb-10">
-        <div
-          v-for="(label, i) in STEP_LABELS"
-          :key="i"
-          class="flex-1 text-center"
-        >
+        <div v-for="(label, i) in STEP_LABELS" :key="i" class="flex-1 text-center">
           <p
             class="text-xs mt-1 transition-colors duration-200 hidden sm:block"
             :class="[
-              step === i + 1 ? 'text-text-accent font-semibold' :
-              step > i + 1  ? 'text-text-subtle' :
-                               'text-text-muted'
+              step === i + 1
+                ? 'text-text-accent font-semibold'
+                : step > i + 1
+                  ? 'text-text-subtle'
+                  : 'text-text-muted',
             ]"
-          >{{ label }}</p>
+          >
+            {{ label }}
+          </p>
         </div>
       </div>
 
@@ -168,7 +205,9 @@ async function lockIn() {
       <template v-if="step === 1">
         <div class="max-w-sm mx-auto">
           <h2 class="text-xl font-bold text-text-default mb-1">Enter League Code</h2>
-          <p class="text-text-subtle text-sm mb-6">Ask your league admin for the code to join {{ seasonName }}.</p>
+          <p class="text-text-subtle text-sm mb-6">
+            Ask your league admin for the code to join {{ seasonName }}.
+          </p>
           <div class="space-y-4">
             <BaseInput
               v-model="leagueCode"
@@ -177,7 +216,13 @@ async function lockIn() {
               :error="errorMsg"
               @keyup.enter="nextStep"
             />
-            <BaseButton block size="lg" :loading="loading" :disabled="!leagueCode.trim()" @click="nextStep">
+            <BaseButton
+              block
+              size="lg"
+              :loading="loading"
+              :disabled="!leagueCode.trim()"
+              @click="nextStep"
+            >
               Continue
             </BaseButton>
           </div>
@@ -216,7 +261,9 @@ async function lockIn() {
 
         <!-- Reflowing grid, alphabetical. Tribe is shown on each card, so no grouping.
              4-col → 3 → 2 → 1, capped by max-width so it doesn't sprawl on wide screens. -->
-        <div class="mx-auto mb-8 grid max-w-5xl grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+        <div
+          class="mx-auto mb-8 grid max-w-5xl grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
+        >
           <ContestantCard
             v-for="c in sortedContestants"
             :key="c.id"
@@ -239,7 +286,10 @@ async function lockIn() {
                 <template v-if="selectedContestants[i - 1]">
                   <div
                     class="h-9 w-9 overflow-hidden rounded-full border-2"
-                    :style="{ borderColor: getTribeColors(selectedContestants[i - 1]!.tribe).primary, boxShadow: `0 0 6px ${getTribeColors(selectedContestants[i - 1]!.tribe).primary}55` }"
+                    :style="{
+                      borderColor: getTribeColors(selectedContestants[i - 1]!.tribe).primary,
+                      boxShadow: `0 0 6px ${getTribeColors(selectedContestants[i - 1]!.tribe).primary}55`,
+                    }"
                   >
                     <img
                       v-if="selectedContestants[i - 1]!.photo_url"
@@ -247,24 +297,35 @@ async function lockIn() {
                       :alt="selectedContestants[i - 1]!.name"
                       class="h-full w-full object-cover object-top"
                     />
-                    <div v-else class="flex h-full w-full items-center justify-center bg-surface-strong">
+                    <div
+                      v-else
+                      class="flex h-full w-full items-center justify-center bg-surface-strong"
+                    >
                       <svg class="h-4 w-4 text-icon-subtle" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
+                        <path
+                          d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"
+                        />
                       </svg>
                     </div>
                   </div>
-                  <span class="w-11 truncate text-center text-[10px] font-medium leading-tight text-text-default">
+                  <span
+                    class="w-11 truncate text-center text-[10px] font-medium leading-tight text-text-default"
+                  >
                     {{ selectedContestants[i - 1]!.name.split(' ')[0] }}
                   </span>
                 </template>
                 <template v-else>
-                  <div class="flex h-9 w-9 items-center justify-center rounded-full border-2 border-dashed border-border-subtle bg-surface-subtle/40">
+                  <div
+                    class="flex h-9 w-9 items-center justify-center rounded-full border-2 border-dashed border-border-subtle bg-surface-subtle/40"
+                  >
                     <span class="text-[10px] font-bold text-text-muted">{{ i }}</span>
                   </div>
                   <span class="text-[10px] text-text-muted">—</span>
                 </template>
               </div>
-              <span class="ml-auto text-xs font-medium text-text-muted">{{ selectedIds.length }}/4</span>
+              <span class="ml-auto text-xs font-medium text-text-muted"
+                >{{ selectedIds.length }}/4</span
+              >
             </div>
 
             <!-- Actions -->
@@ -287,7 +348,9 @@ async function lockIn() {
       <template v-else-if="step === 4">
         <div class="text-center mb-8">
           <h2 class="text-xl font-bold text-text-default mb-1">Crown Your Champion</h2>
-          <p class="text-text-subtle text-sm">Your MVP earns 1.5× points each episode. Choose wisely.</p>
+          <p class="text-text-subtle text-sm">
+            Your MVP earns 1.5× points each episode. Choose wisely.
+          </p>
         </div>
 
         <div class="flex flex-wrap justify-center gap-4 mb-8">
@@ -316,12 +379,15 @@ async function lockIn() {
         <div class="mb-6">
           <h2 class="text-xl font-bold text-text-default mb-0.5">Set Your Bounty</h2>
           <p class="text-text-subtle text-sm">
-            Who gets voted out first? Your pick carries forward each week — change it before any episode airs.
+            Who gets voted out first? Your pick carries forward each week — change it before any
+            episode airs.
           </p>
         </div>
 
         <!-- Same reflowing grid as Pick Players, but a single target selection -->
-        <div class="mx-auto mb-8 grid max-w-5xl grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+        <div
+          class="mx-auto mb-8 grid max-w-5xl grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
+        >
           <ContestantCard
             v-for="c in sortedContestants"
             :key="c.id"
@@ -353,10 +419,14 @@ async function lockIn() {
       <template v-else-if="step === 6">
         <div class="max-w-md mx-auto">
           <h2 class="text-xl font-bold text-text-default mb-1">Review Your Tribe</h2>
-          <p class="text-text-subtle text-sm mb-6">Once locked in, you can swap players between episodes.</p>
+          <p class="text-text-subtle text-sm mb-6">
+            Once locked in, you can swap players between episodes.
+          </p>
 
           <!-- Team name -->
-          <div class="surface-card bg-surface-subtle rounded-md border border-border-subtle px-4 py-3 mb-4">
+          <div
+            class="surface-card bg-surface-subtle rounded-md border border-border-subtle px-4 py-3 mb-4"
+          >
             <p class="text-xs text-text-muted uppercase tracking-wide mb-0.5">Tribe Name</p>
             <p class="font-bold text-text-default">{{ teamName }}</p>
           </div>
@@ -377,10 +447,15 @@ async function lockIn() {
           </div>
 
           <!-- Bounty pick -->
-          <div v-if="bountyContestant" class="surface-card bg-surface-subtle rounded-md border border-border-subtle px-4 py-3 mb-6">
+          <div
+            v-if="bountyContestant"
+            class="surface-card bg-surface-subtle rounded-md border border-border-subtle px-4 py-3 mb-6"
+          >
             <p class="text-xs text-text-muted uppercase tracking-wide mb-0.5">Bounty Pick</p>
             <div class="flex items-center gap-2">
-              <span class="font-semibold text-text-default text-sm">{{ bountyContestant.name }}</span>
+              <span class="font-semibold text-text-default text-sm">{{
+                bountyContestant.name
+              }}</span>
               <span class="text-xs" :style="{ color: getTribeColors(bountyContestant.tribe).text }">
                 {{ bountyContestant.tribe }}
               </span>
@@ -397,7 +472,6 @@ async function lockIn() {
           </div>
         </div>
       </template>
-
     </div>
   </div>
 

@@ -6,7 +6,9 @@ const { toasts } = useToast()
 
 <template>
   <Teleport to="body">
-    <div class="fixed bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 z-[9999] pointer-events-none">
+    <div
+      class="fixed bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 z-[9999] pointer-events-none"
+    >
       <TransitionGroup
         enter-active-class="transition-all duration-300 ease-out"
         enter-from-class="opacity-0 translate-y-4 scale-95"
@@ -20,9 +22,11 @@ const { toasts } = useToast()
           :key="toast.id"
           :class="[
             'px-4 py-3 rounded-xl shadow-lg text-sm font-medium flex items-center gap-2 pointer-events-auto',
-            toast.type === 'success' ? 'bg-gray-900 text-white' :
-            toast.type === 'error'   ? 'bg-red-600 text-white' :
-                                       'bg-blue-600 text-white',
+            toast.type === 'success'
+              ? 'bg-gray-900 text-white'
+              : toast.type === 'error'
+                ? 'bg-red-600 text-white'
+                : 'bg-blue-600 text-white',
           ]"
         >
           <span v-if="toast.type === 'success'">✓</span>

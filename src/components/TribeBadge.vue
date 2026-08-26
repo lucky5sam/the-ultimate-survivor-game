@@ -28,7 +28,8 @@ function onLeave() {
     :aria-label="tribe"
     @mouseenter="onEnter"
     @mouseleave="onLeave"
-  >{{ tribe.charAt(0).toUpperCase() }}</span>
+    >{{ tribe.charAt(0).toUpperCase() }}</span
+  >
 
   <Teleport to="body">
     <div

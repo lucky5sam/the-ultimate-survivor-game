@@ -18,9 +18,11 @@ const saving = ref(false)
 const errorMsg = ref('')
 const masterCheckboxRef = ref<HTMLInputElement | null>(null)
 
-const allSelected = computed(() => actions.value.length > 0 && actions.value.every(a => a.selected))
-const someSelected = computed(() => actions.value.some(a => a.selected))
-const selectedCount = computed(() => actions.value.filter(a => a.selected).length)
+const allSelected = computed(
+  () => actions.value.length > 0 && actions.value.every((a) => a.selected),
+)
+const someSelected = computed(() => actions.value.some((a) => a.selected))
+const selectedCount = computed(() => actions.value.filter((a) => a.selected).length)
 
 watchEffect(() => {
   if (masterCheckboxRef.value) {
@@ -42,7 +44,7 @@ function makeLocal(raw: Partial<CatalogAction> = {}): CatalogAction {
 
 function toggleSelectAll() {
   const next = !allSelected.value
-  actions.value.forEach(a => (a.selected = next))
+  actions.value.forEach((a) => (a.selected = next))
 }
 
 function addRow() {
@@ -54,7 +56,7 @@ function removeRow(idx: number) {
 }
 
 function removeSelected() {
-  actions.value = actions.value.filter(a => !a.selected)
+  actions.value = actions.value.filter((a) => !a.selected)
 }
 
 async function load() {
@@ -64,38 +66,45 @@ async function load() {
     .select('id, type, category, points, sort_order')
     .order('sort_order')
   if (error) errorMsg.value = error.message
-  else actions.value = (data ?? []).map(a => makeLocal(a))
+  else actions.value = (data ?? []).map((a) => makeLocal(a))
   loading.value = false
 }
 
 async function save() {
   saving.value = true
   errorMsg.value = ''
+  try {
+    const { data: originals, error: selErr } = await supabase.from('action_types').select('id')
+    if (selErr) throw new Error(selErr.message)
+    const rows = actions.value.filter((a) => a.type.trim() && a.category.trim())
+    const currentIds = new Set(rows.filter((a) => a.id).map((a) => a.id))
+    const deletedIds = (originals ?? []).map((r) => r.id).filter((id) => !currentIds.has(id))
 
-  const { data: originals } = await supabase.from('action_types').select('id')
-  const rows = actions.value.filter(a => a.type.trim() && a.category.trim())
-  const currentIds = new Set(rows.filter(a => a.id).map(a => a.id))
-  const deletedIds = (originals ?? []).map(r => r.id).filter(id => !currentIds.has(id))
+    // Upsert first, then delete — so a mid-save failure never removes rows
+    // before their replacements are safely written.
+    const toUpsert = rows.map((a, i) => ({
+      ...(a.id ? { id: a.id } : {}),
+      type: a.type.trim(),
+      category: a.category.trim(),
+      points: a.points,
+      sort_order: i,
+    }))
+    if (toUpsert.length) {
+      const { error } = await supabase.from('action_types').upsert(toUpsert, { onConflict: 'id' })
+      if (error) throw new Error(error.message)
+    }
 
-  if (deletedIds.length) {
-    await supabase.from('action_types').delete().in('id', deletedIds)
+    if (deletedIds.length) {
+      const { error } = await supabase.from('action_types').delete().in('id', deletedIds)
+      if (error) throw new Error(error.message)
+    }
+
+    await load()
+  } catch (e) {
+    errorMsg.value = e instanceof Error ? e.message : 'Failed to save action types'
+  } finally {
+    saving.value = false
   }
-
-  const toUpsert = rows.map((a, i) => ({
-    ...(a.id ? { id: a.id } : {}),
-    type: a.type.trim(),
-    category: a.category.trim(),
-    points: a.points,
-    sort_order: i,
-  }))
-
-  if (toUpsert.length) {
-    const { error } = await supabase.from('action_types').upsert(toUpsert, { onConflict: 'id' })
-    if (error) { errorMsg.value = error.message; saving.value = false; return }
-  }
-
-  await load()
-  saving.value = false
 }
 
 onMounted(load)
@@ -106,7 +115,9 @@ onMounted(load)
     <div class="flex items-center justify-between mb-6">
       <div>
         <h1 class="text-2xl font-bold">Action Types</h1>
-        <p class="text-sm text-gray-500 mt-1">Global catalog of scoring actions. Seasons inherit from this list.</p>
+        <p class="text-sm text-gray-500 mt-1">
+          Global catalog of scoring actions. Seasons inherit from this list.
+        </p>
       </div>
       <button
         @click="save"
@@ -130,8 +141,12 @@ onMounted(load)
             v-if="selectedCount > 0"
             @click="removeSelected"
             class="text-xs text-red-600 hover:text-red-800 font-medium"
-          >Remove selected ({{ selectedCount }})</button>
-          <button @click="addRow" class="text-xs text-blue-600 hover:text-blue-800 font-medium">+ Add row</button>
+          >
+            Remove selected ({{ selectedCount }})
+          </button>
+          <button @click="addRow" class="text-xs text-blue-600 hover:text-blue-800 font-medium">
+            + Add row
+          </button>
         </div>
       </div>
 
@@ -198,7 +213,9 @@ onMounted(load)
               <button
                 @click="removeRow(idx)"
                 class="text-gray-300 hover:text-red-500 text-base leading-none"
-              >✕</button>
+              >
+                ✕
+              </button>
             </td>
           </tr>
         </tbody>

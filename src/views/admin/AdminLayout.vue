@@ -15,9 +15,7 @@ async function handleSignOut() {
 <template>
   <div class="min-h-screen flex">
     <aside class="w-56 bg-gray-900 text-white flex flex-col">
-      <div class="px-6 py-5 text-lg font-bold border-b border-gray-700">
-        Survivor Admin
-      </div>
+      <div class="px-6 py-5 text-lg font-bold border-b border-gray-700">Survivor Admin</div>
       <nav class="flex-1 px-4 py-4 space-y-1">
         <RouterLink
           to="/admin/seasons"

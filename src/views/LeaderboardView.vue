@@ -22,16 +22,27 @@ async function loadSeasons() {
   if (seasons.value.length > 0) selectedSeasonId.value = seasons.value[0]!.id
 }
 
+// Guards against overlapping loads: if the season changes mid-fetch, only the
+// latest request is allowed to write results (stale responses are dropped).
+let loadSeq = 0
+
 async function loadLeaderboard() {
-  if (!selectedSeasonId.value) return
+  if (!selectedSeasonId.value) {
+    rows.value = []
+    return
+  }
+  const seq = ++loadSeq
   loading.value = true
   errorMsg.value = ''
   try {
-    rows.value = await computeLeaderboard(selectedSeasonId.value)
+    const result = await computeLeaderboard(selectedSeasonId.value)
+    if (seq !== loadSeq) return
+    rows.value = result
   } catch (e) {
+    if (seq !== loadSeq) return
     errorMsg.value = e instanceof Error ? e.message : 'Failed to load leaderboard'
   } finally {
-    loading.value = false
+    if (seq === loadSeq) loading.value = false
   }
 }
 
@@ -40,7 +51,9 @@ function fmtPts(n: number) {
 }
 
 // Widest roster in the field, so every team gets the same number of player columns.
-const maxPlayers = computed(() => rows.value.reduce((m, r) => Math.max(m, r.players.length), 0) || 4)
+const maxPlayers = computed(
+  () => rows.value.reduce((m, r) => Math.max(m, r.players.length), 0) || 4,
+)
 
 // Ranked rows with each roster sorted MVP-first, then by individual score.
 const displayRows = computed(() =>
@@ -53,8 +66,10 @@ const displayRows = computed(() =>
   })),
 )
 
+// loadSeasons sets selectedSeasonId, which triggers this watch — so the initial
+// load happens exactly once (no duplicate call in onMounted).
 watch(selectedSeasonId, loadLeaderboard)
-onMounted(async () => { await loadSeasons(); await loadLeaderboard() })
+onMounted(loadSeasons)
 </script>
 
 <template>
@@ -89,35 +104,33 @@ onMounted(async () => { await loadSeasons(); await loadLeaderboard() })
             <tr>
               <th class="sticky left-0 z-10 w-52 bg-surface-subtle px-4 py-3 text-left">Team</th>
               <th class="sticky left-52 z-10 w-20 bg-surface-subtle px-4 py-3 text-right">Total</th>
-              <th
-                v-for="n in maxPlayers"
-                :key="n"
-                class="min-w-[8rem] px-4 py-3 text-left"
-              >Player {{ n }}</th>
+              <th v-for="n in maxPlayers" :key="n" class="min-w-[8rem] px-4 py-3 text-left">
+                Player {{ n }}
+              </th>
               <th class="px-4 py-3 text-right">Actions</th>
               <th class="px-4 py-3 text-right">Bounty</th>
               <th class="px-4 py-3 text-right">Swaps</th>
             </tr>
           </thead>
           <tbody>
-            <tr
-              v-for="row in displayRows"
-              :key="row.teamId"
-              class="border-t border-border-subtle"
-            >
+            <tr v-for="row in displayRows" :key="row.teamId" class="border-t border-border-subtle">
               <!-- Team (sticky): rank + name + owner -->
               <td class="sticky left-0 z-10 w-52 bg-surface-default px-4 py-3">
                 <div class="flex items-center gap-3">
                   <span
                     class="w-5 shrink-0 text-center font-bold tabular-nums"
                     :class="row.rank === 1 ? 'text-survivor-sand' : 'text-text-subtle'"
-                  >{{ row.rank }}</span>
+                    >{{ row.rank }}</span
+                  >
                   <div class="min-w-0">
                     <RouterLink
                       :to="`/team/${row.teamId}`"
                       class="block truncate font-semibold text-text-default hover:text-text-accent"
-                    >{{ row.teamName ?? '(no name)' }}</RouterLink>
-                    <div v-if="row.ownerName" class="truncate text-xs text-text-muted">{{ row.ownerName }}</div>
+                      >{{ row.teamName ?? '(no name)' }}</RouterLink
+                    >
+                    <div v-if="row.ownerName" class="truncate text-xs text-text-muted">
+                      {{ row.ownerName }}
+                    </div>
                   </div>
                 </div>
               </td>
@@ -126,20 +139,27 @@ onMounted(async () => { await loadSeasons(); await loadLeaderboard() })
               <td
                 class="sticky left-52 z-10 w-20 bg-surface-default px-4 py-3 text-right font-bold tabular-nums"
                 :class="row.totalPoints >= 0 ? 'text-text-default' : 'text-status-error'"
-              >{{ fmtPts(row.totalPoints) }}</td>
+              >
+                {{ fmtPts(row.totalPoints) }}
+              </td>
 
               <!-- Player columns: name + individual score -->
               <td v-for="n in maxPlayers" :key="n" class="px-4 py-3 align-top">
                 <template v-if="row.roster[n - 1]">
                   <div class="truncate text-text-default">
-                    {{ row.roster[n - 1]!.name }}<span v-if="row.roster[n - 1]!.isMvp" class="text-survivor-sand"> ★</span>
+                    {{ row.roster[n - 1]!.name
+                    }}<span v-if="row.roster[n - 1]!.isMvp" class="text-survivor-sand"> ★</span>
                   </div>
-                  <div class="tabular-nums text-xs text-text-muted">{{ fmtPts(row.roster[n - 1]!.points) }}</div>
+                  <div class="tabular-nums text-xs text-text-muted">
+                    {{ fmtPts(row.roster[n - 1]!.points) }}
+                  </div>
                 </template>
                 <span v-else class="text-text-subtle">—</span>
               </td>
 
-              <td class="whitespace-nowrap px-4 py-3 text-right tabular-nums text-text-default">{{ fmtPts(row.actionPoints) }}</td>
+              <td class="whitespace-nowrap px-4 py-3 text-right tabular-nums text-text-default">
+                {{ fmtPts(row.actionPoints) }}
+              </td>
               <td class="whitespace-nowrap px-4 py-3 text-right tabular-nums text-status-success">
                 {{ row.bountyPoints > 0 ? '+' + fmtPts(row.bountyPoints) : '—' }}
               </td>

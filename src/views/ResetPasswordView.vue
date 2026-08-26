@@ -57,19 +57,31 @@ async function handleReset() {
       <form v-else @submit.prevent="handleReset" class="space-y-4">
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">New password</label>
-          <input v-model="password" type="password" required minlength="6"
-            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          <input
+            v-model="password"
+            type="password"
+            required
+            minlength="6"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Confirm password</label>
-          <input v-model="confirmPassword" type="password" required
-            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          <input
+            v-model="confirmPassword"
+            type="password"
+            required
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
         </div>
 
         <p v-if="errorMsg" class="text-sm text-red-600">{{ errorMsg }}</p>
 
-        <button type="submit" :disabled="loading"
-          class="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold rounded-lg px-4 py-2 text-sm">
+        <button
+          type="submit"
+          :disabled="loading"
+          class="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold rounded-lg px-4 py-2 text-sm"
+        >
           {{ loading ? 'Saving…' : 'Set password' }}
         </button>
       </form>

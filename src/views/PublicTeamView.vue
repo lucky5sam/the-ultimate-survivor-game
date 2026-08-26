@@ -17,13 +17,21 @@ import BaseCard from '../components/base/BaseCard.vue'
 import TeamRosterList from '../components/TeamRosterList.vue'
 import BountyHistoryList from '../components/BountyHistoryList.vue'
 import ScoreBreakdownModal from '../components/ScoreBreakdownModal.vue'
-import { computeLeaderboard, computeTeamBreakdown, type TeamBreakdown } from '../composables/useLeaderboard'
+import {
+  computeLeaderboard,
+  computeTeamBreakdown,
+  type TeamBreakdown,
+} from '../composables/useLeaderboard'
 import { loadTribeColors } from '../utils/tribeColors'
 import type { ContestantFull } from '../types/contestant'
 import type { BountyHistoryRow } from '../types/bounty'
 
 type Contestant = ContestantFull
-type ActivePlayer = { contestant_id: string; role: 'mvp' | 'player'; effective_from_episode: number }
+type ActivePlayer = {
+  contestant_id: string
+  role: 'mvp' | 'player'
+  effective_from_episode: number
+}
 type EpisodeInfo = {
   id: string
   number: number
@@ -61,7 +69,11 @@ const eliminatedEpisodeIdByContestant = ref<Record<string, string | null>>({})
 const allEpisodes = ref<EpisodeInfo[]>([])
 const activePlayers = ref<ActivePlayer[]>([])
 const allBountyPicks = ref<BountyPick[]>([])
-const seasonConfig = ref<SeasonConfig>({ bounty_points_pre_merge: 10, bounty_points_post_merge: 15, bounty_points_finale: 20 })
+const seasonConfig = ref<SeasonConfig>({
+  bounty_points_pre_merge: 10,
+  bounty_points_post_merge: 15,
+  bounty_points_finale: 20,
+})
 
 const rank = ref<number | null>(null)
 const score = ref<number | null>(null)
@@ -88,13 +100,17 @@ function isPastLock(iso: string | null): boolean {
 }
 
 const currentEpisodeNumber = computed(() =>
-  currentEpisodeId.value ? (allEpisodes.value.find(e => e.id === currentEpisodeId.value)?.number ?? null) : null,
+  currentEpisodeId.value
+    ? (allEpisodes.value.find((e) => e.id === currentEpisodeId.value)?.number ?? null)
+    : null,
 )
 
 const seasonStatusBadge = computed(() => {
   if (seasonStatus.value === 'active')
     return {
-      label: currentEpisodeNumber.value ? `Active · Episode ${currentEpisodeNumber.value}` : 'Active',
+      label: currentEpisodeNumber.value
+        ? `Active · Episode ${currentEpisodeNumber.value}`
+        : 'Active',
       classes: 'bg-status-success-surface text-status-success',
     }
   if (seasonStatus.value === 'upcoming')
@@ -104,7 +120,7 @@ const seasonStatusBadge = computed(() => {
   return null
 })
 
-const mergeEpNumber = computed(() => allEpisodes.value.find(e => e.is_merge)?.number ?? Infinity)
+const mergeEpNumber = computed(() => allEpisodes.value.find((e) => e.is_merge)?.number ?? Infinity)
 
 const episodesWithEliminations = computed(
   () => new Set(Object.values(eliminatedEpisodeIdByContestant.value).filter(Boolean) as string[]),
@@ -114,8 +130,8 @@ const episodesWithEliminations = computed(
 // completed are included, so a still-editable upcoming pick stays hidden.
 const bountyHistory = computed<BountyHistoryRow[]>(() =>
   allEpisodes.value
-    .filter(e => e.status === 'completed' || e.status === 'active' || isPastLock(e.locks_at))
-    .map(ep => {
+    .filter((e) => e.status === 'completed' || e.status === 'active' || isPastLock(e.locks_at))
+    .map((ep) => {
       const contestantId = pickForEpisode(ep.number)?.contestant_id ?? null
       const resolved =
         ep.status === 'completed' &&
@@ -145,7 +161,7 @@ const bountyHistory = computed<BountyHistoryRow[]>(() =>
 
 // The bounty pick locked in for a given episode (append-only versioning).
 function pickForEpisode(n: number): BountyPick | null {
-  const eligible = allBountyPicks.value.filter(p => p.effective_from_episode <= n)
+  const eligible = allBountyPicks.value.filter((p) => p.effective_from_episode <= n)
   if (eligible.length === 0) return null
   return eligible.reduce((a, b) => (b.effective_from_episode > a.effective_from_episode ? b : a))
 }
@@ -163,120 +179,147 @@ async function openBreakdown() {
   }
 }
 
+// Guards against overlapping loads when navigating between /team/:id routes.
+let loadSeq = 0
+
 async function load() {
+  const seq = ++loadSeq
   loading.value = true
   errorMsg.value = ''
   breakdown.value = null
-
-  // Team + season basics.
-  const { data: team, error: teamErr } = await supabase
-    .from('teams')
-    .select('id, team_name, user_id, season_id')
-    .eq('id', teamId.value)
-    .maybeSingle()
-
-  if (teamErr) { errorMsg.value = teamErr.message; loading.value = false; return }
-  if (!team) { errorMsg.value = 'Team not found'; loading.value = false; return }
-
-  // Viewing your own team → send to the editable Team page instead.
-  if (auth.user && team.user_id === auth.user.id) {
-    router.replace('/my-team')
-    return
-  }
-
-  teamName.value = team.team_name
-  seasonId.value = team.season_id
-  loadTribeColors(team.season_id)
-
-  const [{ data: season }, { data: profile }] = await Promise.all([
-    supabase
-      .from('seasons')
-      .select('name, status, current_episode_id, bounty_points_pre_merge, bounty_points_post_merge, bounty_points_finale')
-      .eq('id', team.season_id)
-      .single(),
-    team.user_id
-      ? supabase.from('profiles').select('first_name, last_name').eq('id', team.user_id).maybeSingle()
-      : Promise.resolve({ data: null }),
-  ])
-
-  if (season) {
-    seasonName.value = season.name
-    seasonStatus.value = season.status
-    currentEpisodeId.value = season.current_episode_id
-    seasonConfig.value = {
-      bounty_points_pre_merge: season.bounty_points_pre_merge,
-      bounty_points_post_merge: season.bounty_points_post_merge,
-      bounty_points_finale: season.bounty_points_finale,
-    }
-  }
-  ownerName.value = profile
-    ? `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim()
-    : ''
-
-  // Contestants, episodes, roster, bounty picks.
-  const [{ data: contestants }, { data: eps }, { data: roster }, { data: picks }] = await Promise.all([
-    supabase
-      .from('contestants')
-      .select('id, name, photo_url, bio, age, hometown, occupation, eliminated_episode_id, contestant_tribe_assignments(tribe, effective_from_episode)')
-      .eq('season_id', team.season_id)
-      .order('name'),
-    supabase
-      .from('episodes')
-      .select('id, number, status, is_merge, is_finale, bounty_contestant_id, locks_at')
-      .eq('season_id', team.season_id)
-      .order('number'),
-    supabase
-      .from('team_players')
-      .select('contestant_id, role, effective_from_episode, effective_to_episode')
-      .eq('team_id', team.id)
-      .is('effective_to_episode', null),
-    supabase
-      .from('bounty_picks')
-      .select('contestant_id, effective_from_episode')
-      .eq('team_id', team.id)
-      .order('effective_from_episode', { ascending: true }),
-  ])
-
-  allContestants.value = (contestants ?? []).map((c: any) => ({
-    id: c.id,
-    name: c.name,
-    tribe: (c.contestant_tribe_assignments as any[]).find(a => a.effective_from_episode === 1)?.tribe ?? 'Unknown',
-    photo_url: c.photo_url ?? null,
-    bio: c.bio ?? null,
-    age: c.age ?? null,
-    hometown: c.hometown ?? null,
-    occupation: c.occupation ?? null,
-  }))
-  eliminatedEpisodeIdByContestant.value = Object.fromEntries(
-    (contestants ?? []).map((c: any) => [c.id, c.eliminated_episode_id ?? null]),
-  )
-  allEpisodes.value = eps ?? []
-  activePlayers.value = (roster ?? []).map((p: any) => ({
-    contestant_id: p.contestant_id,
-    role: p.role as 'mvp' | 'player',
-    effective_from_episode: p.effective_from_episode,
-  }))
-  allBountyPicks.value = picks ?? []
-
-  // Standing (rank + score + per-player points) from the shared leaderboard math.
   try {
-    const board = await computeLeaderboard(team.season_id)
-    const idx = board.findIndex(r => r.teamId === team.id)
-    if (idx >= 0) {
-      rank.value = idx + 1
-      score.value = board[idx]!.totalPoints
-      playerPoints.value = Object.fromEntries(board[idx]!.players.map(p => [p.contestantId, p.points]))
-    }
-  } catch {
-    // Standing is a nice-to-have; don't block the page.
-  }
+    // Team + season basics.
+    const { data: team, error: teamErr } = await supabase
+      .from('teams')
+      .select('id, team_name, user_id, season_id')
+      .eq('id', teamId.value)
+      .maybeSingle()
 
-  loading.value = false
+    if (teamErr) {
+      errorMsg.value = teamErr.message
+      return
+    }
+    if (!team) {
+      errorMsg.value = 'Team not found'
+      return
+    }
+
+    // Viewing your own team → send to the editable Team page instead.
+    if (auth.user && team.user_id === auth.user.id) {
+      router.replace('/my-team')
+      return
+    }
+
+    teamName.value = team.team_name
+    seasonId.value = team.season_id
+    loadTribeColors(team.season_id)
+
+    const [{ data: season }, { data: profile }] = await Promise.all([
+      supabase
+        .from('seasons')
+        .select(
+          'name, status, current_episode_id, bounty_points_pre_merge, bounty_points_post_merge, bounty_points_finale',
+        )
+        .eq('id', team.season_id)
+        .single(),
+      team.user_id
+        ? supabase
+            .from('profiles')
+            .select('first_name, last_name')
+            .eq('id', team.user_id)
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
+    ])
+
+    if (season) {
+      seasonName.value = season.name
+      seasonStatus.value = season.status
+      currentEpisodeId.value = season.current_episode_id
+      seasonConfig.value = {
+        bounty_points_pre_merge: season.bounty_points_pre_merge,
+        bounty_points_post_merge: season.bounty_points_post_merge,
+        bounty_points_finale: season.bounty_points_finale,
+      }
+    }
+    ownerName.value = profile ? `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim() : ''
+
+    // Contestants, episodes, roster, bounty picks.
+    const [{ data: contestants }, { data: eps }, { data: roster }, { data: picks }] =
+      await Promise.all([
+        supabase
+          .from('contestants')
+          .select(
+            'id, name, photo_url, bio, age, hometown, occupation, eliminated_episode_id, contestant_tribe_assignments(tribe, effective_from_episode)',
+          )
+          .eq('season_id', team.season_id)
+          .order('name'),
+        supabase
+          .from('episodes')
+          .select('id, number, status, is_merge, is_finale, bounty_contestant_id, locks_at')
+          .eq('season_id', team.season_id)
+          .order('number'),
+        supabase
+          .from('team_players')
+          .select('contestant_id, role, effective_from_episode, effective_to_episode')
+          .eq('team_id', team.id)
+          .is('effective_to_episode', null),
+        supabase
+          .from('bounty_picks')
+          .select('contestant_id, effective_from_episode')
+          .eq('team_id', team.id)
+          .order('effective_from_episode', { ascending: true }),
+      ])
+
+    allContestants.value = (contestants ?? []).map((c: any) => ({
+      id: c.id,
+      name: c.name,
+      tribe:
+        (c.contestant_tribe_assignments as any[]).find((a) => a.effective_from_episode === 1)
+          ?.tribe ?? 'Unknown',
+      photo_url: c.photo_url ?? null,
+      bio: c.bio ?? null,
+      age: c.age ?? null,
+      hometown: c.hometown ?? null,
+      occupation: c.occupation ?? null,
+    }))
+    eliminatedEpisodeIdByContestant.value = Object.fromEntries(
+      (contestants ?? []).map((c: any) => [c.id, c.eliminated_episode_id ?? null]),
+    )
+    allEpisodes.value = eps ?? []
+    activePlayers.value = (roster ?? []).map((p: any) => ({
+      contestant_id: p.contestant_id,
+      role: p.role as 'mvp' | 'player',
+      effective_from_episode: p.effective_from_episode,
+    }))
+    allBountyPicks.value = picks ?? []
+
+    // Standing (rank + score + per-player points) from the shared leaderboard math.
+    try {
+      const board = await computeLeaderboard(team.season_id)
+      const idx = board.findIndex((r) => r.teamId === team.id)
+      if (idx >= 0) {
+        rank.value = idx + 1
+        score.value = board[idx]!.totalPoints
+        playerPoints.value = Object.fromEntries(
+          board[idx]!.players.map((p) => [p.contestantId, p.points]),
+        )
+      }
+    } catch {
+      // Standing is a nice-to-have; don't block the page.
+    }
+  } catch (e) {
+    if (seq === loadSeq)
+      errorMsg.value = e instanceof Error ? e.message : 'Failed to load this team'
+  } finally {
+    if (seq === loadSeq) loading.value = false
+  }
 }
 
 watch(teamId, load)
 onMounted(() => {
-  nowTimer = setInterval(() => { now.value = Date.now() }, 1_000)
+  nowTimer = setInterval(() => {
+    now.value = Date.now()
+  }, 1_000)
   load()
 })
 onUnmounted(() => {
@@ -318,7 +361,8 @@ onUnmounted(() => {
           <span
             v-if="seasonStatusBadge"
             :class="['rounded-full px-2.5 py-1 text-xs font-semibold', seasonStatusBadge.classes]"
-          >{{ seasonStatusBadge.label }}</span>
+            >{{ seasonStatusBadge.label }}</span
+          >
         </div>
       </div>
 
@@ -334,7 +378,13 @@ onUnmounted(() => {
         <BaseCard padding="sm" class="text-center">
           <p class="text-xs uppercase tracking-wide text-text-muted">Place</p>
           <p class="mt-0.5 text-2xl font-bold text-text-default">{{ ordinal(rank ?? 0) }}</p>
-          <BaseButton variant="secondary" size="sm" block class="mt-3" @click="router.push('/leaderboard')">
+          <BaseButton
+            variant="secondary"
+            size="sm"
+            block
+            class="mt-3"
+            @click="router.push('/leaderboard')"
+          >
             View Leaderboard
           </BaseButton>
         </BaseCard>

@@ -22,16 +22,27 @@ async function loadSeasons() {
   if (seasons.value.length > 0) selectedSeasonId.value = seasons.value[0]!.id
 }
 
+// Guards against overlapping loads: if the season changes mid-fetch, only the
+// latest request is allowed to write results (stale responses are dropped).
+let loadSeq = 0
+
 async function loadLeaderboard() {
-  if (!selectedSeasonId.value) return
+  if (!selectedSeasonId.value) {
+    rows.value = []
+    return
+  }
+  const seq = ++loadSeq
   loading.value = true
   errorMsg.value = ''
   try {
-    rows.value = await computeLeaderboard(selectedSeasonId.value)
+    const result = await computeLeaderboard(selectedSeasonId.value)
+    if (seq !== loadSeq) return
+    rows.value = result
   } catch (e) {
+    if (seq !== loadSeq) return
     errorMsg.value = e instanceof Error ? e.message : 'Failed to load standings'
   } finally {
-    loading.value = false
+    if (seq === loadSeq) loading.value = false
   }
 }
 
@@ -39,8 +50,10 @@ function fmtPts(n: number) {
   return n.toFixed(1)
 }
 
+// loadSeasons sets selectedSeasonId, which triggers this watch — so the initial
+// load happens exactly once (no duplicate call in onMounted).
 watch(selectedSeasonId, loadLeaderboard)
-onMounted(async () => { await loadSeasons(); await loadLeaderboard() })
+onMounted(loadSeasons)
 </script>
 
 <template>
@@ -77,15 +90,18 @@ onMounted(async () => { await loadSeasons(); await loadLeaderboard() })
         <span
           class="w-6 shrink-0 text-center text-base font-bold tabular-nums"
           :class="i === 0 ? 'text-survivor-sand' : 'text-text-subtle'"
-        >{{ i + 1 }}</span>
+          >{{ i + 1 }}</span
+        >
         <RouterLink
           :to="`/team/${row.teamId}`"
           class="flex-1 truncate font-semibold text-text-default hover:text-text-accent"
-        >{{ row.teamName ?? '(no name)' }}</RouterLink>
+          >{{ row.teamName ?? '(no name)' }}</RouterLink
+        >
         <span
           class="shrink-0 text-base font-bold tabular-nums"
           :class="row.totalPoints >= 0 ? 'text-text-default' : 'text-status-error'"
-        >{{ fmtPts(row.totalPoints) }}</span>
+          >{{ fmtPts(row.totalPoints) }}</span
+        >
       </div>
     </BaseCard>
   </div>

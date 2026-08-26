@@ -36,10 +36,18 @@ function switchMode(m: Mode) {
 async function handleSignIn() {
   loading.value = true
   errorMsg.value = ''
-  const { error } = await supabase.auth.signInWithPassword({ email: email.value, password: password.value })
-  if (error) errorMsg.value = error.message
-  else router.push('/')
-  loading.value = false
+  try {
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.value,
+      password: password.value,
+    })
+    if (error) errorMsg.value = error.message
+    else router.push('/')
+  } catch (e) {
+    errorMsg.value = e instanceof Error ? e.message : 'Sign in failed'
+  } finally {
+    loading.value = false
+  }
 }
 
 async function handleSignUp() {
@@ -49,39 +57,51 @@ async function handleSignUp() {
   }
   loading.value = true
   errorMsg.value = ''
-  const { data, error } = await supabase.auth.signUp({
-    email: email.value,
-    password: password.value,
-    // Stash the name in auth metadata — this persists even before the email is
-    // confirmed (when there's no session to write to profiles yet). The profile
-    // row is populated from this metadata on first authenticated load.
-    options: { data: { first_name: firstName.value, last_name: lastName.value } },
-  })
-  if (error) {
-    errorMsg.value = error.message
-  } else {
-    // If confirmation is off, a session exists now and this write succeeds; if
-    // confirmation is on it's a no-op (no session) and the metadata backfill covers it.
-    if (data.session && data.user) {
-      await supabase.from('profiles').upsert(
-        { id: data.user.id, first_name: firstName.value, last_name: lastName.value },
-        { onConflict: 'id' }
-      )
+  try {
+    const { data, error } = await supabase.auth.signUp({
+      email: email.value,
+      password: password.value,
+      // Stash the name in auth metadata — this persists even before the email is
+      // confirmed (when there's no session to write to profiles yet). The profile
+      // row is populated from this metadata on first authenticated load.
+      options: { data: { first_name: firstName.value, last_name: lastName.value } },
+    })
+    if (error) {
+      errorMsg.value = error.message
+    } else {
+      // If confirmation is off, a session exists now and this write succeeds; if
+      // confirmation is on it's a no-op (no session) and the metadata backfill covers it.
+      if (data.session && data.user) {
+        await supabase
+          .from('profiles')
+          .upsert(
+            { id: data.user.id, first_name: firstName.value, last_name: lastName.value },
+            { onConflict: 'id' },
+          )
+      }
+      successMsg.value = 'Check your email to confirm your account.'
     }
-    successMsg.value = 'Check your email to confirm your account.'
+  } catch (e) {
+    errorMsg.value = e instanceof Error ? e.message : 'Sign up failed'
+  } finally {
+    loading.value = false
   }
-  loading.value = false
 }
 
 async function handleForgot() {
   loading.value = true
   errorMsg.value = ''
-  const { error } = await supabase.auth.resetPasswordForEmail(email.value, {
-    redirectTo: `${window.location.origin}/reset-password`,
-  })
-  if (error) errorMsg.value = error.message
-  else successMsg.value = 'Check your email for a password reset link.'
-  loading.value = false
+  try {
+    const { error } = await supabase.auth.resetPasswordForEmail(email.value, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    })
+    if (error) errorMsg.value = error.message
+    else successMsg.value = 'Check your email for a password reset link.'
+  } catch (e) {
+    errorMsg.value = e instanceof Error ? e.message : 'Could not send reset link'
+  } finally {
+    loading.value = false
+  }
 }
 
 async function handleGoogleSignIn() {
@@ -100,7 +120,9 @@ function handleSubmit() {
 </script>
 
 <template>
-  <div class="relative flex min-h-screen items-center justify-center overflow-hidden bg-surface-page px-4">
+  <div
+    class="relative flex min-h-screen items-center justify-center overflow-hidden bg-surface-page px-4"
+  >
     <!-- Ambient theme decor. Invisible until data-skin="raw"; costs nothing in flat mode. -->
     <ThemeAtmosphere />
 
@@ -182,13 +204,7 @@ function handleSubmit() {
           </div>
 
           <form @submit.prevent="handleSubmit" class="space-y-4">
-            <BaseInput
-              v-model="email"
-              label="Email"
-              type="email"
-              required
-              autocomplete="email"
-            />
+            <BaseInput v-model="email" label="Email" type="email" required autocomplete="email" />
 
             <div v-if="mode === 'signup'" class="grid grid-cols-2 gap-3">
               <BaseInput v-model="firstName" label="First name" required />
@@ -216,7 +232,13 @@ function handleSubmit() {
             <p v-if="errorMsg" class="text-sm text-status-error">{{ errorMsg }}</p>
 
             <BaseButton type="submit" block :loading="loading">
-              {{ mode === 'signin' ? 'Sign in' : mode === 'signup' ? 'Create account' : 'Send reset link' }}
+              {{
+                mode === 'signin'
+                  ? 'Sign in'
+                  : mode === 'signup'
+                    ? 'Create account'
+                    : 'Send reset link'
+              }}
             </BaseButton>
 
             <p v-if="mode === 'signin'" class="text-center">

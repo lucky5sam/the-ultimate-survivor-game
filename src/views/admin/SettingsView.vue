@@ -12,7 +12,7 @@ const codeVisible = ref(false)
 const linkCopied = ref(false)
 
 const inviteLink = computed(
-  () => `${window.location.origin}/login?mode=signup&code=${registrationCode.value}`
+  () => `${window.location.origin}/login?mode=signup&code=${registrationCode.value}`,
 )
 
 async function fetchCode() {
@@ -67,7 +67,9 @@ onMounted(fetchCode)
       <div class="bg-white rounded-xl border border-gray-200 p-6 space-y-5">
         <div>
           <h3 class="text-sm font-medium text-gray-700 mb-1">Registration Code</h3>
-          <p class="text-xs text-gray-400 mb-3">Players must enter this code to create an account.</p>
+          <p class="text-xs text-gray-400 mb-3">
+            Players must enter this code to create an account.
+          </p>
 
           <div class="flex items-center gap-2 mb-4">
             <div class="flex-1 relative">
@@ -82,7 +84,9 @@ onMounted(fetchCode)
               type="button"
               @click="codeVisible = !codeVisible"
               class="text-xs text-gray-500 hover:text-gray-700 px-3 py-2 border border-gray-200 rounded-lg"
-            >{{ codeVisible ? 'Hide' : 'Show' }}</button>
+            >
+              {{ codeVisible ? 'Hide' : 'Show' }}
+            </button>
           </div>
 
           <div class="flex gap-2">
@@ -96,7 +100,9 @@ onMounted(fetchCode)
               @click="saveCode"
               :disabled="saving || newCode === registrationCode"
               class="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-medium rounded-lg px-4 py-2"
-            >{{ saving ? 'Saving…' : 'Update' }}</button>
+            >
+              {{ saving ? 'Saving…' : 'Update' }}
+            </button>
           </div>
 
           <p v-if="errorMsg" class="text-sm text-red-600 mt-2">{{ errorMsg }}</p>
@@ -105,7 +111,9 @@ onMounted(fetchCode)
 
         <div class="border-t border-gray-100 pt-5">
           <h3 class="text-sm font-medium text-gray-700 mb-1">Invite Link</h3>
-          <p class="text-xs text-gray-400 mb-3">Share this link — it auto-fills the league code on the sign-up page.</p>
+          <p class="text-xs text-gray-400 mb-3">
+            Share this link — it auto-fills the league code on the sign-up page.
+          </p>
           <div class="flex items-center gap-2">
             <input
               :value="inviteLink"
@@ -115,7 +123,9 @@ onMounted(fetchCode)
             <button
               @click="copyInviteLink"
               class="text-xs text-gray-500 hover:text-gray-700 px-3 py-2 border border-gray-200 rounded-lg whitespace-nowrap"
-            >{{ linkCopied ? 'Copied!' : 'Copy' }}</button>
+            >
+              {{ linkCopied ? 'Copied!' : 'Copy' }}
+            </button>
           </div>
         </div>
       </div>
