@@ -6,5 +6,8 @@ import { defineStore } from 'pinia'
 // conditional inside TeamView rather than its own route.
 export const useUiStore = defineStore('ui', () => {
   const wizardActive = ref(false)
-  return { wizardActive }
+  // Whether the signed-in user has a team for the currently-selected season.
+  // null = not yet determined (avoids hiding chrome / redirecting during load).
+  const hasTeam = ref<boolean | null>(null)
+  return { wizardActive, hasTeam }
 })

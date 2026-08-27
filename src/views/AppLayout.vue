@@ -1,11 +1,12 @@
 <script setup lang="ts">
 // App shell for the player-facing pages. Holds the header + primary tab
 // navigation and renders the active tab (Leaderboard / My Team) via RouterView.
-import { ref, computed } from 'vue'
+import { ref, computed, watch, watchEffect } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../stores/auth'
 import { useSeasonStore } from '../stores/season'
+import { useUiStore } from '../stores/ui'
 import InviteBanner from '../components/InviteBanner.vue'
 import SeasonSelect from '../components/SeasonSelect.vue'
 
@@ -14,7 +15,43 @@ const route = useRoute()
 const router = useRouter()
 
 const seasonStore = useSeasonStore()
+const ui = useUiStore()
 seasonStore.load()
+
+// Track whether the user has a team for the selected season. Without one they
+// get no tabs and no invite banner (league code) — only the season selector and
+// their profile — and are funneled to the team-creation wizard.
+async function loadMembership() {
+  const uid = auth.user?.id
+  const seasonId = seasonStore.selectedSeasonId
+  if (!uid || !seasonId) {
+    ui.hasTeam = null
+    return
+  }
+  const { data } = await supabase
+    .from('teams')
+    .select('id')
+    .eq('season_id', seasonId)
+    .eq('user_id', uid)
+    .maybeSingle()
+  ui.hasTeam = !!data
+}
+watch(() => seasonStore.selectedSeasonId, loadMembership, { immediate: true })
+
+// Team-less players get no tabs, so keep them off the tabbed pages (Profile
+// stays reachable via the avatar menu). Admins are exempt — they manage the
+// league and may not have a team.
+const showTabs = computed(() => ui.hasTeam !== false || auth.isAdmin)
+watchEffect(() => {
+  if (
+    ui.hasTeam === false &&
+    !auth.isAdmin &&
+    route.path !== '/my-team' &&
+    route.path !== '/profile'
+  ) {
+    router.replace('/my-team')
+  }
+})
 
 const tabs = [
   { label: 'Dashboard', to: '/dashboard' },
@@ -118,8 +155,11 @@ async function handleSignOut() {
       </div>
     </header>
 
-    <!-- Primary tabs (desktop) -->
-    <nav class="hidden shrink-0 border-b border-border-subtle bg-surface-default px-6 sm:flex">
+    <!-- Primary tabs (desktop) — hidden until the user has a team this season -->
+    <nav
+      v-if="showTabs"
+      class="hidden shrink-0 border-b border-border-subtle bg-surface-default px-6 sm:flex"
+    >
       <RouterLink
         v-for="t in tabs"
         :key="t.to"
@@ -139,6 +179,7 @@ async function handleSignOut() {
 
     <!-- Primary tabs condensed into a dropdown (mobile) -->
     <div
+      v-if="showTabs"
       class="relative shrink-0 border-b border-border-subtle bg-surface-default px-4 py-2 sm:hidden"
     >
       <button

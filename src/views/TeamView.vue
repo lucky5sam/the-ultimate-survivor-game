@@ -88,7 +88,6 @@ const eliminatedEpisodeIdByContestant = ref<Record<string, string | null>>({})
 const allEpisodes = ref<EpisodeInfo[]>([])
 const existingTeam = ref<{ id: string; team_name: string | null } | null>(null)
 const activePlayers = ref<ActivePlayer[]>([])
-const droppedContestantIds = ref<Set<string>>(new Set())
 const loading = ref(true)
 const saving = ref(false)
 const errorMsg = ref('')
@@ -232,10 +231,11 @@ const roleChangeCost = computed(() =>
 )
 
 const availableContestants = computed(() => {
+  // Anyone not currently on the roster is selectable — including contestants who
+  // were previously swapped out (they can be re-added; append-only scoring sums
+  // each separate stint they spent on the team).
   const activeIds = new Set(activePlayers.value.map((p) => p.contestant_id))
-  return allContestants.value.filter(
-    (c) => !activeIds.has(c.id) && !droppedContestantIds.value.has(c.id),
-  )
+  return allContestants.value.filter((c) => !activeIds.has(c.id))
 })
 
 // The 4 active roster players as full contestant records (for the swap-out select).
@@ -422,14 +422,12 @@ async function loadMyTeam() {
       role: p.role as 'mvp' | 'player',
       effective_from_episode: p.effective_from_episode,
     }))
-    droppedContestantIds.value = new Set(
-      allTp.filter((p) => p.effective_to_episode !== null).map((p) => p.contestant_id),
-    )
   } else {
     existingTeam.value = null
     activePlayers.value = []
-    droppedContestantIds.value = new Set()
   }
+  // Keep the global membership flag (tabs + invite banner gating) in sync.
+  uiStore.hasTeam = existingTeam.value !== null
 }
 
 async function loadEpisodesAndBounty() {
