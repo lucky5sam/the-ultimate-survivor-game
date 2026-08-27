@@ -7,6 +7,7 @@ type TribeAssignment = { id: string; tribe: string; effective_from_episode: numb
 type Episode = { id: string; number: number; title: string | null }
 type Contestant = {
   id: string
+  contestant_id: number
   season_id: string
   name: string
   photo_url: string | null
@@ -19,9 +20,12 @@ type Contestant = {
   assignments: TribeAssignment[]
 }
 type CsvRow = {
+  contestant_id: string
   name: string
   tribe: string
   photo_url: string
+  alt_image: string
+  video_url: string
   age: string
   hometown: string
   occupation: string
@@ -108,7 +112,14 @@ const csvImporting = ref(false)
 const csvFileInput = ref<HTMLInputElement | null>(null)
 
 const CSV_TEMPLATE =
-  'name,tribe,photo_url,age,hometown,occupation,bio\n"Jane Smith","Tagi","https://example.com/jane.jpg",28,"Austin, TX","Engineer","Short bio here."'
+  'contestant_id,name,tribe,photo_url,alt_image,video_url,age,hometown,occupation,bio\n"","Jane Smith","Tagi","https://example.com/jane.jpg","","https://youtu.be/dQw4w9WgXcQ",28,"Austin, TX","Engineer","Short bio here."'
+
+// Display form of a contestant's reference number: zero-padded to 4 digits
+// (1 → "0001"). This is the number to put in the contestant_id CSV column to update a
+// contestant in place instead of creating a new one.
+function formatRef(n: number | null | undefined): string {
+  return n != null ? String(n).padStart(4, '0') : '—'
+}
 
 function downloadTemplate() {
   const blob = new Blob([CSV_TEMPLATE], { type: 'text/csv' })
@@ -168,9 +179,12 @@ function onCsvFile(e: Event) {
       const name = get('name')
       if (!name) continue
       rows.push({
+        contestant_id: get('contestant_id'),
         name,
         tribe: get('tribe'),
         photo_url: get('photo_url'),
+        alt_image: get('alt_image'),
+        video_url: get('video_url'),
         age: get('age'),
         hometown: get('hometown'),
         occupation: get('occupation'),
@@ -186,43 +200,110 @@ function onCsvFile(e: Event) {
   reader.readAsText(file)
 }
 
+// Does this CSV row's contestant_id match an existing contestant in the current season?
+// Drives the New/Update label in the preview and the update-vs-insert split below.
+function csvRefExists(r: CsvRow): boolean {
+  const ref = r.contestant_id ? parseInt(r.contestant_id, 10) : NaN
+  return Number.isFinite(ref) && contestants.value.some((c) => c.contestant_id === ref)
+}
+
 async function importCsv() {
   if (!selectedSeasonId.value || csvRows.value.length === 0) return
   csvImporting.value = true
   csvError.value = ''
 
-  const contestantPayloads = csvRows.value.map((r) => ({
-    name: r.name,
-    season_id: selectedSeasonId.value,
-    photo_url: r.photo_url || null,
-    bio: r.bio || null,
-    age: r.age ? parseInt(r.age) : null,
-    hometown: r.hometown || null,
-    occupation: r.occupation || null,
-  }))
+  // Match rows to existing contestants by their reference number. A row whose
+  // contestant_id is already in this season updates that contestant in place; a blank
+  // or unknown contestant_id is inserted as a brand-new contestant (the DB assigns its
+  // number). This is what stops a re-import from creating duplicates.
+  const byRef = new Map(contestants.value.map((c) => [c.contestant_id, c]))
 
   try {
-    const { data: inserted, error: e1 } = await supabase
-      .from('contestants')
-      .insert(contestantPayloads)
-      .select('id, name')
-    if (e1 || !inserted) throw new Error(e1?.message ?? 'Insert failed.')
+    const toInsert: CsvRow[] = []
 
-    // Build a name → id map for tribe assignments
-    const nameToId = new Map(inserted.map((c) => [c.name, c.id]))
+    for (const r of csvRows.value) {
+      const ref = r.contestant_id ? parseInt(r.contestant_id, 10) : NaN
+      const existing = Number.isFinite(ref) ? byRef.get(ref) : undefined
 
-    const tribeRows = csvRows.value
-      .filter((r) => r.tribe)
-      .map((r) => ({
-        contestant_id: nameToId.get(r.name),
-        tribe: r.tribe,
-        effective_from_episode: 1,
+      if (!existing) {
+        toInsert.push(r)
+        continue
+      }
+
+      // ── Update an existing contestant in place ──
+      // Only non-empty cells overwrite, so a partial CSV can't wipe data the
+      // sheet left blank; re-supply a field to change it.
+      const payload: Record<string, unknown> = {}
+      if (r.name) payload.name = r.name
+      if (r.photo_url) payload.photo_url = r.photo_url
+      if (r.alt_image) payload.alt_image = r.alt_image
+      if (r.video_url) payload.video_url = r.video_url
+      if (r.bio) payload.bio = r.bio
+      if (r.age) payload.age = parseInt(r.age, 10)
+      if (r.hometown) payload.hometown = r.hometown
+      if (r.occupation) payload.occupation = r.occupation
+
+      if (Object.keys(payload).length > 0) {
+        const { error } = await supabase.from('contestants').update(payload).eq('id', existing.id)
+        if (error) throw new Error(error.message)
+      }
+
+      // Tribe is append-only: correct the Ep-1 assignment in place rather than
+      // inserting a duplicate. Only when a tribe is supplied — a blank leaves the
+      // current tribe untouched. Mid-season swaps still use the Tribe flow.
+      if (r.tribe) {
+        const ep1 = existing.assignments.find((a) => a.effective_from_episode === 1)
+        if (ep1 && ep1.tribe !== r.tribe) {
+          const { error } = await supabase
+            .from('contestant_tribe_assignments')
+            .update({ tribe: r.tribe })
+            .eq('id', ep1.id)
+          if (error) throw new Error(error.message)
+        } else if (!ep1) {
+          const { error } = await supabase
+            .from('contestant_tribe_assignments')
+            .insert({ contestant_id: existing.id, tribe: r.tribe, effective_from_episode: 1 })
+          if (error) throw new Error(error.message)
+        }
+      }
+    }
+
+    // ── Insert brand-new contestants (contestant_id omitted; the DB assigns it) ──
+    if (toInsert.length > 0) {
+      const contestantPayloads = toInsert.map((r) => ({
+        name: r.name,
+        season_id: selectedSeasonId.value,
+        photo_url: r.photo_url || null,
+        alt_image: r.alt_image || null,
+        video_url: r.video_url || null,
+        bio: r.bio || null,
+        age: r.age ? parseInt(r.age) : null,
+        hometown: r.hometown || null,
+        occupation: r.occupation || null,
       }))
-      .filter((r) => r.contestant_id)
 
-    if (tribeRows.length > 0) {
-      const { error: e2 } = await supabase.from('contestant_tribe_assignments').insert(tribeRows)
-      if (e2) throw new Error(e2.message)
+      const { data: inserted, error: e1 } = await supabase
+        .from('contestants')
+        .insert(contestantPayloads)
+        .select('id, name')
+      if (e1 || !inserted) throw new Error(e1?.message ?? 'Insert failed.')
+
+      // Build a name → id map for tribe assignments
+      const nameToId = new Map(inserted.map((c) => [c.name, c.id]))
+
+      const tribeRows = toInsert
+        .filter((r) => r.tribe)
+        .map((r) => ({
+          contestant_id: nameToId.get(r.name),
+          tribe: r.tribe,
+          effective_from_episode: 1,
+        }))
+        .filter((r) => r.contestant_id)
+
+      if (tribeRows.length > 0) {
+        const { error: e2 } = await supabase.from('contestant_tribe_assignments').insert(tribeRows)
+        if (e2) throw new Error(e2.message)
+      }
     }
 
     showCsvModal.value = false
@@ -662,6 +743,7 @@ onMounted(loadSeasons)
       <table class="w-full text-sm bg-white rounded-xl shadow overflow-hidden">
         <thead class="bg-gray-100 text-gray-600 text-left">
           <tr>
+            <th class="px-4 py-3">#</th>
             <th class="px-4 py-3">Name</th>
             <th class="px-4 py-3">Tribe</th>
             <th v-if="!bulkMode" class="px-4 py-3">Photo URL</th>
@@ -670,6 +752,7 @@ onMounted(loadSeasons)
         </thead>
         <tbody>
           <tr v-for="c in contestants" :key="c.id" class="border-t border-gray-100">
+            <td class="px-4 py-3 font-mono text-gray-500">{{ formatRef(c.contestant_id) }}</td>
             <td class="px-4 py-3 font-medium">{{ c.name }}</td>
             <td class="px-4 py-3">
               <div v-if="bulkMode" class="flex items-center gap-2">
@@ -747,8 +830,13 @@ onMounted(loadSeasons)
           <p>
             Optional columns:
             <span class="font-mono font-semibold"
-              >tribe, photo_url, age, hometown, occupation, bio</span
+              >contestant_id, tribe, photo_url, alt_image, video_url, age, hometown, occupation, bio</span
             >
+          </p>
+          <p class="text-xs text-gray-500">
+            Put a contestant's <span class="font-mono">contestant_id</span> (the # shown in the list) to
+            update them in place. Leave it blank to add a new contestant. Blank cells on an update
+            keep the existing value.
           </p>
           <button
             @click="downloadTemplate"
@@ -779,22 +867,35 @@ onMounted(loadSeasons)
           <table class="w-full text-xs border border-gray-200 rounded-lg overflow-hidden">
             <thead class="bg-gray-100 text-gray-600 text-left">
               <tr>
+                <th class="px-3 py-2">Action</th>
+                <th class="px-3 py-2">#</th>
                 <th class="px-3 py-2">Name</th>
                 <th class="px-3 py-2">Tribe</th>
                 <th class="px-3 py-2">Photo URL</th>
                 <th class="px-3 py-2">Age</th>
-                <th class="px-3 py-2">Hometown</th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="(r, i) in csvRows" :key="i" class="border-t border-gray-100">
+                <td class="px-3 py-2">
+                  <span
+                    v-if="csvRefExists(r)"
+                    class="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700"
+                    >Update</span
+                  >
+                  <span
+                    v-else
+                    class="rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-semibold text-green-700"
+                    >New</span
+                  >
+                </td>
+                <td class="px-3 py-2 font-mono text-gray-500">{{ r.contestant_id || '—' }}</td>
                 <td class="px-3 py-2 font-medium">{{ r.name }}</td>
                 <td class="px-3 py-2 text-gray-500">{{ r.tribe || '—' }}</td>
                 <td class="px-3 py-2 text-gray-400 max-w-[140px] truncate">
                   {{ r.photo_url || '—' }}
                 </td>
                 <td class="px-3 py-2 text-gray-500">{{ r.age || '—' }}</td>
-                <td class="px-3 py-2 text-gray-500">{{ r.hometown || '—' }}</td>
               </tr>
             </tbody>
           </table>
