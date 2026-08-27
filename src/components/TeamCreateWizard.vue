@@ -23,9 +23,10 @@ const props = defineProps<{
 
 const emit = defineEmits<{ created: [] }>()
 
-const TOTAL_STEPS = 6
+const TOTAL_STEPS = 7
 const STEP_LABELS = [
   'League Code',
+  'League Rules',
   'Team Name',
   'Pick Players',
   'Declare MVP',
@@ -35,6 +36,7 @@ const STEP_LABELS = [
 
 const step = ref(1)
 const leagueCode = ref('')
+const rulesAcknowledged = ref(false)
 const teamName = ref('')
 const selectedIds = ref<string[]>([])
 const mvpId = ref<string | null>(null)
@@ -109,16 +111,17 @@ async function nextStep() {
     sessionStorage.removeItem('pending_league_code')
   }
 
-  if (step.value === 2 && !teamName.value.trim()) {
+  if (step.value === 2 && !rulesAcknowledged.value) return
+  if (step.value === 3 && !teamName.value.trim()) {
     errorMsg.value = 'Enter a team name'
     return
   }
-  if (step.value === 3 && selectedIds.value.length < 4) return
-  if (step.value === 4 && !mvpId.value) {
+  if (step.value === 4 && selectedIds.value.length < 4) return
+  if (step.value === 5 && !mvpId.value) {
     errorMsg.value = 'Choose your MVP'
     return
   }
-  if (step.value === 5 && !bountyId.value) {
+  if (step.value === 6 && !bountyId.value) {
     errorMsg.value = 'Choose a bounty pick'
     return
   }
@@ -178,15 +181,9 @@ async function lockIn() {
   <div class="relative flex flex-1 flex-col overflow-x-clip bg-surface-page">
     <ThemeAtmosphere />
     <div class="relative z-10 flex flex-1 flex-col px-4 sm:px-12 lg:px-20 pt-8 pb-16">
-      <!-- Header -->
-      <div class="text-center mb-10">
-        <h1 class="text-3xl font-bold tracking-tight text-text-default">Build Your Tribe</h1>
-        <p class="text-text-subtle mt-1 text-sm">{{ seasonName }}</p>
-      </div>
-
       <!-- Step indicator: equal-width columns, each with a number and its name
            centered below. A connector line links each number to the next. -->
-      <div class="mx-auto mb-10 flex w-full max-w-2xl">
+      <div class="mx-auto mb-10 flex w-full max-w-5xl">
         <div
           v-for="(label, i) in STEP_LABELS"
           :key="i"
@@ -260,19 +257,70 @@ async function lockIn() {
         </div>
       </template>
 
-      <!-- ── Step 2: Team Name ── -->
+      <!-- ── Step 2: League Rules ── -->
       <template v-else-if="step === 2">
         <div class="mx-auto w-full max-w-5xl">
-          <h2 class="text-xl font-bold text-text-default mb-1">Name Your Tribe</h2>
-          <p class="text-text-subtle text-sm mb-6">This is how you'll appear on the leaderboard.</p>
-          <BaseInput
-            v-model="teamName"
-            size="lg"
-            class="max-w-md"
-            placeholder="e.g. The Fire Starters"
-            :error="errorMsg"
-            @keyup.enter="nextStep"
-          />
+          <div class="rounded-lg border border-border-subtle bg-surface-default p-6 sm:p-8">
+            <h2 class="text-xl font-bold text-text-default mb-1">League Rules</h2>
+            <p class="text-text-subtle text-sm mb-6">
+              Please read the rules below before building your tribe.
+            </p>
+
+            <div class="space-y-4 text-sm leading-relaxed text-text-subtle">
+              <p>
+                Placeholder rules text. Draft a team of four Survivor contestants and designate one
+                as your MVP for bonus points. Full rules will be added here.
+              </p>
+              <p>
+                Placeholder rules text. Scoring is based on in-game actions, weekly bounty picks, and
+                swap penalties. More detail coming soon.
+              </p>
+              <p>
+                Placeholder rules text. Rosters lock at the start of each episode — make your changes
+                before the deadline.
+              </p>
+            </div>
+
+            <label
+              class="mt-6 flex cursor-pointer items-start gap-3 rounded-md border border-border-subtle bg-surface-subtle p-4"
+            >
+              <input
+                v-model="rulesAcknowledged"
+                type="checkbox"
+                class="mt-0.5 h-5 w-5 shrink-0 rounded border-border-default text-interactive-accent focus:ring-interactive-accent"
+              />
+              <span class="text-sm font-medium text-text-default">
+                I have read and agree to the league rules.
+              </span>
+            </label>
+
+            <div class="mt-6 flex gap-3">
+              <BaseButton variant="secondary" size="lg" @click="step--">Back</BaseButton>
+              <BaseButton size="lg" :disabled="!rulesAcknowledged" @click="nextStep">
+                Continue
+              </BaseButton>
+            </div>
+          </div>
+        </div>
+      </template>
+
+      <!-- ── Step 3: Team Name ── -->
+      <template v-else-if="step === 3">
+        <div class="mx-auto w-full max-w-5xl">
+          <div class="rounded-lg border border-border-subtle bg-surface-default p-6 sm:p-8">
+            <h2 class="text-xl font-bold text-text-default mb-1">Name Your Team</h2>
+            <p class="text-text-subtle text-sm mb-6">
+              This is how you'll appear on the leaderboard.
+            </p>
+            <BaseInput
+              v-model="teamName"
+              size="lg"
+              class="max-w-md"
+              placeholder="e.g. The Fire Starters"
+              :error="errorMsg"
+              @keyup.enter="nextStep"
+            />
+          </div>
         </div>
 
         <!-- Sticky footer: pick strip (empty here) with team name + actions -->
@@ -307,8 +355,8 @@ async function lockIn() {
         </div>
       </template>
 
-      <!-- ── Step 3: Pick 4 Players ── -->
-      <template v-else-if="step === 3">
+      <!-- ── Step 4: Pick 4 Players ── -->
+      <template v-else-if="step === 4">
         <div class="mx-auto mb-6 w-full max-w-5xl">
           <h2 class="text-xl font-bold text-text-default mb-0.5">Pick Your Survivors</h2>
           <p class="text-text-subtle text-sm">Choose 4 castaways for your tribe.</p>
@@ -364,8 +412,8 @@ async function lockIn() {
         </div>
       </template>
 
-      <!-- ── Step 4: Declare MVP ── -->
-      <template v-else-if="step === 4">
+      <!-- ── Step 5: Declare MVP ── -->
+      <template v-else-if="step === 5">
         <div class="mx-auto mb-8 w-full max-w-5xl text-center">
           <h2 class="text-xl font-bold text-text-default mb-1">Crown Your Champion</h2>
           <p class="text-text-subtle text-sm">
@@ -417,8 +465,8 @@ async function lockIn() {
         </div>
       </template>
 
-      <!-- ── Step 5: Bounty Pick ── -->
-      <template v-else-if="step === 5">
+      <!-- ── Step 6: Bounty Pick ── -->
+      <template v-else-if="step === 6">
         <div class="mx-auto mb-6 w-full max-w-5xl">
           <h2 class="text-xl font-bold text-text-default mb-0.5">Set Your Bounty</h2>
           <p class="text-text-subtle text-sm">
@@ -476,8 +524,8 @@ async function lockIn() {
         </div>
       </template>
 
-      <!-- ── Step 6: Review ── -->
-      <template v-else-if="step === 6">
+      <!-- ── Step 7: Review ── -->
+      <template v-else-if="step === 7">
         <div class="mx-auto w-full max-w-md">
           <h2 class="text-xl font-bold text-text-default mb-1">Review Your Tribe</h2>
           <p class="text-text-subtle text-sm mb-6">
