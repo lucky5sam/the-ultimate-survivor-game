@@ -18,6 +18,15 @@ const emit = defineEmits<{
 const colors = computed(() => getTribeColors(props.contestant.tribe))
 const hovered = ref(false)
 
+// The alternate image is the default face of the card; the original photo shows
+// on hover. Both are rendered and cross-faded (no reload flash). We only swap
+// when both exist — otherwise whichever image we have stays put.
+const baseImage = computed(() => props.contestant.alt_image ?? props.contestant.photo_url)
+const hoverImage = computed(() =>
+  props.contestant.alt_image && props.contestant.photo_url ? props.contestant.photo_url : null,
+)
+const showHoverImage = computed(() => hovered.value && !!hoverImage.value)
+
 const isInteractive = computed(() => !props.disabled)
 
 // Touch handling: on iOS a hover-reactive <div> needs two taps (the first only
@@ -71,14 +80,23 @@ const cardStyle = computed(() => ({
     @touchmove.passive="onTouchMove"
     @touchend="onTouchEnd"
   >
-    <!-- Photo background -->
+    <!-- Photo background: alt image by default, original cross-fades in on hover -->
     <div class="absolute inset-0 bg-stone-800">
-      <img
-        v-if="contestant.photo_url"
-        :src="contestant.photo_url"
-        :alt="contestant.name"
-        class="w-full h-full object-cover object-top"
-      />
+      <template v-if="baseImage">
+        <img
+          :src="baseImage"
+          :alt="contestant.name"
+          class="w-full h-full object-cover object-top transition-opacity duration-300"
+          :class="showHoverImage ? 'opacity-0' : 'opacity-100'"
+        />
+        <img
+          v-if="hoverImage"
+          :src="hoverImage"
+          :alt="contestant.name"
+          class="absolute inset-0 w-full h-full object-cover object-top transition-opacity duration-300"
+          :class="showHoverImage ? 'opacity-100' : 'opacity-0'"
+        />
+      </template>
       <div v-else class="absolute inset-0 flex items-center justify-center">
         <svg class="w-12 h-12 text-stone-600" fill="currentColor" viewBox="0 0 24 24">
           <path
