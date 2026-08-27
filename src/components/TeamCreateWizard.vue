@@ -176,7 +176,7 @@ async function lockIn() {
        creating a scroll container, so the sticky action bar below still works. -->
   <div class="relative flex flex-1 flex-col overflow-x-clip bg-surface-page">
     <ThemeAtmosphere />
-    <div class="relative z-10 flex flex-1 flex-col px-8 sm:px-12 lg:px-20 pt-8 pb-16">
+    <div class="relative z-10 flex flex-1 flex-col px-4 sm:px-12 lg:px-20 pt-8 pb-16">
       <!-- Header -->
       <div class="text-center mb-10">
         <h1 class="text-3xl font-bold tracking-tight text-text-default">Build Your Tribe</h1>
@@ -276,7 +276,7 @@ async function lockIn() {
 
         <!-- Sticky footer: pick strip (empty here) with team name + actions -->
         <div
-          class="sticky bottom-0 z-30 -mx-8 -mb-16 mt-auto border-t border-border-subtle bg-surface-page/95 px-8 py-3 backdrop-blur sm:-mx-12 sm:px-12 lg:-mx-20 lg:px-20"
+          class="sticky bottom-0 z-30 -mx-4 -mb-16 mt-auto border-t border-border-subtle bg-surface-page/95 px-4 py-3 backdrop-blur sm:-mx-12 sm:px-12 lg:-mx-20 lg:px-20"
         >
           <WizardPicksStrip
             class="mx-auto w-full max-w-5xl"
@@ -317,7 +317,7 @@ async function lockIn() {
              At least 2 columns on phones (120px min); on larger screens the min jumps
              to 240px for bigger cards. Capped by max-width so it doesn't sprawl. -->
         <div
-          class="mx-auto mb-8 grid w-full max-w-5xl grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-4 sm:grid-cols-[repeat(auto-fill,minmax(240px,1fr))]"
+          class="mx-auto mb-8 grid w-full max-w-5xl grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-2 sm:grid-cols-[repeat(auto-fill,minmax(240px,1fr))] sm:gap-4"
         >
           <ContestantCard
             v-for="c in sortedContestants"
@@ -332,7 +332,7 @@ async function lockIn() {
 
         <!-- Sticky bar: selected picks (context) + actions, always reachable at thumb height -->
         <div
-          class="sticky bottom-0 z-30 -mx-8 -mb-16 mt-auto border-t border-border-subtle bg-surface-page/95 px-8 py-3 backdrop-blur sm:-mx-12 sm:px-12 lg:-mx-20 lg:px-20"
+          class="sticky bottom-0 z-30 -mx-4 -mb-16 mt-auto border-t border-border-subtle bg-surface-page/95 px-4 py-3 backdrop-blur sm:-mx-12 sm:px-12 lg:-mx-20 lg:px-20"
         >
           <!-- Your 4 picks + bounty slot, with actions on the right -->
           <WizardPicksStrip
@@ -373,7 +373,7 @@ async function lockIn() {
         </div>
 
         <div
-          class="mx-auto mb-8 grid w-full max-w-5xl grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-4 sm:grid-cols-[repeat(auto-fill,minmax(240px,1fr))]"
+          class="mx-auto mb-8 grid w-full max-w-5xl grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-2 sm:grid-cols-[repeat(auto-fill,minmax(240px,1fr))] sm:gap-4"
         >
           <ContestantCard
             v-for="c in selectedContestants"
@@ -389,7 +389,7 @@ async function lockIn() {
 
         <!-- Sticky bar: your picks (MVP marked) + actions, mirroring the roster step -->
         <div
-          class="sticky bottom-0 z-30 -mx-8 -mb-16 mt-auto border-t border-border-subtle bg-surface-page/95 px-8 py-3 backdrop-blur sm:-mx-12 sm:px-12 lg:-mx-20 lg:px-20"
+          class="sticky bottom-0 z-30 -mx-4 -mb-16 mt-auto border-t border-border-subtle bg-surface-page/95 px-4 py-3 backdrop-blur sm:-mx-12 sm:px-12 lg:-mx-20 lg:px-20"
         >
           <!-- Your 4 picks (MVP highlighted) + bounty slot, with actions on the right -->
           <WizardPicksStrip
@@ -428,7 +428,7 @@ async function lockIn() {
 
         <!-- Same reflowing grid as Pick Players, but a single target selection -->
         <div
-          class="mx-auto mb-8 grid w-full max-w-5xl grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-4 sm:grid-cols-[repeat(auto-fill,minmax(240px,1fr))]"
+          class="mx-auto mb-8 grid w-full max-w-5xl grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-2 sm:grid-cols-[repeat(auto-fill,minmax(240px,1fr))] sm:gap-4"
         >
           <ContestantCard
             v-for="c in sortedContestants"
@@ -443,7 +443,7 @@ async function lockIn() {
 
         <!-- Sticky action bar -->
         <div
-          class="sticky bottom-0 z-30 -mx-8 -mb-16 mt-auto border-t border-border-subtle bg-surface-page/95 px-8 py-3 backdrop-blur sm:-mx-12 sm:px-12 lg:-mx-20 lg:px-20"
+          class="sticky bottom-0 z-30 -mx-4 -mb-16 mt-auto border-t border-border-subtle bg-surface-page/95 px-4 py-3 backdrop-blur sm:-mx-12 sm:px-12 lg:-mx-20 lg:px-20"
         >
           <!-- Your 4 picks + bounty slot (fills as you choose here), actions on the right -->
           <WizardPicksStrip
