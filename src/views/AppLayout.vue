@@ -227,8 +227,9 @@ async function handleSignOut() {
     </div>
 
     <main class="flex flex-1 flex-col">
-      <!-- League season selector — drives every page's data -->
-      <div class="mx-auto w-full max-w-3xl px-4 pt-4 sm:px-6">
+      <!-- League season selector — drives every page's data. Hidden during the
+           team-creation wizard, which owns the whole viewport. -->
+      <div v-if="!ui.wizardActive" class="mx-auto w-full max-w-3xl px-4 pt-4 sm:px-6">
         <div class="w-full sm:max-w-xs">
           <SeasonSelect />
         </div>

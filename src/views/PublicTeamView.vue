@@ -249,7 +249,7 @@ async function load() {
         supabase
           .from('contestants')
           .select(
-            'id, name, photo_url, bio, age, hometown, occupation, eliminated_episode_id, contestant_tribe_assignments(tribe, effective_from_episode)',
+            'id, name, photo_url, alt_image, bio, age, hometown, occupation, eliminated_episode_id, contestant_tribe_assignments(tribe, effective_from_episode)',
           )
           .eq('season_id', team.season_id)
           .order('name'),
@@ -277,6 +277,7 @@ async function load() {
         (c.contestant_tribe_assignments as any[]).find((a) => a.effective_from_episode === 1)
           ?.tribe ?? 'Unknown',
       photo_url: c.photo_url ?? null,
+      alt_image: c.alt_image ?? null,
       bio: c.bio ?? null,
       age: c.age ?? null,
       hometown: c.hometown ?? null,

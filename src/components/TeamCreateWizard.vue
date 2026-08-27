@@ -7,6 +7,7 @@ import ContestantCard from './ContestantCard.vue'
 import ContestantDetailModal from './ContestantDetailModal.vue'
 import ContestantAvatar from './ContestantAvatar.vue'
 import TeamRosterList from './TeamRosterList.vue'
+import WizardPicksStrip from './WizardPicksStrip.vue'
 import BaseButton from './base/BaseButton.vue'
 import BaseInput from './base/BaseInput.vue'
 import ThemeAtmosphere from './decor/ThemeAtmosphere.vue'
@@ -269,16 +270,16 @@ async function lockIn() {
 
       <!-- ── Step 3: Pick 4 Players ── -->
       <template v-else-if="step === 3">
-        <div class="mb-6">
+        <div class="mx-auto mb-6 max-w-5xl">
           <h2 class="text-xl font-bold text-text-default mb-0.5">Pick Your Survivors</h2>
           <p class="text-text-subtle text-sm">Choose 4 castaways for your tribe.</p>
         </div>
 
         <!-- Reflowing grid, alphabetical. Tribe is shown on each card, so no grouping.
-             At least 2 columns on phones; adds columns as space allows, cards never
-             narrower than 120px. Capped by max-width so it doesn't sprawl. -->
+             At least 2 columns on phones (120px min); on larger screens the min jumps
+             to 240px for bigger cards. Capped by max-width so it doesn't sprawl. -->
         <div
-          class="mx-auto mb-8 grid max-w-5xl grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-4"
+          class="mx-auto mb-8 grid max-w-5xl grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-4 sm:grid-cols-[repeat(auto-fill,minmax(240px,1fr))]"
         >
           <ContestantCard
             v-for="c in sortedContestants"
@@ -295,56 +296,18 @@ async function lockIn() {
         <div
           class="sticky bottom-0 z-30 -mx-8 mt-4 border-t border-border-subtle bg-surface-page/95 px-8 py-3 backdrop-blur sm:-mx-12 sm:px-12 lg:-mx-20 lg:px-20"
         >
-          <div class="mx-auto max-w-2xl">
-            <!-- Your 4 picks -->
-            <div class="mb-3 flex items-center gap-2">
-              <div v-for="i in 4" :key="i" class="flex w-11 flex-col items-center gap-0.5">
-                <template v-if="selectedContestants[i - 1]">
-                  <div
-                    class="h-9 w-9 overflow-hidden rounded-full border-2"
-                    :style="{
-                      borderColor: getTribeColors(selectedContestants[i - 1]!.tribe).primary,
-                      boxShadow: `0 0 6px ${getTribeColors(selectedContestants[i - 1]!.tribe).primary}55`,
-                    }"
-                  >
-                    <img
-                      v-if="selectedContestants[i - 1]!.photo_url"
-                      :src="selectedContestants[i - 1]!.photo_url ?? undefined"
-                      :alt="selectedContestants[i - 1]!.name"
-                      class="h-full w-full object-cover object-top"
-                    />
-                    <div
-                      v-else
-                      class="flex h-full w-full items-center justify-center bg-surface-strong"
-                    >
-                      <svg class="h-4 w-4 text-icon-subtle" fill="currentColor" viewBox="0 0 24 24">
-                        <path
-                          d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"
-                        />
-                      </svg>
-                    </div>
-                  </div>
-                  <span
-                    class="w-11 truncate text-center text-[10px] font-medium leading-tight text-text-default"
-                  >
-                    {{ selectedContestants[i - 1]!.name.split(' ')[0] }}
-                  </span>
-                </template>
-                <template v-else>
-                  <div
-                    class="flex h-9 w-9 items-center justify-center rounded-full border-2 border-dashed border-border-subtle bg-surface-subtle/40"
-                  >
-                    <span class="text-[10px] font-bold text-text-muted">{{ i }}</span>
-                  </div>
-                  <span class="text-[10px] text-text-muted">—</span>
-                </template>
-              </div>
-              <span class="ml-auto text-xs font-medium text-text-muted"
-                >{{ selectedIds.length }}/4</span
-              >
-            </div>
+          <!-- Your 4 picks + bounty slot — width matches the grid above -->
+          <WizardPicksStrip
+            class="mx-auto w-full max-w-5xl"
+            :picks="selectedContestants"
+            :mvp-id="mvpId"
+            :bounty="bountyContestant"
+          >
+            <span class="text-xs font-medium text-text-muted">{{ selectedIds.length }}/4</span>
+          </WizardPicksStrip>
 
-            <!-- Actions -->
+          <!-- Actions -->
+          <div class="mx-auto max-w-5xl">
             <div class="flex gap-3">
               <BaseButton variant="secondary" size="lg" @click="step--">Back</BaseButton>
               <BaseButton
@@ -362,7 +325,7 @@ async function lockIn() {
 
       <!-- ── Step 4: Declare MVP ── -->
       <template v-else-if="step === 4">
-        <div class="text-center mb-8">
+        <div class="mx-auto mb-8 max-w-5xl text-center">
           <h2 class="text-xl font-bold text-text-default mb-1">Crown Your Champion</h2>
           <p class="text-text-subtle text-sm">
             Your MVP earns 1.5× points each episode. Choose wisely.
@@ -370,7 +333,7 @@ async function lockIn() {
         </div>
 
         <div
-          class="mx-auto mb-8 grid max-w-lg grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-4"
+          class="mx-auto mb-8 grid max-w-5xl grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-4 sm:grid-cols-[repeat(auto-fill,minmax(240px,1fr))]"
         >
           <ContestantCard
             v-for="c in selectedContestants"
@@ -388,74 +351,14 @@ async function lockIn() {
         <div
           class="sticky bottom-0 z-30 -mx-8 mt-4 border-t border-border-subtle bg-surface-page/95 px-8 py-3 backdrop-blur sm:-mx-12 sm:px-12 lg:-mx-20 lg:px-20"
         >
-          <div class="mx-auto max-w-2xl">
-            <!-- Your 4 picks, MVP highlighted -->
-            <div class="mb-3 flex items-center gap-2">
-              <div v-for="i in 4" :key="i" class="flex w-11 flex-col items-center gap-0.5">
-                <template v-if="selectedContestants[i - 1]">
-                  <div class="relative">
-                    <div
-                      class="h-9 w-9 overflow-hidden rounded-full border-2"
-                      :style="
-                        selectedContestants[i - 1]!.id === mvpId
-                          ? {
-                              borderColor: 'var(--color-survivor-sand)',
-                              boxShadow: '0 0 6px var(--color-survivor-sand)',
-                            }
-                          : {
-                              borderColor: getTribeColors(selectedContestants[i - 1]!.tribe)
-                                .primary,
-                              boxShadow: `0 0 6px ${getTribeColors(selectedContestants[i - 1]!.tribe).primary}55`,
-                            }
-                      "
-                    >
-                      <img
-                        v-if="selectedContestants[i - 1]!.photo_url"
-                        :src="selectedContestants[i - 1]!.photo_url ?? undefined"
-                        :alt="selectedContestants[i - 1]!.name"
-                        class="h-full w-full object-cover object-top"
-                      />
-                      <div
-                        v-else
-                        class="flex h-full w-full items-center justify-center bg-surface-strong"
-                      >
-                        <svg
-                          class="h-4 w-4 text-icon-subtle"
-                          fill="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"
-                          />
-                        </svg>
-                      </div>
-                    </div>
-                    <!-- Crown badge for the MVP -->
-                    <span
-                      v-if="selectedContestants[i - 1]!.id === mvpId"
-                      class="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-survivor-sand"
-                    >
-                      <svg class="h-2.5 w-2.5 text-white" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm0 2h14v2H5v-2z" />
-                      </svg>
-                    </span>
-                  </div>
-                  <span
-                    class="w-11 truncate text-center text-[10px] font-medium leading-tight"
-                    :class="
-                      selectedContestants[i - 1]!.id === mvpId
-                        ? 'text-survivor-sand'
-                        : 'text-text-default'
-                    "
-                  >
-                    {{ selectedContestants[i - 1]!.name.split(' ')[0] }}
-                  </span>
-                </template>
-              </div>
-              <span class="ml-auto text-xs font-medium text-survivor-sand">
+          <!-- Width matches the grid above -->
+          <div class="mx-auto max-w-5xl">
+            <!-- Your 4 picks (MVP highlighted) + bounty slot -->
+            <WizardPicksStrip :picks="selectedContestants" :mvp-id="mvpId" :bounty="bountyContestant">
+              <span class="text-xs font-medium text-survivor-sand">
                 {{ mvpContestant ? `MVP: ${mvpContestant.name.split(' ')[0]}` : '' }}
               </span>
-            </div>
+            </WizardPicksStrip>
 
             <p v-if="errorMsg" class="mb-2 text-sm text-status-error">{{ errorMsg }}</p>
 
@@ -472,7 +375,7 @@ async function lockIn() {
 
       <!-- ── Step 5: Bounty Pick ── -->
       <template v-else-if="step === 5">
-        <div class="mb-6">
+        <div class="mx-auto mb-6 max-w-5xl">
           <h2 class="text-xl font-bold text-text-default mb-0.5">Set Your Bounty</h2>
           <p class="text-text-subtle text-sm">
             Who gets voted out first? Your pick carries forward each week — change it before any
@@ -482,7 +385,7 @@ async function lockIn() {
 
         <!-- Same reflowing grid as Pick Players, but a single target selection -->
         <div
-          class="mx-auto mb-8 grid max-w-5xl grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-4"
+          class="mx-auto mb-8 grid max-w-5xl grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-4 sm:grid-cols-[repeat(auto-fill,minmax(240px,1fr))]"
         >
           <ContestantCard
             v-for="c in sortedContestants"
@@ -499,7 +402,19 @@ async function lockIn() {
         <div
           class="sticky bottom-0 z-30 -mx-8 mt-4 border-t border-border-subtle bg-surface-page/95 px-8 py-3 backdrop-blur sm:-mx-12 sm:px-12 lg:-mx-20 lg:px-20"
         >
-          <div class="mx-auto max-w-2xl">
+          <!-- Your 4 picks + bounty slot (fills as you choose here) — matches grid width -->
+          <WizardPicksStrip
+            class="mx-auto w-full max-w-5xl"
+            :picks="selectedContestants"
+            :mvp-id="mvpId"
+            :bounty="bountyContestant"
+          >
+            <span class="text-xs font-medium text-status-error">
+              {{ bountyContestant ? bountyContestant.name.split(' ')[0] : '' }}
+            </span>
+          </WizardPicksStrip>
+
+          <div class="mx-auto max-w-5xl">
             <p v-if="errorMsg" class="mb-2 text-sm text-status-error">{{ errorMsg }}</p>
             <div class="flex gap-3">
               <BaseButton variant="secondary" size="lg" @click="step--">Back</BaseButton>

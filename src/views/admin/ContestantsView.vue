@@ -10,6 +10,7 @@ type Contestant = {
   season_id: string
   name: string
   photo_url: string | null
+  alt_image: string | null
   bio: string | null
   age: number | null
   hometown: string | null
@@ -39,6 +40,7 @@ const editingId = ref<string | null>(null)
 const form = ref({
   name: '',
   photo_url: '',
+  alt_image: '',
   bio: '',
   age: '',
   hometown: '',
@@ -288,6 +290,7 @@ async function saveContestant() {
   const payload = {
     name: form.value.name,
     photo_url: form.value.photo_url || null,
+    alt_image: form.value.alt_image || null,
     bio: form.value.bio || null,
     age: form.value.age ? parseInt(form.value.age) : null,
     hometown: form.value.hometown || null,
@@ -363,6 +366,7 @@ function openEdit(c: Contestant) {
   form.value = {
     name: c.name,
     photo_url: c.photo_url ?? '',
+    alt_image: c.alt_image ?? '',
     bio: c.bio ?? '',
     age: c.age !== null ? String(c.age) : '',
     hometown: c.hometown ?? '',
@@ -376,6 +380,7 @@ function resetForm() {
   form.value = {
     name: '',
     photo_url: '',
+    alt_image: '',
     bio: '',
     age: '',
     hometown: '',
@@ -874,6 +879,21 @@ onMounted(loadSeasons)
               placeholder="https://…"
               class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1"
+              >Alternate photo URL <span class="text-gray-400 font-normal">(optional)</span></label
+            >
+            <input
+              v-model="form.alt_image"
+              type="url"
+              placeholder="https://…"
+              class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <p class="mt-1 text-xs text-gray-400">
+              Shown in place of the main photo in certain views.
+            </p>
           </div>
 
           <div class="grid grid-cols-2 gap-3">
