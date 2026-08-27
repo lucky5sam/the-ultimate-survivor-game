@@ -746,7 +746,13 @@ onMounted(loadSeasons)
             <th class="px-4 py-3">#</th>
             <th class="px-4 py-3">Name</th>
             <th class="px-4 py-3">Tribe</th>
-            <th v-if="!bulkMode" class="px-4 py-3">Photo URL</th>
+            <th v-if="!bulkMode" class="px-4 py-3">Photo</th>
+            <th v-if="!bulkMode" class="px-4 py-3">Alt</th>
+            <th v-if="!bulkMode" class="px-4 py-3">Video</th>
+            <th v-if="!bulkMode" class="px-4 py-3">Age</th>
+            <th v-if="!bulkMode" class="px-4 py-3">Hometown</th>
+            <th v-if="!bulkMode" class="px-4 py-3">Occupation</th>
+            <th v-if="!bulkMode" class="px-4 py-3">Bio</th>
             <th class="px-4 py-3"></th>
           </tr>
         </thead>
@@ -780,8 +786,41 @@ onMounted(loadSeasons)
                 >
               </template>
             </td>
-            <td v-if="!bulkMode" class="px-4 py-3 text-gray-400 truncate max-w-xs">
-              {{ c.photo_url ?? '—' }}
+            <td v-if="!bulkMode" class="px-4 py-3">
+              <img
+                v-if="c.photo_url"
+                :src="c.photo_url"
+                :alt="c.name"
+                class="h-8 w-8 rounded object-cover object-top"
+              />
+              <span v-else class="text-gray-300">—</span>
+            </td>
+            <td v-if="!bulkMode" class="px-4 py-3">
+              <img
+                v-if="c.alt_image"
+                :src="c.alt_image"
+                :alt="c.name"
+                class="h-8 w-8 rounded object-cover object-top"
+              />
+              <span v-else class="text-gray-300">—</span>
+            </td>
+            <td v-if="!bulkMode" class="px-4 py-3">
+              <a
+                v-if="c.video_url"
+                :href="c.video_url"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="text-blue-600 hover:text-blue-800 text-xs font-medium underline"
+              >
+                Watch Video
+              </a>
+              <span v-else class="text-gray-300">—</span>
+            </td>
+            <td v-if="!bulkMode" class="px-4 py-3 text-gray-700">{{ c.age ?? '—' }}</td>
+            <td v-if="!bulkMode" class="px-4 py-3 text-gray-700">{{ c.hometown ?? '—' }}</td>
+            <td v-if="!bulkMode" class="px-4 py-3 text-gray-700">{{ c.occupation ?? '—' }}</td>
+            <td v-if="!bulkMode" class="px-4 py-3 text-gray-400 max-w-xs truncate">
+              {{ c.bio ?? '—' }}
             </td>
             <td v-if="!bulkMode" class="px-4 py-3 text-right space-x-3">
               <button
