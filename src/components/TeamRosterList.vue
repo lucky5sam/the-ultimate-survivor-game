@@ -27,8 +27,9 @@ const props = withDefaults(
     title?: string
     chipInteractive?: boolean
     emptyText?: string
+    showScores?: boolean
   }>(),
-  { title: 'Roster', chipInteractive: false, emptyText: 'No roster set.' },
+  { title: 'Roster', chipInteractive: false, emptyText: 'No roster set.', showScores: true },
 )
 
 const emit = defineEmits<{ 'chip-click': [player: ActivePlayer, event: MouseEvent] }>()
@@ -131,7 +132,7 @@ function playerStatus(id: string): { out: boolean; ep: number | null } {
           </div>
         </div>
       </div>
-      <div class="text-right">
+      <div v-if="showScores" class="text-right">
         <p class="text-sm font-semibold tabular-nums text-text-default">
           {{ fmtPts(pointsById[player.contestant_id] ?? 0) }}
         </p>

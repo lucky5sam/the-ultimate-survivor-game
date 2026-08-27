@@ -5,6 +5,8 @@ import type { ContestantFull } from '../types/contestant'
 import { getTribeColors } from '../utils/tribeColors'
 import ContestantCard from './ContestantCard.vue'
 import ContestantDetailModal from './ContestantDetailModal.vue'
+import ContestantAvatar from './ContestantAvatar.vue'
+import TeamRosterList from './TeamRosterList.vue'
 import BaseButton from './base/BaseButton.vue'
 import BaseInput from './base/BaseInput.vue'
 import ThemeAtmosphere from './decor/ThemeAtmosphere.vue'
@@ -51,6 +53,17 @@ const bountyContestant = computed(
 )
 
 const mvpContestant = computed(() => props.contestants.find((c) => c.id === mvpId.value) ?? null)
+
+// Roster rows for the review step, shaped for the shared TeamRosterList. The
+// season hasn't started, so there are no scores or eliminations yet — every
+// player reads as "In the Game" with 0 points, previewing the real roster card.
+const reviewPlayers = computed(() =>
+  selectedIds.value.map((id) => ({
+    contestant_id: id,
+    role: (id === mvpId.value ? 'mvp' : 'player') as 'mvp' | 'player',
+    effective_from_episode: 1,
+  })),
+)
 
 onMounted(() => {
   const saved = sessionStorage.getItem('pending_league_code')
@@ -514,36 +527,48 @@ async function lockIn() {
             <p class="font-bold text-text-default">{{ teamName }}</p>
           </div>
 
-          <!-- Roster cards -->
-          <p class="text-xs text-text-muted uppercase tracking-wide mb-3">Your Roster</p>
-          <div class="grid grid-cols-4 gap-2 mb-4">
-            <ContestantCard
-              v-for="c in selectedContestants"
-              :key="c.id"
-              :contestant="c"
-              :selected="c.id === mvpId"
-              :disabled="false"
-              :show-crown="true"
-              @select="() => {}"
-              @view-details="detailContestant = c"
-            />
-          </div>
-
-          <!-- Bounty pick -->
-          <div
-            v-if="bountyContestant"
-            class="surface-card bg-surface-subtle rounded-md border border-border-subtle px-4 py-3 mb-6"
+          <!-- Roster + bounty, using the same layout as the live team page -->
+          <TeamRosterList
+            title="Your Roster"
+            :players="reviewPlayers"
+            :contestants="contestants"
+            :eliminated-episode-id-by-contestant="{}"
+            :episodes="[]"
+            :points-by-id="{}"
+            :show-scores="false"
+            class="mb-6"
           >
-            <p class="text-xs text-text-muted uppercase tracking-wide mb-0.5">Bounty Pick</p>
-            <div class="flex items-center gap-2">
-              <span class="font-semibold text-text-default text-sm">{{
-                bountyContestant.name
-              }}</span>
-              <span class="text-xs" :style="{ color: getTribeColors(bountyContestant.tribe).text }">
-                {{ bountyContestant.tribe }}
-              </span>
-            </div>
-          </div>
+            <template #footer>
+              <div
+                v-if="bountyContestant"
+                class="flex items-center border-t border-border-subtle bg-surface-subtle/40 px-4 py-3"
+              >
+                <div class="flex items-center gap-3">
+                  <span
+                    class="w-11 shrink-0 rounded-md bg-status-error/15 py-1 text-center text-[10px] font-bold uppercase tracking-wide text-status-error"
+                    >BTY</span
+                  >
+                  <ContestantAvatar
+                    :photo-url="bountyContestant.photo_url"
+                    :name="bountyContestant.name"
+                    :tribe="bountyContestant.tribe"
+                    show-tribe
+                  />
+                  <div>
+                    <p class="text-sm font-medium leading-tight text-text-default">
+                      {{ bountyContestant.name }}
+                    </p>
+                    <p
+                      class="mt-0.5 text-xs"
+                      :style="{ color: getTribeColors(bountyContestant.tribe).text }"
+                    >
+                      {{ bountyContestant.tribe }}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </TeamRosterList>
 
           <p v-if="errorMsg" class="text-sm text-status-error mb-4">{{ errorMsg }}</p>
 
