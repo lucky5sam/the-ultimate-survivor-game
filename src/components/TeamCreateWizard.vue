@@ -358,8 +358,8 @@ async function lockIn() {
       <!-- ── Step 4: Pick 4 Players ── -->
       <template v-else-if="step === 4">
         <div class="mx-auto mb-6 w-full max-w-5xl">
-          <h2 class="text-2xl font-bold text-text-default mb-0.5">Pick Your Survivors</h2>
-          <p class="text-text-subtle text-base">Choose 4 castaways for your tribe.</p>
+          <h2 class="text-2xl font-bold text-text-default mb-0.5">Pick Your Players</h2>
+          <p class="text-text-subtle text-base">Choose 4 castaways for your team.</p>
         </div>
 
         <!-- Reflowing grid, alphabetical. Tribe is shown on each card, so no grouping.
