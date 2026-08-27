@@ -294,32 +294,33 @@ async function lockIn() {
 
         <!-- Sticky bar: selected picks (context) + actions, always reachable at thumb height -->
         <div
-          class="sticky bottom-0 z-30 -mx-8 mt-4 border-t border-border-subtle bg-surface-page/95 px-8 py-3 backdrop-blur sm:-mx-12 sm:px-12 lg:-mx-20 lg:px-20"
+          class="sticky bottom-0 z-30 -mx-8 -mb-16 mt-4 border-t border-border-subtle bg-surface-page/95 px-8 py-3 backdrop-blur sm:-mx-12 sm:px-12 lg:-mx-20 lg:px-20"
         >
-          <!-- Your 4 picks + bounty slot — width matches the grid above -->
+          <!-- Your 4 picks + bounty slot, with actions on the right -->
           <WizardPicksStrip
             class="mx-auto w-full max-w-5xl"
             :picks="selectedContestants"
             :mvp-id="mvpId"
             :bounty="bountyContestant"
           >
-            <span class="text-xs font-medium text-text-muted">{{ selectedIds.length }}/4</span>
-          </WizardPicksStrip>
-
-          <!-- Actions -->
-          <div class="mx-auto max-w-5xl">
-            <div class="flex gap-3">
-              <BaseButton variant="secondary" size="lg" @click="step--">Back</BaseButton>
+            <div class="flex w-full gap-3 sm:w-auto">
+              <BaseButton
+                variant="secondary"
+                size="lg"
+                class="flex-1 sm:flex-none"
+                @click="step--"
+                >Back</BaseButton
+              >
               <BaseButton
                 size="lg"
-                class="flex-1"
+                class="flex-1 sm:flex-none"
                 :disabled="selectedIds.length < 4"
                 @click="nextStep"
               >
                 {{ selectedIds.length < 4 ? `Pick ${4 - selectedIds.length} more` : 'Continue' }}
               </BaseButton>
             </div>
-          </div>
+          </WizardPicksStrip>
         </div>
       </template>
 
@@ -349,27 +350,29 @@ async function lockIn() {
 
         <!-- Sticky bar: your picks (MVP marked) + actions, mirroring the roster step -->
         <div
-          class="sticky bottom-0 z-30 -mx-8 mt-4 border-t border-border-subtle bg-surface-page/95 px-8 py-3 backdrop-blur sm:-mx-12 sm:px-12 lg:-mx-20 lg:px-20"
+          class="sticky bottom-0 z-30 -mx-8 -mb-16 mt-4 border-t border-border-subtle bg-surface-page/95 px-8 py-3 backdrop-blur sm:-mx-12 sm:px-12 lg:-mx-20 lg:px-20"
         >
-          <!-- Width matches the grid above -->
-          <div class="mx-auto max-w-5xl">
-            <!-- Your 4 picks (MVP highlighted) + bounty slot -->
-            <WizardPicksStrip :picks="selectedContestants" :mvp-id="mvpId" :bounty="bountyContestant">
-              <span class="text-xs font-medium text-survivor-sand">
-                {{ mvpContestant ? `MVP: ${mvpContestant.name.split(' ')[0]}` : '' }}
-              </span>
-            </WizardPicksStrip>
-
-            <p v-if="errorMsg" class="mb-2 text-sm text-status-error">{{ errorMsg }}</p>
-
-            <!-- Actions -->
-            <div class="flex gap-3">
-              <BaseButton variant="secondary" size="lg" @click="step--">Back</BaseButton>
-              <BaseButton size="lg" class="flex-1" :disabled="!mvpId" @click="nextStep">
+          <!-- Your 4 picks (MVP highlighted) + bounty slot, with actions on the right -->
+          <WizardPicksStrip
+            class="mx-auto w-full max-w-5xl"
+            :picks="selectedContestants"
+            :mvp-id="mvpId"
+            :bounty="bountyContestant"
+          >
+            <div class="flex w-full gap-3 sm:w-auto">
+              <BaseButton
+                variant="secondary"
+                size="lg"
+                class="flex-1 sm:flex-none"
+                @click="step--"
+                >Back</BaseButton
+              >
+              <BaseButton size="lg" class="flex-1 sm:flex-none" :disabled="!mvpId" @click="nextStep">
                 {{ mvpId ? 'Continue' : 'Choose your MVP' }}
               </BaseButton>
             </div>
-          </div>
+          </WizardPicksStrip>
+          <p v-if="errorMsg" class="mx-auto max-w-5xl text-sm text-status-error">{{ errorMsg }}</p>
         </div>
       </template>
 
@@ -400,29 +403,34 @@ async function lockIn() {
 
         <!-- Sticky action bar -->
         <div
-          class="sticky bottom-0 z-30 -mx-8 mt-4 border-t border-border-subtle bg-surface-page/95 px-8 py-3 backdrop-blur sm:-mx-12 sm:px-12 lg:-mx-20 lg:px-20"
+          class="sticky bottom-0 z-30 -mx-8 -mb-16 mt-4 border-t border-border-subtle bg-surface-page/95 px-8 py-3 backdrop-blur sm:-mx-12 sm:px-12 lg:-mx-20 lg:px-20"
         >
-          <!-- Your 4 picks + bounty slot (fills as you choose here) — matches grid width -->
+          <!-- Your 4 picks + bounty slot (fills as you choose here), actions on the right -->
           <WizardPicksStrip
             class="mx-auto w-full max-w-5xl"
             :picks="selectedContestants"
             :mvp-id="mvpId"
             :bounty="bountyContestant"
           >
-            <span class="text-xs font-medium text-status-error">
-              {{ bountyContestant ? bountyContestant.name.split(' ')[0] : '' }}
-            </span>
-          </WizardPicksStrip>
-
-          <div class="mx-auto max-w-5xl">
-            <p v-if="errorMsg" class="mb-2 text-sm text-status-error">{{ errorMsg }}</p>
-            <div class="flex gap-3">
-              <BaseButton variant="secondary" size="lg" @click="step--">Back</BaseButton>
-              <BaseButton size="lg" class="flex-1" :disabled="!bountyId" @click="nextStep">
+            <div class="flex w-full gap-3 sm:w-auto">
+              <BaseButton
+                variant="secondary"
+                size="lg"
+                class="flex-1 sm:flex-none"
+                @click="step--"
+                >Back</BaseButton
+              >
+              <BaseButton
+                size="lg"
+                class="flex-1 sm:flex-none"
+                :disabled="!bountyId"
+                @click="nextStep"
+              >
                 {{ bountyId ? 'Continue' : 'Pick a target' }}
               </BaseButton>
             </div>
-          </div>
+          </WizardPicksStrip>
+          <p v-if="errorMsg" class="mx-auto max-w-5xl text-sm text-status-error">{{ errorMsg }}</p>
         </div>
       </template>
 

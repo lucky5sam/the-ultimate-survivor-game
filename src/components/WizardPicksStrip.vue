@@ -15,7 +15,7 @@ defineProps<{
 </script>
 
 <template>
-  <div class="mb-3 flex items-center gap-2">
+  <div class="mb-3 flex flex-wrap items-center gap-x-2 gap-y-3">
     <!-- Roster slots -->
     <div v-for="i in 4" :key="i" class="flex w-11 flex-col items-center gap-0.5">
       <template v-if="picks[i - 1]">
@@ -116,7 +116,8 @@ defineProps<{
       </template>
     </div>
 
-    <!-- Per-step trailing label -->
-    <div class="ml-auto"><slot /></div>
+    <!-- Per-step trailing content (actions). Hugs the right on wide rows; drops to
+         its own full-width line on mobile so the buttons can stretch. -->
+    <div class="ml-auto w-full sm:w-auto"><slot /></div>
   </div>
 </template>
