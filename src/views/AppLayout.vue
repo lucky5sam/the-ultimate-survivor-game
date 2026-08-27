@@ -5,11 +5,16 @@ import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../stores/auth'
+import { useSeasonStore } from '../stores/season'
 import InviteBanner from '../components/InviteBanner.vue'
+import SeasonSelect from '../components/SeasonSelect.vue'
 
 const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
+
+const seasonStore = useSeasonStore()
+seasonStore.load()
 
 const tabs = [
   { label: 'Dashboard', to: '/dashboard' },
@@ -172,6 +177,12 @@ async function handleSignOut() {
     </div>
 
     <main class="flex flex-1 flex-col">
+      <!-- League season selector — drives every page's data -->
+      <div class="px-4 pt-4 sm:px-6">
+        <div class="w-full sm:max-w-xs">
+          <SeasonSelect />
+        </div>
+      </div>
       <InviteBanner />
       <RouterView />
     </main>

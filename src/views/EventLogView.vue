@@ -6,11 +6,11 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { supabase } from '../lib/supabase'
 import { loadTribeColors } from '../utils/tribeColors'
+import { useSeasonStore } from '../stores/season'
 import BaseCard from '../components/base/BaseCard.vue'
 import BaseModal from '../components/base/BaseModal.vue'
 import TribeBadge from '../components/TribeBadge.vue'
 
-type Season = { id: string; name: string }
 type EpisodeInfo = {
   id: string
   number: number
@@ -31,8 +31,7 @@ type EventRow = {
 }
 type TribeAssignment = { tribe: string; effective_from_episode: number }
 
-const seasons = ref<Season[]>([])
-const selectedSeasonId = ref('')
+const seasonStore = useSeasonStore()
 const episodes = ref<EpisodeInfo[]>([])
 const events = ref<EventRow[]>([])
 const loading = ref(false)
@@ -92,28 +91,18 @@ function fmtDate(iso: string | null): string {
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
-async function loadSeasons() {
-  const { data } = await supabase
-    .from('seasons')
-    .select('id, name')
-    .in('status', ['upcoming', 'active'])
-    .order('created_at', { ascending: false })
-  seasons.value = data ?? []
-  if (seasons.value.length > 0) selectedSeasonId.value = seasons.value[0]!.id
-}
-
 // Guards against overlapping loads: if the season changes mid-fetch, only the
 // latest request is allowed to commit results (stale responses are dropped).
 let loadSeq = 0
 
 async function loadEvents() {
-  if (!selectedSeasonId.value) {
+  if (!seasonStore.selectedSeasonId) {
     episodes.value = []
     events.value = []
     return
   }
   const seq = ++loadSeq
-  const seasonId = selectedSeasonId.value
+  const seasonId = seasonStore.selectedSeasonId
   loading.value = true
   errorMsg.value = ''
   try {
@@ -199,30 +188,19 @@ async function loadEvents() {
   }
 }
 
-// loadSeasons sets selectedSeasonId, which triggers this watch — so the initial
-// load happens exactly once (no duplicate call in onMounted).
-watch(selectedSeasonId, loadEvents)
-onMounted(loadSeasons)
+// The shared store owns the season list + selection; reload when it changes.
+watch(() => seasonStore.selectedSeasonId, loadEvents, { immediate: true })
+onMounted(() => seasonStore.load())
 </script>
 
 <template>
   <div class="mx-auto w-full max-w-3xl px-6 py-8">
-    <div class="mb-6 flex items-center justify-between">
-      <h2 class="text-2xl font-bold text-text-default">Event Log</h2>
-      <div v-if="seasons.length === 1" class="text-sm text-text-subtle">{{ seasons[0]?.name }}</div>
-      <select
-        v-else-if="seasons.length > 1"
-        v-model="selectedSeasonId"
-        class="rounded-md border border-interactive-input-border bg-interactive-input px-3 py-2 text-sm text-text-default focus:outline-none focus:ring-2 focus:ring-border-accent"
-      >
-        <option v-for="s in seasons" :key="s.id" :value="s.id">{{ s.name }}</option>
-      </select>
-    </div>
+    <h2 class="mb-6 text-2xl font-bold text-text-default">Event Log</h2>
 
     <p v-if="errorMsg" class="mb-4 text-sm text-status-error">{{ errorMsg }}</p>
     <div v-if="loading" class="text-sm text-text-muted">Loading…</div>
 
-    <div v-else-if="seasons.length === 0" class="text-sm text-text-muted">
+    <div v-else-if="!seasonStore.selectedSeasonId" class="text-sm text-text-muted">
       No active seasons right now.
     </div>
 

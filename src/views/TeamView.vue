@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { supabase } from '../lib/supabase'
 import { fmtEt } from '../lib/time'
 import { useAuthStore } from '../stores/auth'
+import { useSeasonStore } from '../stores/season'
 import TeamCreateWizard from '../components/TeamCreateWizard.vue'
 import ContestantAvatar from '../components/ContestantAvatar.vue'
 import ContestantSelect from '../components/ContestantSelect.vue'
@@ -67,11 +68,18 @@ type SeasonConfig = {
 const auth = useAuthStore()
 const router = useRouter()
 const toast = useToast()
+const seasonStore = useSeasonStore()
 
-const seasons = ref<Season[]>([])
-const selectedSeasonId = ref('')
-const currentSeasonId = ref('')
-const seasonModalOpen = ref(false)
+// Season list + selection live in the shared store (driven by the top-of-page
+// season selector). Aliased here so the rest of this view is unchanged.
+const seasons = computed(() => seasonStore.seasons)
+const selectedSeasonId = computed({
+  get: () => seasonStore.selectedSeasonId,
+  set: (v: string) => {
+    seasonStore.selectedSeasonId = v
+  },
+})
+const currentSeasonId = computed(() => seasonStore.currentSeasonId)
 const breakdownModalOpen = ref(false)
 const allContestants = ref<Contestant[]>([])
 const eliminatedEpisodeIdByContestant = ref<Record<string, string | null>>({})
@@ -325,11 +333,6 @@ async function onTeamCreated() {
   await runLoad()
 }
 
-function chooseSeason(id: string) {
-  selectedSeasonId.value = id
-  seasonModalOpen.value = false
-}
-
 const roleChangeTargetName = computed(
   () => allContestants.value.find((c) => c.id === roleChangeTargetId.value)?.name ?? '',
 )
@@ -356,48 +359,11 @@ const seasonStartDisplay = computed(() =>
   currentSeason.value?.starts_at ? fmtEt(currentSeason.value.starts_at) : null,
 )
 
-const currentEpisodeNumber = computed(() => {
-  const epId = currentSeason.value?.current_episode_id
-  if (!epId) return null
-  return allEpisodes.value.find((e) => e.id === epId)?.number ?? null
-})
-
 const ownerName = computed(() =>
   auth.firstName || auth.lastName
     ? `${auth.firstName} ${auth.lastName}`.trim()
     : (auth.user?.email ?? ''),
 )
-
-const seasonStatusBadge = computed(() => {
-  const s = currentSeason.value
-  if (!s) return null
-  if (s.status === 'active')
-    return {
-      label: currentEpisodeNumber.value
-        ? `Active · Episode ${currentEpisodeNumber.value}`
-        : 'Active',
-      classes: 'bg-status-success-surface text-status-success',
-    }
-  if (s.status === 'upcoming')
-    return { label: 'Upcoming', classes: 'bg-status-warning-surface text-status-warning' }
-  return { label: 'Completed', classes: 'bg-surface-subtle text-text-subtle' }
-})
-
-async function loadSeasons() {
-  // Load all seasons (including completed) so previous seasons can be viewed.
-  const { data } = await supabase
-    .from('seasons')
-    .select('id, name, status, current_episode_id, starts_at')
-    .order('created_at', { ascending: false })
-  seasons.value = data ?? []
-  // "Current" = the most recent active/upcoming season, else the newest overall.
-  const current =
-    seasons.value.find((s) => s.status === 'active' || s.status === 'upcoming') ?? seasons.value[0]
-  currentSeasonId.value = current?.id ?? ''
-  if (seasons.value.length > 0 && !selectedSeasonId.value) {
-    selectedSeasonId.value = currentSeasonId.value
-  }
-}
 
 async function loadContestants() {
   if (!selectedSeasonId.value) return
@@ -728,15 +694,16 @@ async function confirmRoleChange() {
   }
 }
 
-// loadSeasons sets selectedSeasonId, which triggers this watch — so the load
-// cycle runs exactly once on mount (no duplicate cycle in onMounted).
-watch(selectedSeasonId, runLoad)
+// The shared store owns the season selection; reload the team whenever it
+// changes. `immediate` covers the case where the store already resolved before
+// this view mounted (empty id is a safe no-op — the loaders guard on it).
+watch(selectedSeasonId, runLoad, { immediate: true })
 
 onMounted(async () => {
   nowTimer = setInterval(() => {
     now.value = Date.now()
   }, 1_000)
-  await loadSeasons()
+  await seasonStore.load()
   // If no season got selected (none available), nothing triggers the watch —
   // clear the initial loading state so the page doesn't hang on "Loading…".
   if (!selectedSeasonId.value) loading.value = false
@@ -825,14 +792,6 @@ onUnmounted(() => {
             {{ existingTeam?.team_name || 'My Team' }}
           </h2>
           <p v-if="ownerName" class="text-sm text-text-muted">{{ ownerName }}</p>
-          <div class="mt-1 flex items-center gap-2 flex-wrap">
-            <span class="text-sm text-text-subtle">{{ currentSeason?.name }}</span>
-            <span
-              v-if="seasonStatusBadge"
-              :class="['px-2.5 py-1 rounded-full text-xs font-semibold', seasonStatusBadge.classes]"
-              >{{ seasonStatusBadge.label }}</span
-            >
-          </div>
         </div>
 
         <!-- My standing: rank + score. Each card is a link to its detail view. -->
@@ -954,13 +913,6 @@ onUnmounted(() => {
       </template>
     </div>
 
-    <!-- View previous seasons (bottom of page) -->
-    <div v-if="!loading && seasons.length > 1" class="mt-auto px-6 py-6 text-center">
-      <BaseButton variant="secondary" size="sm" @click="seasonModalOpen = true"
-        >View Previous Seasons</BaseButton
-      >
-    </div>
-
     <!-- Score breakdown modal -->
     <ScoreBreakdownModal
       :show="breakdownModalOpen"
@@ -968,27 +920,6 @@ onUnmounted(() => {
       :breakdown="breakdown"
       @close="breakdownModalOpen = false"
     />
-
-    <!-- Season selector modal -->
-    <BaseModal :show="seasonModalOpen" title="Select Season" @close="seasonModalOpen = false">
-      <div class="space-y-1">
-        <button
-          v-for="s in seasons"
-          :key="s.id"
-          @click="chooseSeason(s.id)"
-          class="flex w-full items-center justify-between gap-3 rounded-md px-3 py-2.5 text-left transition-colors hover:bg-surface-subtle"
-          :class="s.id === selectedSeasonId ? 'bg-surface-subtle' : ''"
-        >
-          <span class="text-sm font-medium text-text-default">{{ s.name }}</span>
-          <span
-            v-if="s.id === currentSeasonId"
-            class="shrink-0 rounded-full bg-surface-accent px-2 py-0.5 text-xs font-semibold text-text-accent"
-            >Current</span
-          >
-          <span v-else class="shrink-0 text-xs capitalize text-text-muted">{{ s.status }}</span>
-        </button>
-      </div>
-    </BaseModal>
 
     <!-- Swap modal -->
     <BaseModal :show="swapModalOpen" title="Swap Player" size="lg" @close="closeSwapModal">

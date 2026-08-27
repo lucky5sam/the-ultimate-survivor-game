@@ -1,33 +1,20 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { supabase } from '../lib/supabase'
 import { computeLeaderboard, type LeaderboardRow } from '../composables/useLeaderboard'
+import { useSeasonStore } from '../stores/season'
 import BaseCard from '../components/base/BaseCard.vue'
 
-type Season = { id: string; name: string }
-
-const seasons = ref<Season[]>([])
-const selectedSeasonId = ref('')
+const seasonStore = useSeasonStore()
 const rows = ref<LeaderboardRow[]>([])
 const loading = ref(false)
 const errorMsg = ref('')
-
-async function loadSeasons() {
-  const { data } = await supabase
-    .from('seasons')
-    .select('id, name')
-    .in('status', ['upcoming', 'active'])
-    .order('created_at', { ascending: false })
-  seasons.value = data ?? []
-  if (seasons.value.length > 0) selectedSeasonId.value = seasons.value[0]!.id
-}
 
 // Guards against overlapping loads: if the season changes mid-fetch, only the
 // latest request is allowed to write results (stale responses are dropped).
 let loadSeq = 0
 
 async function loadLeaderboard() {
-  if (!selectedSeasonId.value) {
+  if (!seasonStore.selectedSeasonId) {
     rows.value = []
     return
   }
@@ -35,7 +22,7 @@ async function loadLeaderboard() {
   loading.value = true
   errorMsg.value = ''
   try {
-    const result = await computeLeaderboard(selectedSeasonId.value)
+    const result = await computeLeaderboard(seasonStore.selectedSeasonId)
     if (seq !== loadSeq) return
     rows.value = result
   } catch (e) {
@@ -66,30 +53,19 @@ const displayRows = computed(() =>
   })),
 )
 
-// loadSeasons sets selectedSeasonId, which triggers this watch — so the initial
-// load happens exactly once (no duplicate call in onMounted).
-watch(selectedSeasonId, loadLeaderboard)
-onMounted(loadSeasons)
+// The shared store owns the season list + selection; reload when it changes.
+watch(() => seasonStore.selectedSeasonId, loadLeaderboard, { immediate: true })
+onMounted(() => seasonStore.load())
 </script>
 
 <template>
   <div class="w-full px-4 py-8 sm:px-6">
-    <div class="mb-6 flex items-center justify-between">
-      <h2 class="text-2xl font-bold text-text-default">Leaderboard</h2>
-      <div v-if="seasons.length === 1" class="text-sm text-text-subtle">{{ seasons[0]?.name }}</div>
-      <select
-        v-else-if="seasons.length > 1"
-        v-model="selectedSeasonId"
-        class="rounded-md border border-interactive-input-border bg-interactive-input px-3 py-2 text-sm text-text-default focus:outline-none focus:ring-2 focus:ring-border-accent"
-      >
-        <option v-for="s in seasons" :key="s.id" :value="s.id">{{ s.name }}</option>
-      </select>
-    </div>
+    <h2 class="mb-6 text-2xl font-bold text-text-default">Leaderboard</h2>
 
     <p v-if="errorMsg" class="mb-4 text-sm text-status-error">{{ errorMsg }}</p>
     <div v-if="loading" class="text-sm text-text-muted">Loading…</div>
 
-    <div v-else-if="seasons.length === 0" class="text-sm text-text-muted">
+    <div v-else-if="!seasonStore.selectedSeasonId" class="text-sm text-text-muted">
       No active seasons right now.
     </div>
 
