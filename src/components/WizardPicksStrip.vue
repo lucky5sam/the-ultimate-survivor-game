@@ -36,17 +36,10 @@ defineProps<{
         <div class="relative">
           <div
             class="h-9 w-9 overflow-hidden rounded-full border-2"
-            :style="
-              picks[i - 1]!.id === mvpId
-                ? {
-                    borderColor: 'var(--color-survivor-sand)',
-                    boxShadow: '0 0 6px var(--color-survivor-sand)',
-                  }
-                : {
-                    borderColor: getTribeColors(picks[i - 1]!.tribe).primary,
-                    boxShadow: `0 0 6px ${getTribeColors(picks[i - 1]!.tribe).primary}55`,
-                  }
-            "
+            :style="{
+              borderColor: getTribeColors(picks[i - 1]!.tribe).primary,
+              boxShadow: `0 0 6px ${getTribeColors(picks[i - 1]!.tribe).primary}55`,
+            }"
           >
             <img
               v-if="picks[i - 1]!.photo_url"

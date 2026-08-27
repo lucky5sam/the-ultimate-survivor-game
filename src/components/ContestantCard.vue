@@ -9,6 +9,12 @@ const props = defineProps<{
   selected: boolean
   disabled: boolean
   showCrown?: boolean
+  // Dim this card to de-emphasize it (like `disabled`'s look) while keeping it
+  // fully clickable — used to spotlight the current pick when others remain
+  // selectable. Hovering/selecting a dimmed card restores it.
+  dimmed?: boolean
+  // Highlight the card in the red bounty color instead of the tribe color.
+  bounty?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -65,9 +71,14 @@ function onTouchEnd(e: TouchEvent) {
 }
 const isHighlighted = computed(() => props.selected || (hovered.value && isInteractive.value))
 
+// Highlight color: MVP gold (showCrown), bounty red, else the tribe color.
+// (#d4a857 = --color-survivor-sand, #dc2626 = --color-status-error)
+const highlightColor = computed(() =>
+  props.showCrown ? '#d4a857' : props.bounty ? '#dc2626' : colors.value.primary,
+)
 const cardStyle = computed(() => ({
-  borderColor: isHighlighted.value ? colors.value.primary : '#44403c',
-  boxShadow: isHighlighted.value ? `0 0 28px ${colors.value.primary}55` : 'none',
+  borderColor: isHighlighted.value ? highlightColor.value : '#44403c',
+  boxShadow: isHighlighted.value ? `0 0 28px ${highlightColor.value}55` : 'none',
 }))
 </script>
 
@@ -76,7 +87,7 @@ const cardStyle = computed(() => ({
     class="relative rounded-2xl overflow-hidden border-2 select-none transition-all duration-300 ease-out group aspect-square sm:aspect-[2/3]"
     :class="[
       isInteractive ? 'cursor-pointer' : 'cursor-not-allowed',
-      disabled ? 'opacity-30' : '',
+      disabled ? 'opacity-30' : dimmed && !isHighlighted ? 'opacity-30' : '',
       isHighlighted ? 'scale-[1.04]' : 'scale-100',
     ]"
     :style="cardStyle"
@@ -120,7 +131,7 @@ const cardStyle = computed(() => ({
     <div
       v-if="selected"
       class="absolute top-2 left-2 w-7 h-7 rounded-full flex items-center justify-center shadow-lg z-10"
-      :class="showCrown ? 'bg-amber-500' : 'bg-white'"
+      :class="showCrown ? 'bg-survivor-sand' : 'bg-white'"
     >
       <svg v-if="showCrown" class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
         <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm0 2h14v2H5v-2z" />

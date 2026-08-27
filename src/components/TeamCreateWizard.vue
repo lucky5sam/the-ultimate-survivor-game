@@ -232,8 +232,8 @@ async function lockIn() {
               alt="Survivor 51"
               class="pointer-events-none mb-4 h-20 w-auto select-none sm:h-24"
             />
-            <h2 class="text-xl font-bold text-text-default mb-1">Enter League Code</h2>
-            <p class="text-text-subtle text-sm mb-6">
+            <h2 class="text-2xl font-bold text-text-default mb-1">Enter League Code</h2>
+            <p class="text-text-subtle text-base mb-6">
               Ask your league admin for the code to join {{ seasonName }}.
             </p>
             <BaseInput
@@ -261,8 +261,8 @@ async function lockIn() {
       <template v-else-if="step === 2">
         <div class="mx-auto w-full max-w-5xl">
           <div class="rounded-lg border border-border-subtle bg-surface-default p-6 sm:p-8">
-            <h2 class="text-xl font-bold text-text-default mb-1">League Rules</h2>
-            <p class="text-text-subtle text-sm mb-6">
+            <h2 class="text-2xl font-bold text-text-default mb-1">League Rules</h2>
+            <p class="text-text-subtle text-base mb-6">
               Please read the rules below before building your tribe.
             </p>
 
@@ -308,8 +308,8 @@ async function lockIn() {
       <template v-else-if="step === 3">
         <div class="mx-auto w-full max-w-5xl">
           <div class="rounded-lg border border-border-subtle bg-surface-default p-6 sm:p-8">
-            <h2 class="text-xl font-bold text-text-default mb-1">Name Your Team</h2>
-            <p class="text-text-subtle text-sm mb-6">
+            <h2 class="text-2xl font-bold text-text-default mb-1">Name Your Team</h2>
+            <p class="text-text-subtle text-base mb-6">
               This is how you'll appear on the leaderboard.
             </p>
             <BaseInput
@@ -358,8 +358,8 @@ async function lockIn() {
       <!-- ── Step 4: Pick 4 Players ── -->
       <template v-else-if="step === 4">
         <div class="mx-auto mb-6 w-full max-w-5xl">
-          <h2 class="text-xl font-bold text-text-default mb-0.5">Pick Your Survivors</h2>
-          <p class="text-text-subtle text-sm">Choose 4 castaways for your tribe.</p>
+          <h2 class="text-2xl font-bold text-text-default mb-0.5">Pick Your Survivors</h2>
+          <p class="text-text-subtle text-base">Choose 4 castaways for your tribe.</p>
         </div>
 
         <!-- Reflowing grid, alphabetical. Tribe is shown on each card, so no grouping.
@@ -414,9 +414,9 @@ async function lockIn() {
 
       <!-- ── Step 5: Declare MVP ── -->
       <template v-else-if="step === 5">
-        <div class="mx-auto mb-8 w-full max-w-5xl text-center">
-          <h2 class="text-xl font-bold text-text-default mb-1">Crown Your Champion</h2>
-          <p class="text-text-subtle text-sm">
+        <div class="mx-auto mb-8 w-full max-w-5xl">
+          <h2 class="text-2xl font-bold text-text-default mb-1">Crown Your MVP</h2>
+          <p class="text-text-subtle text-base">
             Your MVP earns 1.5× points each episode. Choose wisely.
           </p>
         </div>
@@ -430,6 +430,7 @@ async function lockIn() {
             :contestant="c"
             :selected="c.id === mvpId"
             :disabled="false"
+            :dimmed="!!mvpId && c.id !== mvpId"
             :show-crown="true"
             @select="mvpId = mvpId === c.id ? null : c.id"
             @view-details="detailContestant = c"
@@ -457,7 +458,7 @@ async function lockIn() {
                 >Back</BaseButton
               >
               <BaseButton size="lg" class="flex-1 sm:flex-none" :disabled="!mvpId" @click="nextStep">
-                {{ mvpId ? 'Continue' : 'Choose your MVP' }}
+                {{ mvpId ? 'Continue' : 'Choose MVP' }}
               </BaseButton>
             </div>
           </WizardPicksStrip>
@@ -468,10 +469,9 @@ async function lockIn() {
       <!-- ── Step 6: Bounty Pick ── -->
       <template v-else-if="step === 6">
         <div class="mx-auto mb-6 w-full max-w-5xl">
-          <h2 class="text-xl font-bold text-text-default mb-0.5">Set Your Bounty</h2>
-          <p class="text-text-subtle text-sm">
-            Who gets voted out first? Your pick carries forward each week — change it before any
-            episode airs.
+          <h2 class="text-2xl font-bold text-text-default mb-0.5">Place Your Bounty</h2>
+          <p class="text-text-subtle text-base">
+            Select the castaway that you believe will be voted off on the first episode.
           </p>
         </div>
 
@@ -485,6 +485,8 @@ async function lockIn() {
             :contestant="c"
             :selected="c.id === bountyId"
             :disabled="false"
+            :dimmed="!!bountyId && c.id !== bountyId"
+            :bounty="true"
             @select="bountyId = bountyId === c.id ? null : c.id"
             @view-details="detailContestant = c"
           />
@@ -527,8 +529,8 @@ async function lockIn() {
       <!-- ── Step 7: Review ── -->
       <template v-else-if="step === 7">
         <div class="mx-auto w-full max-w-md">
-          <h2 class="text-xl font-bold text-text-default mb-1">Review Your Tribe</h2>
-          <p class="text-text-subtle text-sm mb-6">
+          <h2 class="text-2xl font-bold text-text-default mb-1">Review Your Tribe</h2>
+          <p class="text-text-subtle text-base mb-6">
             Once locked in, you can swap players between episodes.
           </p>
 
