@@ -86,6 +86,14 @@ const errorMsg = ref('')
 // My standing on the leaderboard (rank + score)
 const myRank = ref<number | null>(null)
 const myScore = ref<number | null>(null)
+const totalTeams = ref(0)
+const topScore = ref(0)
+const secondScore = ref(0)
+
+// Points separating this team from 1st place (0 when leading).
+const pointsFromFirst = computed(() => Math.max(0, topScore.value - (myScore.value ?? 0)))
+// When leading, the margin over 2nd place.
+const pointsAheadOfSecond = computed(() => Math.max(0, (myScore.value ?? 0) - secondScore.value))
 const myPlayerPoints = ref<Record<string, number>>({})
 const breakdown = ref<TeamBreakdown | null>(null)
 const breakdownLoading = ref(false)
@@ -525,9 +533,15 @@ async function loadMyStanding() {
   myRank.value = null
   myScore.value = null
   myPlayerPoints.value = {}
+  totalTeams.value = 0
+  topScore.value = 0
+  secondScore.value = 0
   if (!selectedSeasonId.value || !existingTeam.value) return
   try {
     const board = await computeLeaderboard(selectedSeasonId.value)
+    totalTeams.value = board.length
+    topScore.value = board[0]?.totalPoints ?? 0
+    secondScore.value = board[1]?.totalPoints ?? 0
     const idx = board.findIndex((r) => r.teamId === existingTeam.value!.id)
     if (idx >= 0) {
       myRank.value = idx + 1
@@ -912,27 +926,40 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <!-- My standing: rank + score -->
+        <!-- My standing: rank + score. Each card is a link to its detail view. -->
         <div v-if="myRank !== null" class="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <BaseCard padding="sm" class="text-center">
-            <p class="text-xs text-text-muted uppercase tracking-wide">Score</p>
-            <p class="mt-0.5 text-2xl font-bold text-text-default">{{ fmtPts(myScore ?? 0) }}</p>
-            <BaseButton variant="secondary" size="sm" block class="mt-3" @click="openBreakdown">
-              View Breakdown
-            </BaseButton>
-          </BaseCard>
-          <BaseCard padding="sm" class="text-center">
-            <p class="text-xs text-text-muted uppercase tracking-wide">Place</p>
+          <BaseCard
+            padding="sm"
+            role="button"
+            tabindex="0"
+            class="cursor-pointer text-center transition-colors hover:border-border-accent hover:bg-surface-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-border-accent"
+            @click="router.push('/leaderboard')"
+            @keydown.enter="router.push('/leaderboard')"
+            @keydown.space.prevent="router.push('/leaderboard')"
+          >
+            <p class="text-xs font-medium text-text-subtle">Place</p>
             <p class="mt-0.5 text-2xl font-bold text-text-default">{{ ordinal(myRank ?? 0) }}</p>
-            <BaseButton
-              variant="secondary"
-              size="sm"
-              block
-              class="mt-3"
-              @click="router.push('/leaderboard')"
-            >
-              View Leaderboard
-            </BaseButton>
+            <p class="mt-2 text-xs text-text-muted">
+              out of {{ totalTeams }} team{{ totalTeams !== 1 ? 's' : '' }}
+            </p>
+          </BaseCard>
+          <BaseCard
+            padding="sm"
+            role="button"
+            tabindex="0"
+            class="cursor-pointer text-center transition-colors hover:border-border-accent hover:bg-surface-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-border-accent"
+            @click="openBreakdown"
+            @keydown.enter="openBreakdown"
+            @keydown.space.prevent="openBreakdown"
+          >
+            <p class="text-xs font-medium text-text-subtle">Score</p>
+            <p class="mt-0.5 text-2xl font-bold text-text-default">{{ fmtPts(myScore ?? 0) }}</p>
+            <p v-if="myRank === 1" class="mt-2 text-xs text-text-muted">
+              {{ fmtPts(pointsAheadOfSecond) }} points ahead of 2nd Place
+            </p>
+            <p v-else class="mt-2 text-xs text-text-muted">
+              {{ fmtPts(pointsFromFirst) }} points out of 1st Place
+            </p>
           </BaseCard>
         </div>
 
