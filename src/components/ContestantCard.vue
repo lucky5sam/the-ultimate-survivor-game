@@ -54,6 +54,12 @@ function onTouchEnd(e: TouchEvent) {
   if (touchMoved) return // was a scroll, not a tap
   e.preventDefault() // stop the follow-up ghost click
   hovered.value = false
+  // A tap on the info button bubbles up here too; because we suppress the ghost
+  // click above, the button's own @click never fires on touch. Route it manually.
+  if ((e.target as HTMLElement).closest('[data-info-button]')) {
+    emit('view-details')
+    return
+  }
   if (isInteractive.value) emit('select')
 }
 const isHighlighted = computed(() => props.selected || (hovered.value && isInteractive.value))
@@ -133,6 +139,7 @@ const cardStyle = computed(() => ({
     <!-- Info button — always visible so it's tappable on touch devices -->
     <button
       v-if="!disabled"
+      data-info-button
       class="absolute top-2 right-2 w-7 h-7 bg-black/60 hover:bg-black/90 rounded-full flex items-center justify-center text-white z-10"
       @click.stop="emit('view-details')"
     >
