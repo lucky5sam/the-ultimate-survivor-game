@@ -879,12 +879,7 @@ onUnmounted(() => {
           >
             <p class="text-xs font-medium text-text-subtle">Score</p>
             <p class="mt-0.5 text-2xl font-bold text-text-default">{{ fmtPts(myScore ?? 0) }}</p>
-            <p v-if="myRank === 1" class="mt-2 text-xs text-text-muted">
-              {{ fmtPts(pointsAheadOfSecond) }} points ahead
-            </p>
-            <p v-else class="mt-2 text-xs text-text-muted">
-              {{ fmtPts(pointsFromFirst) }} points behind 1st
-            </p>
+            <p class="mt-2 text-xs text-text-muted">1st Place: {{ fmtPts(topScore) }} points</p>
           </BaseCard>
         </div>
 
@@ -953,17 +948,12 @@ onUnmounted(() => {
           "
         >
           <template #header-actions>
-            <span v-if="nextUpcomingEpisode" class="text-xs text-text-muted"
-              >Episode {{ nextUpcomingEpisode.number }}</span
-            >
-          </template>
-          <template #row-action="{ row }">
             <BaseButton
-              v-if="row.isUpcoming"
+              v-if="nextUpcomingEpisode"
               variant="secondary"
               size="sm"
               @click="openBountyModal"
-              >{{ row.contestantId ? 'Update' : 'Set pick' }}</BaseButton
+              >{{ currentBountyPick?.contestant_id ? 'Update' : 'Set pick' }}</BaseButton
             >
           </template>
         </BountyHistoryList>

@@ -106,7 +106,7 @@ onUnmounted(() => {
         <h3 class="text-xl font-bold text-text-default">
           Invite your friends to play The Ultimate Survivor Game
         </h3>
-        <p class="mt-1 text-sm text-text-muted">
+        <p class="mt-1 text-base text-text-subtle">
           <template v-if="startDisplay">{{ season?.name }} starts on {{ startDisplay }}</template>
           <template v-else>Registration is open</template>
         </p>
@@ -126,14 +126,14 @@ onUnmounted(() => {
             <span class="text-xl font-bold tabular-nums leading-none text-text-default">
               {{ seg.l === 'days' ? seg.v : String(seg.v).padStart(2, '0') }}
             </span>
-            <span class="mt-1 text-[10px] uppercase tracking-wide text-text-muted">{{
+            <span class="mt-1 text-[10px] uppercase tracking-wide text-text-subtle">{{
               seg.l
             }}</span>
           </div>
         </div>
 
         <!-- League code + copy -->
-        <div class="mt-5 flex flex-wrap items-center gap-3">
+        <div class="mt-5 flex flex-col  items-start gap-3">
           <BaseButton variant="primary" @click="copyInviteLink">
             <svg
               class="h-4 w-4"
@@ -150,17 +150,19 @@ onUnmounted(() => {
             </svg>
             Copy Invite Link
           </BaseButton>
+          <div class="w-full">
           <button
             v-if="leagueCode"
             type="button"
             @click="copyInviteLink"
-            class="rounded-md bg-surface-subtle px-4 py-1.5 text-left shadow-sm transition-colors hover:bg-surface-strong focus:outline-none focus-visible:ring-2 focus-visible:ring-border-accent"
+            class="rounded-md bg-surface-subtle px-3 py-2 text-left shadow-sm transition-colors hover:bg-surface-strong focus:outline-none focus-visible:ring-2 focus-visible:ring-border-accent"
           >
-            <span class="block text-[10px] uppercase tracking-wide text-text-muted"
-              >League Code</span
-            >
-            <span class="block text-sm font-bold text-text-default">{{ leagueCode }}</span>
+            <span class="flex items-center gap-2">
+              <span class="text-sm tracking-wide text-text-subtle">League Code:</span>
+              <span class="text-sm font-bold text-text-default">{{ leagueCode }}</span>
+            </span>
           </button>
+        </div>
         </div>
       </div>
 
@@ -168,7 +170,7 @@ onUnmounted(() => {
       <img
         :src="survivorLogoUrl"
         alt="Survivor 51"
-        class="pointer-events-none h-28 w-auto shrink-0 select-none sm:h-44"
+        class="pointer-events-none h-20 w-auto shrink-0 select-none sm:h-40"
       />
     </div>
   </div>
