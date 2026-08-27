@@ -17,19 +17,20 @@ defineProps<{
 </script>
 
 <template>
-  <div class="mb-3">
-    <!-- Team name above the slots (left-aligned) -->
-    <p
-      v-if="teamName !== undefined"
-      class="mb-2 truncate text-sm font-semibold"
-      :class="teamName ? 'text-text-default' : 'text-text-muted'"
-    >
-      {{ teamName || 'Team Name' }}
-    </p>
+  <div class="flex flex-wrap items-center gap-x-4 gap-y-3">
+    <!-- Left: team name stacked above the player + bounty slots, left-aligned -->
+    <div class="flex min-w-0 flex-col items-start">
+      <p
+        v-if="teamName !== undefined"
+        class="mb-2 max-w-full truncate text-sm font-semibold"
+        :class="teamName ? 'text-text-default' : 'text-text-muted'"
+      >
+        {{ teamName || 'Team Name' }}
+      </p>
 
-    <div class="flex flex-wrap items-center gap-x-2 gap-y-3">
-      <!-- Roster slots -->
-    <div v-for="i in 4" :key="i" class="flex w-11 flex-col items-center gap-0.5">
+      <div class="flex items-center gap-x-2">
+        <!-- Roster slots -->
+        <div v-for="i in 4" :key="i" class="flex w-11 flex-col items-center gap-0.5">
       <template v-if="picks[i - 1]">
         <div class="relative">
           <div
@@ -126,11 +127,12 @@ defineProps<{
         </div>
         <span class="text-[10px] text-text-muted">Bounty</span>
       </template>
+        </div>
+      </div>
     </div>
 
-      <!-- Per-step trailing content (actions). Hugs the right on wide rows; drops to
-           its own full-width line on mobile so the buttons can stretch. -->
-      <div class="ml-auto w-full sm:w-auto"><slot /></div>
-    </div>
+    <!-- Right: per-step actions in a centered horizontal flexbox. Hugs the right
+         on wide rows; drops to its own full-width line on mobile. -->
+    <div class="ml-auto flex w-full items-center sm:w-auto"><slot /></div>
   </div>
 </template>
