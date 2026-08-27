@@ -72,13 +72,19 @@ function onTouchEnd(e: TouchEvent) {
 const isHighlighted = computed(() => props.selected || (hovered.value && isInteractive.value))
 
 // Highlight color: MVP gold (showCrown), bounty red, else the tribe color.
-// (#d4a857 = --color-survivor-sand, #dc2626 = --color-status-error)
 const highlightColor = computed(() =>
-  props.showCrown ? '#d4a857' : props.bounty ? '#dc2626' : colors.value.primary,
+  props.showCrown
+    ? 'var(--color-survivor-sand)'
+    : props.bounty
+      ? 'var(--color-survivor-bounty)'
+      : colors.value.primary,
 )
 const cardStyle = computed(() => ({
   borderColor: isHighlighted.value ? highlightColor.value : '#44403c',
-  boxShadow: isHighlighted.value ? `0 0 28px ${highlightColor.value}55` : 'none',
+  // color-mix keeps the glow working whether highlightColor is a hex or a CSS var.
+  boxShadow: isHighlighted.value
+    ? `0 0 28px color-mix(in srgb, ${highlightColor.value} 33%, transparent)`
+    : 'none',
 }))
 </script>
 

@@ -34,6 +34,11 @@
   --color-survivor-torch: #dc2626;
   --color-survivor-jungle: #14532d;
   --color-survivor-sand: #d4a857;
+  /* Bounty accent — a single fixed, muted red reused wherever a bounty pick is
+     shown (wizard pick strip, contestant card, bounty history). Deliberately
+     less saturated than status-error so it reads as "bounty," not "error," and
+     theme-independent so it's identical in light and dark mode. */
+  --color-survivor-bounty: #c25b5b;
 
   /* surface — page, card, and container backgrounds */
   --color-surface-page: #fafaf9;

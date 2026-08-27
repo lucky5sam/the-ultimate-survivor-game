@@ -560,7 +560,7 @@ async function lockIn() {
               >
                 <div class="flex items-center gap-3">
                   <span
-                    class="w-11 shrink-0 rounded-md bg-status-error/15 py-1 text-center text-[10px] font-bold uppercase tracking-wide text-status-error"
+                    class="w-11 shrink-0 rounded-md bg-survivor-bounty/15 py-1 text-center text-[10px] font-bold uppercase tracking-wide text-survivor-bounty"
                     >BTY</span
                   >
                   <ContestantAvatar

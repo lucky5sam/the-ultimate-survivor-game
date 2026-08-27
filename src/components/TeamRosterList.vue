@@ -114,7 +114,7 @@ function playerStatus(id: string): { out: boolean; ep: number | null } {
             'w-11 shrink-0 cursor-pointer rounded-md py-1 text-center text-[10px] font-bold uppercase tracking-wide transition-colors hover:opacity-80',
             player.role === 'mvp'
               ? 'bg-survivor-sand/20 text-survivor-sand'
-              : 'bg-surface-subtle text-text-subtle',
+              : 'bg-surface-subtle text-text-default',
           ]"
         >
           {{ positionLabel[player.contestant_id] }}
@@ -144,9 +144,13 @@ function playerStatus(id: string): { out: boolean; ep: number | null } {
             :photo-url="contestantPhoto(player.contestant_id)"
             :name="contestantName(player.contestant_id)"
             :tribe="contestantTribe(player.contestant_id)"
-            show-tribe
+            :show-crown="player.role === 'mvp'"
+            :grayscale="playerStatus(player.contestant_id).out"
+            :border-color-override="
+              playerStatus(player.contestant_id).out ? 'var(--color-border-subtle)' : null
+            "
           />
-          <div>
+          <div :class="{ 'opacity-60': playerStatus(player.contestant_id).out }">
             <p class="text-sm font-medium leading-tight">
               <span class="text-text-default">{{ contestantPrimary(player.contestant_id) }}</span>
               <span
@@ -155,8 +159,8 @@ function playerStatus(id: string): { out: boolean; ep: number | null } {
                 >{{ contestantSecondary(player.contestant_id) }}</span
               >
             </p>
-            <div class="mt-0.5 text-xs text-text-muted">
-              Ep {{ player.effective_from_episode }}–now
+            <div class="mt-0.5 text-xs text-text-subtle">
+              E{{ player.effective_from_episode }}–now
             </div>
           </div>
         </component>
@@ -171,7 +175,7 @@ function playerStatus(id: string): { out: boolean; ep: number | null } {
         >
           {{
             playerStatus(player.contestant_id).out
-              ? `Voted Out Ep. ${playerStatus(player.contestant_id).ep}`
+              ? `Voted Out E${playerStatus(player.contestant_id).ep}`
               : 'In the Game'
           }}
         </p>

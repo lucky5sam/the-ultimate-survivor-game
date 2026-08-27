@@ -91,8 +91,8 @@ defineProps<{
         <div
           class="h-9 w-9 overflow-hidden rounded-full border-2"
           :style="{
-            borderColor: 'var(--color-status-error)',
-            boxShadow: '0 0 6px color-mix(in srgb, var(--color-status-error) 45%, transparent)',
+            borderColor: 'var(--color-survivor-bounty)',
+            boxShadow: '0 0 6px color-mix(in srgb, var(--color-survivor-bounty) 45%, transparent)',
           }"
         >
           <img
@@ -109,15 +109,17 @@ defineProps<{
             </svg>
           </div>
         </div>
-        <span class="w-11 truncate text-center text-[10px] font-medium leading-tight text-status-error">
+        <span
+          class="w-11 truncate text-center text-[10px] font-medium leading-tight text-survivor-bounty"
+        >
           {{ shortName(bounty) }}
         </span>
       </template>
       <template v-else>
         <div
-          class="flex h-9 w-9 items-center justify-center rounded-full border-2 border-dashed border-status-error/40 bg-surface-subtle/40"
+          class="flex h-9 w-9 items-center justify-center rounded-full border-2 border-dashed border-survivor-bounty/40 bg-surface-subtle/40"
         >
-          <span class="text-[10px] font-bold text-status-error">B</span>
+          <span class="text-[10px] font-bold text-survivor-bounty">B</span>
         </div>
         <span class="text-[10px] text-text-muted">Bounty</span>
       </template>

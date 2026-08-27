@@ -864,7 +864,7 @@ onUnmounted(() => {
           >
             <p class="text-xs font-medium text-text-subtle">Place</p>
             <p class="mt-0.5 text-2xl font-bold text-text-default">{{ ordinal(myRank ?? 0) }}</p>
-            <p class="mt-2 text-xs text-text-muted">
+            <p class="text-xs text-text-muted">
              {{ totalTeams }} total teams
             </p>
           </BaseCard>
@@ -879,7 +879,7 @@ onUnmounted(() => {
           >
             <p class="text-xs font-medium text-text-subtle">Score</p>
             <p class="mt-0.5 text-2xl font-bold text-text-default">{{ fmtPts(myScore ?? 0) }}</p>
-            <p class="mt-2 text-xs text-text-muted">1st Place: {{ fmtPts(topScore) }} points</p>
+            <p class="text-xs text-text-muted">1st Place: {{ fmtPts(topScore) }} points</p>
           </BaseCard>
         </div>
 

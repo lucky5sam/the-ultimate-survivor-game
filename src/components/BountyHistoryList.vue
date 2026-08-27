@@ -28,9 +28,6 @@ function contestantName(id: string) {
 function contestantPhoto(id: string) {
   return props.contestants.find((c) => c.id === id)?.photo_url ?? null
 }
-function contestantTribe(id: string) {
-  return props.contestants.find((c) => c.id === id)?.tribe ?? ''
-}
 </script>
 
 <template>
@@ -49,15 +46,14 @@ function contestantTribe(id: string) {
           class="flex items-center gap-3 py-2 first:pt-0 last:pb-0"
           :class="{ 'opacity-60': row.state.kind === 'missed' }"
         >
-          <span class="w-10 shrink-0 text-xs font-semibold text-text-muted"
-            >Ep {{ row.number }}</span
+          <span class="w-10 shrink-0 text-sm font-semibold text-text-subtle"
+            >E{{ row.number }}</span
           >
           <template v-if="row.contestantId">
             <ContestantAvatar
               :photo-url="contestantPhoto(row.contestantId)"
               :name="contestantName(row.contestantId)"
-              :tribe="contestantTribe(row.contestantId)"
-              show-tribe
+              border-color-override="var(--color-survivor-bounty)"
             />
             <span class="flex-1 truncate text-sm text-text-default">{{
               contestantName(row.contestantId)
