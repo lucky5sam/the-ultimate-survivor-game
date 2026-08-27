@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { displayName } from '../utils/contestantName'
 
 // Shared client-side scoring. Used by the leaderboard and the Team page so the
 // two never drift. Throws on query error; caller handles messaging.
@@ -160,9 +161,9 @@ export async function computeLeaderboard(seasonId: string): Promise<LeaderboardR
   if (contestantIds.length > 0) {
     const { data: nameData } = await supabase
       .from('contestants')
-      .select('id, name')
+      .select('id, first_name, last_name, preferred_name')
       .in('id', contestantIds)
-    for (const c of nameData ?? []) contestantNameMap[c.id] = c.name
+    for (const c of nameData ?? []) contestantNameMap[c.id] = displayName(c)
   }
 
   // Bounty points per team. Regular episodes: hit if the pick was eliminated
@@ -391,9 +392,9 @@ export async function computeTeamBreakdown(
   if (nameIds.size > 0) {
     const { data: nameData } = await supabase
       .from('contestants')
-      .select('id, name')
+      .select('id, first_name, last_name, preferred_name')
       .in('id', [...nameIds])
-    for (const c of nameData ?? []) nameMap[c.id] = c.name
+    for (const c of nameData ?? []) nameMap[c.id] = displayName(c)
   }
 
   const stints: BreakdownStint[] = teamPlayers

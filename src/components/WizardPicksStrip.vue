@@ -6,6 +6,7 @@
 // supplied per-step via the default slot. When `teamName` is provided it shows
 // above the slots (left-aligned), falling back to "Team Name" until one is set.
 import { getTribeColors } from '../utils/tribeColors'
+import { displayName, shortName } from '../utils/contestantName'
 import type { ContestantFull } from '../types/contestant'
 
 defineProps<{
@@ -50,7 +51,7 @@ defineProps<{
             <img
               v-if="picks[i - 1]!.photo_url"
               :src="picks[i - 1]!.photo_url ?? undefined"
-              :alt="picks[i - 1]!.name"
+              :alt="displayName(picks[i - 1]!)"
               class="h-full w-full object-cover object-top"
             />
             <div v-else class="flex h-full w-full items-center justify-center bg-surface-strong">
@@ -75,7 +76,7 @@ defineProps<{
           class="w-11 truncate text-center text-[10px] font-medium leading-tight"
           :class="picks[i - 1]!.id === mvpId ? 'text-survivor-sand' : 'text-text-default'"
         >
-          {{ picks[i - 1]!.name.split(' ')[0] }}
+          {{ shortName(picks[i - 1]!) }}
         </span>
       </template>
       <template v-else>
@@ -104,7 +105,7 @@ defineProps<{
           <img
             v-if="bounty.photo_url"
             :src="bounty.photo_url ?? undefined"
-            :alt="bounty.name"
+            :alt="displayName(bounty)"
             class="h-full w-full object-cover object-top"
           />
           <div v-else class="flex h-full w-full items-center justify-center bg-surface-strong">
@@ -116,7 +117,7 @@ defineProps<{
           </div>
         </div>
         <span class="w-11 truncate text-center text-[10px] font-medium leading-tight text-status-error">
-          {{ bounty.name.split(' ')[0] }}
+          {{ shortName(bounty) }}
         </span>
       </template>
       <template v-else>

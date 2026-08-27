@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { getTribeColors } from '../utils/tribeColors'
+import { displayName } from '../utils/contestantName'
 import { computed, ref, watch, onUnmounted } from 'vue'
 import type { ContestantFull } from '../types/contestant'
 
@@ -122,7 +123,7 @@ const embedUrl = computed(() => {
             <img
               v-if="headerImage"
               :src="headerImage"
-              :alt="contestant.name"
+              :alt="displayName(contestant)"
               class="absolute inset-0 h-full w-full object-cover object-[center_10%]"
             />
             <div v-else class="absolute inset-0 flex items-center justify-center">
@@ -164,7 +165,8 @@ const embedUrl = computed(() => {
             <div class="flex items-start justify-between gap-3 px-5 pt-4">
               <div>
                 <h2 class="text-2xl font-bold text-white">
-                  {{ contestant.name }}<span v-if="contestant.age">, {{ contestant.age }}</span>
+                  {{ displayName(contestant)
+                  }}<span v-if="contestant.age">, {{ contestant.age }}</span>
                 </h2>
                 <div class="flex items-center gap-2 mt-1 flex-wrap">
                   <span class="text-sm font-semibold" :style="{ color: colors?.text }">{{
@@ -239,7 +241,7 @@ const embedUrl = computed(() => {
               <div class="relative aspect-video overflow-hidden rounded-xl bg-stone-800">
                 <iframe
                   :src="embedUrl"
-                  :title="`${contestant.name} video`"
+                  :title="`${displayName(contestant)} video`"
                   class="absolute inset-0 h-full w-full"
                   frameborder="0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"

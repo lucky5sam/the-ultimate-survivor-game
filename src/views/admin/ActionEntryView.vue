@@ -3,14 +3,16 @@ import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { supabase } from '../../lib/supabase'
 import { useAuthStore } from '../../stores/auth'
+import { displayName } from '../../utils/contestantName'
 
-type Contestant = { id: string; name: string; tribe: string }
+type NameFields = { first_name: string; last_name: string | null; preferred_name: string | null }
+type Contestant = { id: string; tribe: string } & NameFields
 type ActionType = { id: string; type: string; category: string; points: number }
 type ActionEntry = {
   id: string
   count: number
   note: string | null
-  contestants: { name: string }
+  contestants: NameFields
   action_types: { category: string; points: number; type: string }
 }
 type Episode = { id: string; number: number; title: string | null; season_id: string }
@@ -75,7 +77,10 @@ const byType = computed(() => {
 const tribes = computed(() => [...new Set(contestants.value.map((c) => c.tribe))].sort())
 
 const selectedContestantNames = computed(() =>
-  form.value.contestantIds.map((id) => contestants.value.find((c) => c.id === id)?.name ?? ''),
+  form.value.contestantIds.map((id) => {
+    const c = contestants.value.find((c) => c.id === id)
+    return c ? displayName(c) : ''
+  }),
 )
 
 const selectedActionNames = computed(() =>
@@ -86,7 +91,9 @@ const filteredByTribe = computed(() => {
   const q = contestantSearch.value.toLowerCase()
   const map: Record<string, Contestant[]> = {}
   for (const [tribe, members] of Object.entries(byTribe.value)) {
-    const filtered = q ? members.filter((c) => c.name.toLowerCase().includes(q)) : members
+    const filtered = q
+      ? members.filter((c) => displayName(c).toLowerCase().includes(q))
+      : members
     if (filtered.length) map[tribe] = filtered
   }
   return map
@@ -139,9 +146,9 @@ async function loadContestants() {
   const [{ data: cData }, { data: tData }] = await Promise.all([
     supabase
       .from('contestants')
-      .select('id, name')
+      .select('id, first_name, last_name, preferred_name')
       .eq('season_id', episode.value.season_id)
-      .order('name'),
+      .order('first_name'),
     supabase
       .from('contestant_tribe_assignments')
       .select('contestant_id, tribe')
@@ -172,7 +179,9 @@ async function loadActionTypes() {
 async function loadEntries() {
   const { data, error } = await supabase
     .from('contestant_actions')
-    .select('id, count, note, contestants(name), action_types(category, points, type)')
+    .select(
+      'id, count, note, contestants(first_name, last_name, preferred_name), action_types(category, points, type)',
+    )
     .eq('episode_id', episodeId)
     .order('created_at')
   if (error) errorMsg.value = error.message
@@ -375,7 +384,7 @@ onMounted(async () => {
                       v-model="form.contestantIds"
                       class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     />
-                    <span class="text-sm">{{ c.name }}</span>
+                    <span class="text-sm">{{ displayName(c) }}</span>
                   </label>
                 </div>
               </div>
@@ -517,7 +526,7 @@ onMounted(async () => {
           </thead>
           <tbody>
             <tr v-for="entry in entries" :key="entry.id" class="border-t border-gray-100">
-              <td class="px-4 py-2 font-medium">{{ entry.contestants.name }}</td>
+              <td class="px-4 py-2 font-medium">{{ displayName(entry.contestants) }}</td>
               <td class="px-4 py-2">{{ entry.action_types.category }}</td>
               <td
                 class="px-4 py-2 font-mono"

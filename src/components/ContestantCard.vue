@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { getTribeColors } from '../utils/tribeColors'
+import { displayName } from '../utils/contestantName'
 import type { ContestantFull } from '../types/contestant'
 
 const props = defineProps<{
@@ -91,14 +92,14 @@ const cardStyle = computed(() => ({
       <template v-if="baseImage">
         <img
           :src="baseImage"
-          :alt="contestant.name"
+          :alt="displayName(contestant)"
           class="w-full h-full object-cover object-top transition-opacity duration-300"
           :class="showHoverImage ? 'opacity-0' : 'opacity-100'"
         />
         <img
           v-if="hoverImage"
           :src="hoverImage"
-          :alt="contestant.name"
+          :alt="displayName(contestant)"
           class="absolute inset-0 w-full h-full object-cover object-top transition-opacity duration-300"
           :class="showHoverImage ? 'opacity-100' : 'opacity-0'"
         />
@@ -160,7 +161,9 @@ const cardStyle = computed(() => ({
 
     <!-- Bottom info -->
     <div class="absolute bottom-0 left-0 right-0 p-3 z-10">
-      <p class="font-bold text-white text-sm leading-tight drop-shadow-sm">{{ contestant.name }}</p>
+      <p class="font-bold text-white text-sm leading-tight drop-shadow-sm">
+        {{ displayName(contestant) }}
+      </p>
       <p class="text-xs mt-0.5 font-medium" :style="{ color: colors.text }">
         {{ contestant.tribe }}
       </p>

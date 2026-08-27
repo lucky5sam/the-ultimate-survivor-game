@@ -249,10 +249,10 @@ async function load() {
         supabase
           .from('contestants')
           .select(
-            'id, name, photo_url, alt_image, video_url, bio, age, hometown, occupation, eliminated_episode_id, contestant_tribe_assignments(tribe, effective_from_episode)',
+            'id, first_name, last_name, preferred_name, photo_url, alt_image, video_url, bio, age, hometown, occupation, eliminated_episode_id, contestant_tribe_assignments(tribe, effective_from_episode)',
           )
           .eq('season_id', team.season_id)
-          .order('name'),
+          .order('first_name'),
         supabase
           .from('episodes')
           .select('id, number, status, is_merge, is_finale, bounty_contestant_id, locks_at')
@@ -272,7 +272,9 @@ async function load() {
 
     allContestants.value = (contestants ?? []).map((c: any) => ({
       id: c.id,
-      name: c.name,
+      first_name: c.first_name,
+      last_name: c.last_name ?? null,
+      preferred_name: c.preferred_name ?? null,
       tribe:
         (c.contestant_tribe_assignments as any[]).find((a) => a.effective_from_episode === 1)
           ?.tribe ?? 'Unknown',

@@ -3,6 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { supabase } from '../lib/supabase'
 import type { ContestantFull } from '../types/contestant'
 import { getTribeColors } from '../utils/tribeColors'
+import { fullName, displayName } from '../utils/contestantName'
 import ContestantCard from './ContestantCard.vue'
 import ContestantDetailModal from './ContestantDetailModal.vue'
 import ContestantAvatar from './ContestantAvatar.vue'
@@ -43,7 +44,7 @@ const errorMsg = ref('')
 const detailContestant = ref<ContestantFull | null>(null)
 
 const sortedContestants = computed(() =>
-  [...props.contestants].sort((a, b) => a.name.localeCompare(b.name)),
+  [...props.contestants].sort((a, b) => fullName(a).localeCompare(fullName(b))),
 )
 
 const selectedContestants = computed(() =>
@@ -514,13 +515,13 @@ async function lockIn() {
                   >
                   <ContestantAvatar
                     :photo-url="bountyContestant.photo_url"
-                    :name="bountyContestant.name"
+                    :name="displayName(bountyContestant)"
                     :tribe="bountyContestant.tribe"
                     show-tribe
                   />
                   <div>
                     <p class="text-sm font-medium leading-tight text-text-default">
-                      {{ bountyContestant.name }}
+                      {{ displayName(bountyContestant) }}
                     </p>
                     <p
                       class="mt-0.5 text-xs"

@@ -9,6 +9,7 @@
 // the chip as a static label.
 import { computed } from 'vue'
 import ContestantAvatar from './ContestantAvatar.vue'
+import { fullName, shortName } from '../utils/contestantName'
 import type { ContestantFull } from '../types/contestant'
 
 type ActivePlayer = {
@@ -62,20 +63,27 @@ const positionLabel = computed<Record<string, string>>(() => {
   return map
 })
 
+function contestantById(id: string) {
+  return props.contestants.find((c) => c.id === id) ?? null
+}
 function contestantName(id: string) {
-  return props.contestants.find((c) => c.id === id)?.name ?? '?'
+  const c = contestantById(id)
+  return c ? fullName(c) : '?'
 }
 function contestantPhoto(id: string) {
-  return props.contestants.find((c) => c.id === id)?.photo_url ?? null
+  return contestantById(id)?.photo_url ?? null
 }
 function contestantTribe(id: string) {
-  return props.contestants.find((c) => c.id === id)?.tribe ?? ''
+  return contestantById(id)?.tribe ?? ''
 }
-function contestantFirstName(id: string) {
-  return contestantName(id).split(' ')[0] ?? ''
+// Primary (bold) label leads with the preferred name; secondary (muted, sm+)
+// is the last name.
+function contestantPrimary(id: string) {
+  const c = contestantById(id)
+  return c ? shortName(c) : '?'
 }
-function contestantLastName(id: string) {
-  return contestantName(id).split(' ').slice(1).join(' ')
+function contestantSecondary(id: string) {
+  return contestantById(id)?.last_name ?? ''
 }
 function playerStatus(id: string): { out: boolean; ep: number | null } {
   const epId = props.eliminatedEpisodeIdByContestant[id]
@@ -140,11 +148,11 @@ function playerStatus(id: string): { out: boolean; ep: number | null } {
           />
           <div>
             <p class="text-sm font-medium leading-tight">
-              <span class="text-text-default">{{ contestantFirstName(player.contestant_id) }}</span>
+              <span class="text-text-default">{{ contestantPrimary(player.contestant_id) }}</span>
               <span
-                v-if="contestantLastName(player.contestant_id)"
+                v-if="contestantSecondary(player.contestant_id)"
                 class="ml-1 hidden text-text-subtle sm:inline"
-                >{{ contestantLastName(player.contestant_id) }}</span
+                >{{ contestantSecondary(player.contestant_id) }}</span
               >
             </p>
             <div class="mt-0.5 text-xs text-text-muted">

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { supabase } from '../../lib/supabase'
+import { fullName, displayName } from '../../utils/contestantName'
 
 type Season = { id: string; name: string }
 type TribeAssignment = { id: string; tribe: string; effective_from_episode: number }
@@ -9,7 +10,9 @@ type Contestant = {
   id: string
   contestant_id: number
   season_id: string
-  name: string
+  first_name: string
+  last_name: string | null
+  preferred_name: string | null
   photo_url: string | null
   alt_image: string | null
   video_url: string | null
@@ -21,7 +24,9 @@ type Contestant = {
 }
 type CsvRow = {
   contestant_id: string
-  name: string
+  first_name: string
+  last_name: string
+  preferred_name: string
   tribe: string
   photo_url: string
   alt_image: string
@@ -43,7 +48,9 @@ const saving = ref(false)
 const editingId = ref<string | null>(null)
 
 const form = ref({
-  name: '',
+  first_name: '',
+  last_name: '',
+  preferred_name: '',
   photo_url: '',
   alt_image: '',
   video_url: '',
@@ -112,7 +119,7 @@ const csvImporting = ref(false)
 const csvFileInput = ref<HTMLInputElement | null>(null)
 
 const CSV_TEMPLATE =
-  'contestant_id,name,tribe,photo_url,alt_image,video_url,age,hometown,occupation,bio\n"","Jane Smith","Tagi","https://example.com/jane.jpg","","https://youtu.be/dQw4w9WgXcQ",28,"Austin, TX","Engineer","Short bio here."'
+  'contestant_id,first_name,last_name,preferred_name,tribe,photo_url,alt_image,video_url,age,hometown,occupation,bio\n"","Jane","Smith","","Tagi","https://example.com/jane.jpg","","https://youtu.be/dQw4w9WgXcQ",28,"Austin, TX","Engineer","Short bio here."'
 
 // Display form of a contestant's reference number: zero-padded to 4 digits
 // (1 → "0001"). This is the number to put in the contestant_id CSV column to update a
@@ -168,19 +175,21 @@ function onCsvFile(e: Event) {
     }
     const headers = parseCsvLine(lines[0]!).map((h) => h.toLowerCase().replace(/\s+/g, '_'))
     const col = (name: string) => headers.indexOf(name)
-    if (col('name') === -1) {
-      csvError.value = 'CSV must have a "name" column.'
+    if (col('first_name') === -1) {
+      csvError.value = 'CSV must have a "first_name" column.'
       return
     }
     const rows: CsvRow[] = []
     for (let i = 1; i < lines.length; i++) {
       const cells = parseCsvLine(lines[i]!)
       const get = (key: string) => (col(key) >= 0 ? (cells[col(key)] ?? '') : '').trim()
-      const name = get('name')
-      if (!name) continue
+      const first_name = get('first_name')
+      if (!first_name) continue
       rows.push({
         contestant_id: get('contestant_id'),
-        name,
+        first_name,
+        last_name: get('last_name'),
+        preferred_name: get('preferred_name'),
         tribe: get('tribe'),
         photo_url: get('photo_url'),
         alt_image: get('alt_image'),
@@ -234,7 +243,9 @@ async function importCsv() {
       // Only non-empty cells overwrite, so a partial CSV can't wipe data the
       // sheet left blank; re-supply a field to change it.
       const payload: Record<string, unknown> = {}
-      if (r.name) payload.name = r.name
+      if (r.first_name) payload.first_name = r.first_name
+      if (r.last_name) payload.last_name = r.last_name
+      if (r.preferred_name) payload.preferred_name = r.preferred_name
       if (r.photo_url) payload.photo_url = r.photo_url
       if (r.alt_image) payload.alt_image = r.alt_image
       if (r.video_url) payload.video_url = r.video_url
@@ -271,7 +282,9 @@ async function importCsv() {
     // ── Insert brand-new contestants (contestant_id omitted; the DB assigns it) ──
     if (toInsert.length > 0) {
       const contestantPayloads = toInsert.map((r) => ({
-        name: r.name,
+        first_name: r.first_name,
+        last_name: r.last_name || null,
+        preferred_name: r.preferred_name || null,
         season_id: selectedSeasonId.value,
         photo_url: r.photo_url || null,
         alt_image: r.alt_image || null,
@@ -285,16 +298,18 @@ async function importCsv() {
       const { data: inserted, error: e1 } = await supabase
         .from('contestants')
         .insert(contestantPayloads)
-        .select('id, name')
+        .select('id, first_name, last_name')
       if (e1 || !inserted) throw new Error(e1?.message ?? 'Insert failed.')
 
-      // Build a name → id map for tribe assignments
-      const nameToId = new Map(inserted.map((c) => [c.name, c.id]))
+      // Build a full-name → id map for tribe assignments
+      const key = (c: { first_name: string; last_name: string | null }) =>
+        fullName({ ...c, last_name: c.last_name ?? null })
+      const nameToId = new Map(inserted.map((c) => [key(c), c.id]))
 
       const tribeRows = toInsert
         .filter((r) => r.tribe)
         .map((r) => ({
-          contestant_id: nameToId.get(r.name),
+          contestant_id: nameToId.get(fullName({ ...r, last_name: r.last_name || null })),
           tribe: r.tribe,
           effective_from_episode: 1,
         }))
@@ -342,7 +357,7 @@ async function loadContestants() {
     .from('contestants')
     .select('*, contestant_tribe_assignments(id, tribe, effective_from_episode)')
     .eq('season_id', selectedSeasonId.value)
-    .order('name')
+    .order('first_name')
   if (error) errorMsg.value = error.message
   else
     contestants.value = (data ?? []).map((c: any) => ({
@@ -371,7 +386,9 @@ async function saveContestant() {
   saving.value = true
   errorMsg.value = ''
   const payload = {
-    name: form.value.name,
+    first_name: form.value.first_name,
+    last_name: form.value.last_name || null,
+    preferred_name: form.value.preferred_name || null,
     photo_url: form.value.photo_url || null,
     alt_image: form.value.alt_image || null,
     video_url: form.value.video_url || null,
@@ -448,7 +465,9 @@ function openCreate() {
 function openEdit(c: Contestant) {
   editingId.value = c.id
   form.value = {
-    name: c.name,
+    first_name: c.first_name,
+    last_name: c.last_name ?? '',
+    preferred_name: c.preferred_name ?? '',
     photo_url: c.photo_url ?? '',
     alt_image: c.alt_image ?? '',
     video_url: c.video_url ?? '',
@@ -463,7 +482,9 @@ function openEdit(c: Contestant) {
 
 function resetForm() {
   form.value = {
-    name: '',
+    first_name: '',
+    last_name: '',
+    preferred_name: '',
     photo_url: '',
     alt_image: '',
     video_url: '',
@@ -744,7 +765,9 @@ onMounted(loadSeasons)
         <thead class="bg-gray-100 text-gray-600 text-left">
           <tr>
             <th class="px-4 py-3">#</th>
-            <th class="px-4 py-3">Name</th>
+            <th class="px-4 py-3">First</th>
+            <th v-if="!bulkMode" class="px-4 py-3">Last</th>
+            <th v-if="!bulkMode" class="px-4 py-3">Preferred</th>
             <th class="px-4 py-3">Tribe</th>
             <th v-if="!bulkMode" class="px-4 py-3">Photo</th>
             <th v-if="!bulkMode" class="px-4 py-3">Alt</th>
@@ -759,7 +782,9 @@ onMounted(loadSeasons)
         <tbody>
           <tr v-for="c in contestants" :key="c.id" class="border-t border-gray-100">
             <td class="px-4 py-3 font-mono text-gray-500">{{ formatRef(c.contestant_id) }}</td>
-            <td class="px-4 py-3 font-medium">{{ c.name }}</td>
+            <td class="px-4 py-3 font-medium">{{ c.first_name }}</td>
+            <td v-if="!bulkMode" class="px-4 py-3 text-gray-700">{{ c.last_name || '—' }}</td>
+            <td v-if="!bulkMode" class="px-4 py-3 text-gray-700">{{ c.preferred_name || '—' }}</td>
             <td class="px-4 py-3">
               <div v-if="bulkMode" class="flex items-center gap-2">
                 <span
@@ -790,7 +815,7 @@ onMounted(loadSeasons)
               <img
                 v-if="c.photo_url"
                 :src="c.photo_url"
-                :alt="c.name"
+                :alt="fullName(c)"
                 class="h-8 w-8 rounded object-cover object-top"
               />
               <span v-else class="text-gray-300">—</span>
@@ -799,7 +824,7 @@ onMounted(loadSeasons)
               <img
                 v-if="c.alt_image"
                 :src="c.alt_image"
-                :alt="c.name"
+                :alt="fullName(c)"
                 class="h-8 w-8 rounded object-cover object-top"
               />
               <span v-else class="text-gray-300">—</span>
@@ -837,7 +862,7 @@ onMounted(loadSeasons)
                   Edit
                 </button>
                 <button
-                  @click="deleteContestant(c.id, c.name)"
+                  @click="deleteContestant(c.id, fullName(c))"
                   class="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-100"
                 >
                   Delete
@@ -867,11 +892,12 @@ onMounted(loadSeasons)
         </div>
 
         <div class="mb-4 p-3 bg-gray-50 rounded-lg text-sm text-gray-600 space-y-1">
-          <p>Required column: <span class="font-mono font-semibold">name</span></p>
+          <p>Required column: <span class="font-mono font-semibold">first_name</span></p>
           <p>
             Optional columns:
             <span class="font-mono font-semibold"
-              >contestant_id, tribe, photo_url, alt_image, video_url, age, hometown, occupation, bio</span
+              >contestant_id, last_name, preferred_name, tribe, photo_url, alt_image, video_url, age,
+              hometown, occupation, bio</span
             >
           </p>
           <p class="text-xs text-gray-500">
@@ -910,9 +936,10 @@ onMounted(loadSeasons)
               <tr>
                 <th class="px-3 py-2">Action</th>
                 <th class="px-3 py-2">#</th>
-                <th class="px-3 py-2">Name</th>
+                <th class="px-3 py-2">First</th>
+                <th class="px-3 py-2">Last</th>
+                <th class="px-3 py-2">Preferred</th>
                 <th class="px-3 py-2">Tribe</th>
-                <th class="px-3 py-2">Photo URL</th>
                 <th class="px-3 py-2">Age</th>
               </tr>
             </thead>
@@ -931,11 +958,10 @@ onMounted(loadSeasons)
                   >
                 </td>
                 <td class="px-3 py-2 font-mono text-gray-500">{{ r.contestant_id || '—' }}</td>
-                <td class="px-3 py-2 font-medium">{{ r.name }}</td>
+                <td class="px-3 py-2 font-medium">{{ r.first_name }}</td>
+                <td class="px-3 py-2 text-gray-500">{{ r.last_name || '—' }}</td>
+                <td class="px-3 py-2 text-gray-500">{{ r.preferred_name || '—' }}</td>
                 <td class="px-3 py-2 text-gray-500">{{ r.tribe || '—' }}</td>
-                <td class="px-3 py-2 text-gray-400 max-w-[140px] truncate">
-                  {{ r.photo_url || '—' }}
-                </td>
                 <td class="px-3 py-2 text-gray-500">{{ r.age || '—' }}</td>
               </tr>
             </tbody>
@@ -976,15 +1002,43 @@ onMounted(loadSeasons)
         </h2>
 
         <form @submit.prevent="saveContestant" class="space-y-4">
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">First name</label>
+              <input
+                v-model="form.first_name"
+                type="text"
+                required
+                placeholder="e.g. Rob"
+                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1"
+                >Last name <span class="text-gray-400 font-normal">(optional)</span></label
+              >
+              <input
+                v-model="form.last_name"
+                type="text"
+                placeholder="e.g. Mariano"
+                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1"
+              >Preferred name <span class="text-gray-400 font-normal">(optional)</span></label
+            >
             <input
-              v-model="form.name"
+              v-model="form.preferred_name"
               type="text"
-              required
               placeholder="e.g. Boston Rob"
               class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
+            <p class="mt-1 text-xs text-gray-400">
+              Shown alongside the full name in player-facing views (e.g. Rob “Boston Rob” Mariano).
+            </p>
           </div>
 
           <div>
@@ -1139,7 +1193,7 @@ onMounted(loadSeasons)
     >
       <div class="bg-white rounded-xl shadow-lg w-full max-w-sm p-6">
         <h2 class="text-lg font-bold mb-1">Change tribe</h2>
-        <p class="text-sm text-gray-500 mb-4">{{ swapContestant.name }}</p>
+        <p class="text-sm text-gray-500 mb-4">{{ displayName(swapContestant) }}</p>
 
         <!-- Assignment history -->
         <div

@@ -1,6 +1,8 @@
 export type ContestantFull = {
   id: string
-  name: string
+  first_name: string
+  last_name: string | null
+  preferred_name: string | null
   tribe: string
   photo_url: string | null
   alt_image: string | null

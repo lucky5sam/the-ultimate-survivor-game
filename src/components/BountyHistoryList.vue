@@ -4,6 +4,7 @@
 // badge). Row-level edit controls come from the `row-action` slot, so the
 // public view simply omits them.
 import ContestantAvatar from './ContestantAvatar.vue'
+import { displayName } from '../utils/contestantName'
 import type { ContestantFull } from '../types/contestant'
 import type { BountyHistoryRow } from '../types/bounty'
 
@@ -21,7 +22,8 @@ function fmtPts(n: number) {
   return n.toFixed(1)
 }
 function contestantName(id: string) {
-  return props.contestants.find((c) => c.id === id)?.name ?? '?'
+  const c = props.contestants.find((c) => c.id === id)
+  return c ? displayName(c) : '?'
 }
 function contestantPhoto(id: string) {
   return props.contestants.find((c) => c.id === id)?.photo_url ?? null

@@ -26,6 +26,7 @@ import {
   type TeamBreakdown,
 } from '../composables/useLeaderboard'
 import { loadTribeColors } from '../utils/tribeColors'
+import { fullName, displayName } from '../utils/contestantName'
 import type { ContestantFull } from '../types/contestant'
 import type { BountyHistoryRow } from '../types/bounty'
 
@@ -266,7 +267,7 @@ const swapOutId = computed<string | null>({
 const inGameContestants = computed(() =>
   [...allContestants.value]
     .filter((c) => !eliminatedEpisodeIdByContestant.value[c.id])
-    .sort((a, b) => a.name.localeCompare(b.name)),
+    .sort((a, b) => fullName(a).localeCompare(fullName(b))),
 )
 
 const mergeEpNumber = computed(() => allEpisodes.value.find((e) => e.is_merge)?.number ?? Infinity)
@@ -343,13 +344,15 @@ async function onTeamCreated() {
   await runLoad()
 }
 
-const roleChangeTargetName = computed(
-  () => allContestants.value.find((c) => c.id === roleChangeTargetId.value)?.name ?? '',
-)
+const roleChangeTargetName = computed(() => {
+  const c = allContestants.value.find((c) => c.id === roleChangeTargetId.value)
+  return c ? displayName(c) : ''
+})
 
 const currentMvpName = computed(() => {
   const mvpPlayer = activePlayers.value.find((p) => p.role === 'mvp')
-  return allContestants.value.find((c) => c.id === mvpPlayer?.contestant_id)?.name ?? ''
+  const c = allContestants.value.find((c) => c.id === mvpPlayer?.contestant_id)
+  return c ? displayName(c) : ''
 })
 
 const currentSeason = computed(
@@ -389,13 +392,15 @@ async function loadContestants() {
   const { data } = await supabase
     .from('contestants')
     .select(
-      'id, name, photo_url, alt_image, video_url, bio, age, hometown, occupation, eliminated_episode_id, contestant_tribe_assignments(tribe, effective_from_episode)',
+      'id, first_name, last_name, preferred_name, photo_url, alt_image, video_url, bio, age, hometown, occupation, eliminated_episode_id, contestant_tribe_assignments(tribe, effective_from_episode)',
     )
     .eq('season_id', selectedSeasonId.value)
-    .order('name')
+    .order('first_name')
   allContestants.value = (data ?? []).map((c: any) => ({
     id: c.id,
-    name: c.name,
+    first_name: c.first_name,
+    last_name: c.last_name ?? null,
+    preferred_name: c.preferred_name ?? null,
     tribe:
       (c.contestant_tribe_assignments as any[]).find((a) => a.effective_from_episode === 1)
         ?.tribe ?? 'Unknown',
@@ -595,7 +600,8 @@ async function saveBountyChange() {
 }
 
 function contestantName(id: string) {
-  return allContestants.value.find((c) => c.id === id)?.name ?? '?'
+  const c = allContestants.value.find((c) => c.id === id)
+  return c ? displayName(c) : '?'
 }
 
 function contestantPhoto(id: string) {

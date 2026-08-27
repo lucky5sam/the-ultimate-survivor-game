@@ -6,6 +6,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { supabase } from '../lib/supabase'
 import { loadTribeColors } from '../utils/tribeColors'
+import { displayName } from '../utils/contestantName'
 import { useSeasonStore } from '../stores/season'
 import BaseCard from '../components/base/BaseCard.vue'
 import BaseModal from '../components/base/BaseModal.vue'
@@ -160,7 +161,7 @@ async function loadEvents() {
     const { data, error } = await supabase
       .from('contestant_actions')
       .select(
-        'id, episode_id, count, note, created_at, contestant_id, contestants(name), action_types(category, points)',
+        'id, episode_id, count, note, created_at, contestant_id, contestants(first_name, last_name, preferred_name), action_types(category, points)',
       )
       .in('episode_id', episodeIds)
     if (error) throw new Error(error.message)
@@ -171,7 +172,7 @@ async function loadEvents() {
       category: a.action_types?.category ?? '—',
       points: a.action_types?.points ?? 0,
       count: a.count ?? 1,
-      recipient: a.contestants?.name ?? '?',
+      recipient: a.contestants ? displayName(a.contestants) : '?',
       tribe: tribeAt(a.contestant_id, epNumById[a.episode_id] ?? 0),
       note: a.note ?? null,
       createdAt: a.created_at ?? '',

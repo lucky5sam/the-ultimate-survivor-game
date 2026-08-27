@@ -5,6 +5,7 @@
 // name); when open it shows what you type, with the current pick as placeholder.
 import { ref, computed, nextTick } from 'vue'
 import ContestantAvatar from './ContestantAvatar.vue'
+import { displayName } from '../utils/contestantName'
 import type { ContestantFull } from '../types/contestant'
 
 const props = defineProps<{
@@ -22,11 +23,15 @@ const inputEl = ref<HTMLInputElement | null>(null)
 const selected = computed(() => props.options.find((c) => c.id === props.modelValue) ?? null)
 const filtered = computed(() => {
   const q = search.value.trim().toLowerCase()
-  return q ? props.options.filter((c) => c.name.toLowerCase().includes(q)) : props.options
+  return q
+    ? props.options.filter((c) => displayName(c).toLowerCase().includes(q))
+    : props.options
 })
 
 // What the input shows: the live search text while open, otherwise the pick.
-const inputValue = computed(() => (open.value ? search.value : (selected.value?.name ?? '')))
+const inputValue = computed(() =>
+  open.value ? search.value : selected.value ? displayName(selected.value) : '',
+)
 
 function openDropdown() {
   if (open.value) return
@@ -64,14 +69,14 @@ function choose(id: string) {
       <ContestantAvatar
         v-if="selected && !open"
         :photo-url="selected.photo_url"
-        :name="selected.name"
+        :name="displayName(selected)"
         :size="32"
       />
       <input
         ref="inputEl"
         type="text"
         :value="inputValue"
-        :placeholder="selected ? selected.name : (placeholder ?? 'Select…')"
+        :placeholder="selected ? displayName(selected) : (placeholder ?? 'Select…')"
         @focus="openDropdown"
         @input="onInput"
         class="min-w-0 flex-1 bg-transparent text-sm text-text-default placeholder:text-text-muted focus:outline-none"
@@ -103,8 +108,8 @@ function choose(id: string) {
           @click="choose(c.id)"
           class="flex w-full items-center gap-2.5 px-3 py-2 text-left hover:bg-surface-subtle"
         >
-          <ContestantAvatar :photo-url="c.photo_url" :name="c.name" :size="28" />
-          <span class="flex-1 truncate text-sm text-text-default">{{ c.name }}</span>
+          <ContestantAvatar :photo-url="c.photo_url" :name="displayName(c)" :size="28" />
+          <span class="flex-1 truncate text-sm text-text-default">{{ displayName(c) }}</span>
           <span class="text-xs text-text-muted">{{ c.tribe }}</span>
         </button>
         <div v-if="filtered.length === 0" class="px-3 py-3 text-sm text-text-muted">No matches</div>

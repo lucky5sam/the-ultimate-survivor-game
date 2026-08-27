@@ -3,6 +3,7 @@ import { ref, onMounted, watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '../../lib/supabase'
 import { etInputToIso, isoToEtInput, fmtEt } from '../../lib/time'
+import { displayName } from '../../utils/contestantName'
 
 type Season = { id: string; name: string; current_episode_id: string | null }
 type Episode = {
@@ -16,7 +17,13 @@ type Episode = {
   bounty_contestant_id: string | null
   locks_at: string | null
 }
-type Contestant = { id: string; name: string; eliminated_episode_id: string | null }
+type Contestant = {
+  id: string
+  first_name: string
+  last_name: string | null
+  preferred_name: string | null
+  eliminated_episode_id: string | null
+}
 
 const router = useRouter()
 const seasons = ref<Season[]>([])
@@ -46,13 +53,13 @@ const form = ref({
 })
 
 const contestantMap = computed(() =>
-  Object.fromEntries(contestants.value.map((c) => [c.id, c.name])),
+  Object.fromEntries(contestants.value.map((c) => [c.id, displayName(c)])),
 )
 
 const eliminatedByEpisode = computed<Record<string, string[]>>(() => {
   const map: Record<string, string[]> = {}
   for (const c of contestants.value) {
-    if (c.eliminated_episode_id) (map[c.eliminated_episode_id] ??= []).push(c.name)
+    if (c.eliminated_episode_id) (map[c.eliminated_episode_id] ??= []).push(displayName(c))
   }
   return map
 })
@@ -94,9 +101,9 @@ async function loadContestants() {
   if (!selectedSeasonId.value) return
   const { data } = await supabase
     .from('contestants')
-    .select('id, name, eliminated_episode_id')
+    .select('id, first_name, last_name, preferred_name, eliminated_episode_id')
     .eq('season_id', selectedSeasonId.value)
-    .order('name')
+    .order('first_name')
   contestants.value = data ?? []
 }
 
@@ -481,7 +488,7 @@ onMounted(loadSeasons)
                   v-model="form.eliminatedIds"
                   class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                 />
-                {{ c.name }}
+                {{ displayName(c) }}
               </label>
               <p
                 v-if="selectableForElimination.length === 0"
@@ -502,7 +509,9 @@ onMounted(loadSeasons)
               class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">Not set</option>
-              <option v-for="c in contestants" :key="c.id" :value="c.id">{{ c.name }}</option>
+              <option v-for="c in contestants" :key="c.id" :value="c.id">
+                {{ displayName(c) }}
+              </option>
             </select>
           </div>
 
