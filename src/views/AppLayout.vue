@@ -20,6 +20,7 @@ const tabs = [
 
 const activeTab = computed(() => tabs.find((t) => t.to === route.path) ?? tabs[0]!)
 const menuOpen = ref(false)
+const userMenuOpen = ref(false)
 
 const ownerName = computed(() =>
   auth.firstName || auth.lastName
@@ -27,12 +28,20 @@ const ownerName = computed(() =>
     : (auth.user?.email ?? ''),
 )
 
+// Avatar initials: first + last initial, falling back to the email's first char.
+const userInitials = computed(() => {
+  const f = auth.firstName?.trim().charAt(0) ?? ''
+  const l = auth.lastName?.trim().charAt(0) ?? ''
+  return (f + l).toUpperCase() || (auth.user?.email?.charAt(0).toUpperCase() ?? '?')
+})
+
 function goTo(to: string) {
   menuOpen.value = false
   if (route.path !== to) router.push(to)
 }
 
 async function handleSignOut() {
+  userMenuOpen.value = false
   await supabase.auth.signOut()
   router.push('/login')
 }
@@ -60,10 +69,47 @@ async function handleSignOut() {
           class="text-text-accent hover:text-interactive-accent-hover"
           >Admin</RouterLink
         >
-        <RouterLink to="/profile" class="text-text-accent hover:text-interactive-accent-hover">
-          {{ ownerName || 'Profile' }}
-        </RouterLink>
-        <button @click="handleSignOut" class="text-status-error hover:opacity-80">Sign out</button>
+
+        <!-- Account avatar + menu -->
+        <div class="relative">
+          <button
+            @click="userMenuOpen = !userMenuOpen"
+            :aria-label="ownerName || 'Account'"
+            class="flex h-9 w-9 items-center justify-center rounded-full bg-surface-accent text-sm font-semibold text-text-accent transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-accent"
+          >
+            {{ userInitials }}
+          </button>
+
+          <div
+            v-if="userMenuOpen"
+            class="absolute right-0 z-30 mt-2 w-48 overflow-hidden rounded-md border border-border-subtle bg-surface-overlay shadow-lg"
+          >
+            <div class="border-b border-border-subtle px-3 py-2.5">
+              <p class="truncate text-sm font-medium text-text-default">
+                {{ ownerName || 'Account' }}
+              </p>
+              <p v-if="auth.user?.email" class="truncate text-xs text-text-muted">
+                {{ auth.user.email }}
+              </p>
+            </div>
+            <RouterLink
+              to="/profile"
+              @click="userMenuOpen = false"
+              class="block px-3 py-2.5 text-sm text-text-default hover:bg-surface-subtle"
+            >
+              Profile
+            </RouterLink>
+            <button
+              @click="handleSignOut"
+              class="block w-full px-3 py-2.5 text-left text-sm text-status-error hover:bg-surface-subtle"
+            >
+              Sign Out
+            </button>
+          </div>
+
+          <!-- click-away -->
+          <div v-if="userMenuOpen" class="fixed inset-0 z-20" @click="userMenuOpen = false"></div>
+        </div>
       </div>
     </header>
 
