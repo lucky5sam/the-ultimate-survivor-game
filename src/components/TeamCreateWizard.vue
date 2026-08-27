@@ -167,46 +167,47 @@ async function lockIn() {
 <template>
   <!-- overflow-x-clip (not overflow-hidden) clips the full-bleed carousel without
        creating a scroll container, so the sticky action bar below still works. -->
-  <div class="relative overflow-x-clip bg-surface-page">
+  <div class="relative flex flex-1 flex-col overflow-x-clip bg-surface-page">
     <ThemeAtmosphere />
-    <div class="relative z-10 px-8 sm:px-12 lg:px-20 pt-8 pb-16">
+    <div class="relative z-10 flex flex-1 flex-col px-8 sm:px-12 lg:px-20 pt-8 pb-16">
       <!-- Header -->
       <div class="text-center mb-10">
         <h1 class="text-3xl font-bold tracking-tight text-text-default">Build Your Tribe</h1>
         <p class="text-text-subtle mt-1 text-sm">{{ seasonName }}</p>
       </div>
 
-      <!-- Step indicator: circles + lines -->
-      <div class="flex items-center max-w-2xl mx-auto mb-2">
-        <template v-for="n in TOTAL_STEPS" :key="n">
+      <!-- Step indicator: equal-width columns, each with a number and its name
+           centered below. A connector line links each number to the next. -->
+      <div class="mx-auto mb-10 flex w-full max-w-2xl">
+        <div
+          v-for="(label, i) in STEP_LABELS"
+          :key="i"
+          class="relative flex flex-1 flex-col items-center"
+        >
+          <!-- Connector to the next step, sitting behind the circles -->
           <div
-            class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-all duration-300"
+            v-if="i < TOTAL_STEPS - 1"
+            class="absolute left-1/2 top-4 h-0.5 w-full -translate-y-1/2 transition-colors duration-300"
+            :class="step > i + 1 ? 'bg-interactive-accent' : 'bg-surface-strong'"
+          />
+          <div
+            class="relative z-10 flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all duration-300"
             :class="[
-              step > n
+              step > i + 1
                 ? 'bg-interactive-accent text-text-on-accent'
-                : step === n
+                : step === i + 1
                   ? 'bg-interactive-accent text-text-on-accent ring-4 ring-interactive-accent/20'
                   : 'bg-surface-subtle text-text-muted border border-border-subtle',
             ]"
           >
-            <span v-if="step > n">✓</span>
-            <span v-else>{{ n }}</span>
+            <span v-if="step > i + 1">✓</span>
+            <span v-else>{{ i + 1 }}</span>
           </div>
-          <div
-            v-if="n < TOTAL_STEPS"
-            class="flex-1 h-px transition-colors duration-300"
-            :class="step > n ? 'bg-interactive-accent' : 'bg-surface-strong'"
-          />
-        </template>
-      </div>
-      <!-- Step labels -->
-      <div class="flex max-w-2xl mx-auto mb-10">
-        <div v-for="(label, i) in STEP_LABELS" :key="i" class="flex-1 text-center">
           <p
-            class="text-xs mt-1 transition-colors duration-200 hidden sm:block"
+            class="mt-2 hidden text-center text-xs leading-tight transition-colors duration-200 sm:block"
             :class="[
               step === i + 1
-                ? 'text-text-accent font-semibold'
+                ? 'font-semibold text-text-accent'
                 : step > i + 1
                   ? 'text-text-subtle'
                   : 'text-text-muted',
@@ -219,27 +220,35 @@ async function lockIn() {
 
       <!-- ── Step 1: League Code ── -->
       <template v-if="step === 1">
-        <div class="max-w-sm mx-auto">
+        <div class="mx-auto w-full max-w-5xl">
           <h2 class="text-xl font-bold text-text-default mb-1">Enter League Code</h2>
           <p class="text-text-subtle text-sm mb-6">
             Ask your league admin for the code to join {{ seasonName }}.
           </p>
-          <div class="space-y-4">
-            <BaseInput
-              v-model="leagueCode"
-              size="lg"
-              placeholder="Enter code…"
-              :error="errorMsg"
-              @keyup.enter="nextStep"
-            />
+          <BaseInput
+            v-model="leagueCode"
+            size="lg"
+            class="max-w-md"
+            placeholder="Enter code…"
+            :error="errorMsg"
+            @keyup.enter="nextStep"
+          />
+        </div>
+
+        <!-- Sticky footer: single full-width action -->
+        <div
+          class="sticky bottom-0 z-30 -mx-8 -mb-16 mt-auto border-t border-border-subtle bg-surface-page/95 px-8 py-3 backdrop-blur sm:-mx-12 sm:px-12 lg:-mx-20 lg:px-20"
+        >
+          <div class="mx-auto w-full max-w-5xl">
             <BaseButton
               block
               size="lg"
+              class="max-w-md"
               :loading="loading"
               :disabled="!leagueCode.trim()"
               @click="nextStep"
             >
-              Continue
+              Get Started
             </BaseButton>
           </div>
         </div>
@@ -247,18 +256,25 @@ async function lockIn() {
 
       <!-- ── Step 2: Team Name ── -->
       <template v-else-if="step === 2">
-        <div class="max-w-sm mx-auto">
+        <div class="mx-auto w-full max-w-5xl">
           <h2 class="text-xl font-bold text-text-default mb-1">Name Your Tribe</h2>
           <p class="text-text-subtle text-sm mb-6">This is how you'll appear on the leaderboard.</p>
-          <div class="space-y-4">
-            <BaseInput
-              v-model="teamName"
-              size="lg"
-              placeholder="e.g. The Fire Starters"
-              :error="errorMsg"
-              @keyup.enter="nextStep"
-            />
-            <div class="flex gap-3">
+          <BaseInput
+            v-model="teamName"
+            size="lg"
+            class="max-w-md"
+            placeholder="e.g. The Fire Starters"
+            :error="errorMsg"
+            @keyup.enter="nextStep"
+          />
+        </div>
+
+        <!-- Sticky footer: Back + Continue -->
+        <div
+          class="sticky bottom-0 z-30 -mx-8 -mb-16 mt-auto border-t border-border-subtle bg-surface-page/95 px-8 py-3 backdrop-blur sm:-mx-12 sm:px-12 lg:-mx-20 lg:px-20"
+        >
+          <div class="mx-auto w-full max-w-5xl">
+            <div class="flex max-w-md gap-3">
               <BaseButton variant="secondary" size="lg" @click="step--">Back</BaseButton>
               <BaseButton size="lg" class="flex-1" :disabled="!teamName.trim()" @click="nextStep">
                 Continue
@@ -270,7 +286,7 @@ async function lockIn() {
 
       <!-- ── Step 3: Pick 4 Players ── -->
       <template v-else-if="step === 3">
-        <div class="mx-auto mb-6 max-w-5xl">
+        <div class="mx-auto mb-6 w-full max-w-5xl">
           <h2 class="text-xl font-bold text-text-default mb-0.5">Pick Your Survivors</h2>
           <p class="text-text-subtle text-sm">Choose 4 castaways for your tribe.</p>
         </div>
@@ -279,7 +295,7 @@ async function lockIn() {
              At least 2 columns on phones (120px min); on larger screens the min jumps
              to 240px for bigger cards. Capped by max-width so it doesn't sprawl. -->
         <div
-          class="mx-auto mb-8 grid max-w-5xl grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-4 sm:grid-cols-[repeat(auto-fill,minmax(240px,1fr))]"
+          class="mx-auto mb-8 grid w-full max-w-5xl grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-4 sm:grid-cols-[repeat(auto-fill,minmax(240px,1fr))]"
         >
           <ContestantCard
             v-for="c in sortedContestants"
@@ -294,7 +310,7 @@ async function lockIn() {
 
         <!-- Sticky bar: selected picks (context) + actions, always reachable at thumb height -->
         <div
-          class="sticky bottom-0 z-30 -mx-8 -mb-16 mt-4 border-t border-border-subtle bg-surface-page/95 px-8 py-3 backdrop-blur sm:-mx-12 sm:px-12 lg:-mx-20 lg:px-20"
+          class="sticky bottom-0 z-30 -mx-8 -mb-16 mt-auto border-t border-border-subtle bg-surface-page/95 px-8 py-3 backdrop-blur sm:-mx-12 sm:px-12 lg:-mx-20 lg:px-20"
         >
           <!-- Your 4 picks + bounty slot, with actions on the right -->
           <WizardPicksStrip
@@ -326,7 +342,7 @@ async function lockIn() {
 
       <!-- ── Step 4: Declare MVP ── -->
       <template v-else-if="step === 4">
-        <div class="mx-auto mb-8 max-w-5xl text-center">
+        <div class="mx-auto mb-8 w-full max-w-5xl text-center">
           <h2 class="text-xl font-bold text-text-default mb-1">Crown Your Champion</h2>
           <p class="text-text-subtle text-sm">
             Your MVP earns 1.5× points each episode. Choose wisely.
@@ -334,7 +350,7 @@ async function lockIn() {
         </div>
 
         <div
-          class="mx-auto mb-8 grid max-w-5xl grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-4 sm:grid-cols-[repeat(auto-fill,minmax(240px,1fr))]"
+          class="mx-auto mb-8 grid w-full max-w-5xl grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-4 sm:grid-cols-[repeat(auto-fill,minmax(240px,1fr))]"
         >
           <ContestantCard
             v-for="c in selectedContestants"
@@ -350,7 +366,7 @@ async function lockIn() {
 
         <!-- Sticky bar: your picks (MVP marked) + actions, mirroring the roster step -->
         <div
-          class="sticky bottom-0 z-30 -mx-8 -mb-16 mt-4 border-t border-border-subtle bg-surface-page/95 px-8 py-3 backdrop-blur sm:-mx-12 sm:px-12 lg:-mx-20 lg:px-20"
+          class="sticky bottom-0 z-30 -mx-8 -mb-16 mt-auto border-t border-border-subtle bg-surface-page/95 px-8 py-3 backdrop-blur sm:-mx-12 sm:px-12 lg:-mx-20 lg:px-20"
         >
           <!-- Your 4 picks (MVP highlighted) + bounty slot, with actions on the right -->
           <WizardPicksStrip
@@ -378,7 +394,7 @@ async function lockIn() {
 
       <!-- ── Step 5: Bounty Pick ── -->
       <template v-else-if="step === 5">
-        <div class="mx-auto mb-6 max-w-5xl">
+        <div class="mx-auto mb-6 w-full max-w-5xl">
           <h2 class="text-xl font-bold text-text-default mb-0.5">Set Your Bounty</h2>
           <p class="text-text-subtle text-sm">
             Who gets voted out first? Your pick carries forward each week — change it before any
@@ -388,7 +404,7 @@ async function lockIn() {
 
         <!-- Same reflowing grid as Pick Players, but a single target selection -->
         <div
-          class="mx-auto mb-8 grid max-w-5xl grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-4 sm:grid-cols-[repeat(auto-fill,minmax(240px,1fr))]"
+          class="mx-auto mb-8 grid w-full max-w-5xl grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-4 sm:grid-cols-[repeat(auto-fill,minmax(240px,1fr))]"
         >
           <ContestantCard
             v-for="c in sortedContestants"
@@ -403,7 +419,7 @@ async function lockIn() {
 
         <!-- Sticky action bar -->
         <div
-          class="sticky bottom-0 z-30 -mx-8 -mb-16 mt-4 border-t border-border-subtle bg-surface-page/95 px-8 py-3 backdrop-blur sm:-mx-12 sm:px-12 lg:-mx-20 lg:px-20"
+          class="sticky bottom-0 z-30 -mx-8 -mb-16 mt-auto border-t border-border-subtle bg-surface-page/95 px-8 py-3 backdrop-blur sm:-mx-12 sm:px-12 lg:-mx-20 lg:px-20"
         >
           <!-- Your 4 picks + bounty slot (fills as you choose here), actions on the right -->
           <WizardPicksStrip
@@ -436,7 +452,7 @@ async function lockIn() {
 
       <!-- ── Step 6: Review ── -->
       <template v-else-if="step === 6">
-        <div class="max-w-md mx-auto">
+        <div class="mx-auto w-full max-w-md">
           <h2 class="text-xl font-bold text-text-default mb-1">Review Your Tribe</h2>
           <p class="text-text-subtle text-sm mb-6">
             Once locked in, you can swap players between episodes.
