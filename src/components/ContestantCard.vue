@@ -19,6 +19,34 @@ const colors = computed(() => getTribeColors(props.contestant.tribe))
 const hovered = ref(false)
 
 const isInteractive = computed(() => !props.disabled)
+
+// Touch handling: on iOS a hover-reactive <div> needs two taps (the first only
+// triggers :hover). We select on touchend instead so the FIRST tap picks the
+// card — but only when it was a tap, not a scroll, and we suppress the ghost
+// click so desktop's @click doesn't fire it a second time.
+let touchStartX = 0
+let touchStartY = 0
+let touchMoved = false
+function onTouchStart(e: TouchEvent) {
+  const t = e.changedTouches[0]
+  if (!t) return
+  touchStartX = t.clientX
+  touchStartY = t.clientY
+  touchMoved = false
+}
+function onTouchMove(e: TouchEvent) {
+  const t = e.changedTouches[0]
+  if (!t) return
+  if (Math.abs(t.clientX - touchStartX) > 10 || Math.abs(t.clientY - touchStartY) > 10) {
+    touchMoved = true
+  }
+}
+function onTouchEnd(e: TouchEvent) {
+  if (touchMoved) return // was a scroll, not a tap
+  e.preventDefault() // stop the follow-up ghost click
+  hovered.value = false
+  if (isInteractive.value) emit('select')
+}
 const isHighlighted = computed(() => props.selected || (hovered.value && isInteractive.value))
 
 const cardStyle = computed(() => ({
@@ -39,6 +67,9 @@ const cardStyle = computed(() => ({
     @mouseenter="hovered = true"
     @mouseleave="hovered = false"
     @click="isInteractive && emit('select')"
+    @touchstart.passive="onTouchStart"
+    @touchmove.passive="onTouchMove"
+    @touchend="onTouchEnd"
   >
     <!-- Photo background -->
     <div class="absolute inset-0 bg-stone-800">

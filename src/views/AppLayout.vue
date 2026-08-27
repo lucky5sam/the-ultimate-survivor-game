@@ -5,6 +5,7 @@ import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../stores/auth'
+import InviteBanner from '../components/InviteBanner.vue'
 
 const auth = useAuthStore()
 const route = useRoute()
@@ -125,6 +126,7 @@ async function handleSignOut() {
     </div>
 
     <main class="flex flex-1 flex-col">
+      <InviteBanner />
       <RouterView />
     </main>
   </div>

@@ -23,7 +23,6 @@ import {
 import { loadTribeColors } from '../utils/tribeColors'
 import type { ContestantFull } from '../types/contestant'
 import type { BountyHistoryRow } from '../types/bounty'
-import survivorLogoUrl from '../assets/survivor-51-logo.png'
 
 type Season = {
   id: string
@@ -83,7 +82,6 @@ const droppedContestantIds = ref<Set<string>>(new Set())
 const loading = ref(true)
 const saving = ref(false)
 const errorMsg = ref('')
-const leagueCode = ref('')
 
 // My standing on the leaderboard (rank + score)
 const myRank = ref<number | null>(null)
@@ -357,28 +355,6 @@ const registrationOpen = computed(() => registrationOpenFor(currentSeason.value)
 const seasonStartDisplay = computed(() =>
   currentSeason.value?.starts_at ? fmtEt(currentSeason.value.starts_at) : null,
 )
-// The invite link tracks the league's current season regardless of what's being viewed.
-const appCurrentSeason = computed(
-  () => seasons.value.find((s) => s.id === currentSeasonId.value) ?? null,
-)
-const inviteLinkOpen = computed(() => registrationOpenFor(appCurrentSeason.value))
-const appCurrentSeasonStartDisplay = computed(() =>
-  appCurrentSeason.value?.starts_at ? fmtEt(appCurrentSeason.value.starts_at) : null,
-)
-// Live countdown to the current season's start (null if no date or already started).
-const countdown = computed(() => {
-  const iso = appCurrentSeason.value?.starts_at
-  if (!iso) return null
-  const diff = new Date(iso).getTime() - now.value
-  if (diff <= 0) return null
-  const totalSec = Math.floor(diff / 1000)
-  return {
-    days: Math.floor(totalSec / 86400),
-    hours: Math.floor((totalSec % 86400) / 3600),
-    minutes: Math.floor((totalSec % 3600) / 60),
-    seconds: totalSec % 60,
-  }
-})
 
 const currentEpisodeNumber = computed(() => {
   const epId = currentSeason.value?.current_episode_id
@@ -752,26 +728,6 @@ async function confirmRoleChange() {
   }
 }
 
-async function loadLeagueCode() {
-  try {
-    const { data: code } = await supabase.rpc('get_registration_code')
-    leagueCode.value = code ?? ''
-  } catch {
-    leagueCode.value = ''
-  }
-}
-
-async function copyInviteLink() {
-  try {
-    const code = leagueCode.value || (await supabase.rpc('get_registration_code')).data
-    if (!code) return
-    await navigator.clipboard.writeText(`${window.location.origin}/login?mode=signup&code=${code}`)
-    toast.success('Invite link copied to clipboard')
-  } catch {
-    toast.error('Could not copy the invite link')
-  }
-}
-
 // loadSeasons sets selectedSeasonId, which triggers this watch — so the load
 // cycle runs exactly once on mount (no duplicate cycle in onMounted).
 watch(selectedSeasonId, runLoad)
@@ -781,7 +737,6 @@ onMounted(async () => {
     now.value = Date.now()
   }, 1_000)
   await loadSeasons()
-  loadLeagueCode()
   // If no season got selected (none available), nothing triggers the watch —
   // clear the initial loading state so the page doesn't hang on "Loading…".
   if (!selectedSeasonId.value) loading.value = false
@@ -864,79 +819,6 @@ onUnmounted(() => {
     <!-- Constrained team management view when team exists -->
     <div v-else class="max-w-3xl mx-auto px-6 py-8 w-full">
       <template v-if="seasons.length > 0">
-        <!-- Invite banner — live countdown to season start, primary copy action -->
-        <div
-          v-if="inviteLinkOpen"
-          class="relative mb-6 overflow-hidden rounded-lg border border-border-subtle bg-surface-default p-6"
-        >
-          <!-- Left content; capped so the season logo (added later) can sit at right -->
-          <div class="max-w-xl">
-            <h3 class="text-xl font-bold text-text-default">
-              Invite your friends to play The Ultimate Survivor Game
-            </h3>
-            <p class="mt-1 text-sm text-text-muted">
-              <template v-if="appCurrentSeasonStartDisplay"
-                >{{ appCurrentSeason?.name }} starts on {{ appCurrentSeasonStartDisplay }}</template
-              >
-              <template v-else>Registration is open</template>
-            </p>
-
-            <!-- Countdown -->
-            <div v-if="countdown" class="mt-4 flex items-center gap-2">
-              <div
-                v-for="seg in [
-                  { v: countdown.days, l: 'days' },
-                  { v: countdown.hours, l: 'hours' },
-                  { v: countdown.minutes, l: 'mins' },
-                  { v: countdown.seconds, l: 'secs' },
-                ]"
-                :key="seg.l"
-                class="flex w-14 flex-col items-center rounded-md bg-surface-subtle py-2 shadow-sm"
-              >
-                <span class="text-xl font-bold tabular-nums leading-none text-text-default">
-                  {{ seg.l === 'days' ? seg.v : String(seg.v).padStart(2, '0') }}
-                </span>
-                <span class="mt-1 text-[10px] uppercase tracking-wide text-text-muted">{{
-                  seg.l
-                }}</span>
-              </div>
-            </div>
-
-            <!-- League code + copy -->
-            <p class="mt-5 text-sm text-text-muted">League Code</p>
-            <div class="mt-1.5 flex flex-wrap items-center gap-3">
-              <BaseButton variant="primary" @click="copyInviteLink">
-                <svg
-                  class="h-4 w-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  stroke-width="2"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                  />
-                </svg>
-                Copy Invite Link
-              </BaseButton>
-              <span
-                v-if="leagueCode"
-                class="rounded-md bg-surface-subtle px-4 py-2.5 text-sm font-bold text-text-default shadow-sm"
-                >{{ leagueCode }}</span
-              >
-            </div>
-          </div>
-
-          <!-- Season logo — bleeds into the bottom-right corner (parent clips it) -->
-          <img
-            :src="survivorLogoUrl"
-            alt="Survivor 51"
-            class="pointer-events-none absolute bottom-0 right-0 hidden h-44 w-auto select-none sm:block"
-          />
-        </div>
-
         <!-- Team header — team name is the primary identity -->
         <div class="mb-6">
           <h2 class="text-2xl font-bold text-text-default">
@@ -1135,7 +1017,7 @@ onUnmounted(() => {
             <path
               stroke-linecap="round"
               stroke-linejoin="round"
-              d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-9L21 7.5m0 0L16.5 3M21 7.5H7.5"
+              d="M7.5 21 3 16.5 7.5 12M3 16.5h13.5M16.5 3 21 7.5 16.5 12M21 7.5H7.5"
             />
           </svg>
 

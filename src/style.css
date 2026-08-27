@@ -187,6 +187,13 @@
    ───────────────────────────────────────────────────────────── */
 
 @layer base {
+  /* Paint the root elements so mobile rubber-band overscroll shows the page
+     color, not the browser's default white, past the app's min-h-screen wrapper. */
+  html,
+  body {
+    background-color: var(--color-surface-page);
+  }
+
   .dark {
     /* surface */
     --color-surface-page: #0c0a09;
