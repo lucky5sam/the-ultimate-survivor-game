@@ -822,25 +822,27 @@ onMounted(loadSeasons)
             <td v-if="!bulkMode" class="px-4 py-3 text-gray-400 max-w-xs truncate">
               {{ c.bio ?? '—' }}
             </td>
-            <td v-if="!bulkMode" class="px-4 py-3 text-right space-x-3">
-              <button
-                @click="openSwap(c)"
-                class="text-indigo-600 hover:text-indigo-800 text-xs font-medium"
-              >
-                Tribe
-              </button>
-              <button
-                @click="openEdit(c)"
-                class="text-blue-600 hover:text-blue-800 text-xs font-medium"
-              >
-                Edit
-              </button>
-              <button
-                @click="deleteContestant(c.id, c.name)"
-                class="text-red-500 hover:text-red-700 text-xs font-medium"
-              >
-                Delete
-              </button>
+            <td v-if="!bulkMode" class="px-4 py-3">
+              <div class="flex justify-end gap-2">
+                <button
+                  @click="openSwap(c)"
+                  class="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100"
+                >
+                  Tribe
+                </button>
+                <button
+                  @click="openEdit(c)"
+                  class="rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100"
+                >
+                  Edit
+                </button>
+                <button
+                  @click="deleteContestant(c.id, c.name)"
+                  class="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-100"
+                >
+                  Delete
+                </button>
+              </div>
             </td>
           </tr>
         </tbody>
