@@ -12,6 +12,22 @@ const props = defineProps<{
 const emit = defineEmits<{ close: [] }>()
 
 const colors = computed(() => (props.contestant ? getTribeColors(props.contestant.tribe) : null))
+
+// Turn any common YouTube link (watch?v=, youtu.be/, /embed/, /shorts/) into a
+// privacy-friendly embed URL. Returns null for empty or unrecognized values so
+// the video block only renders when we have something playable.
+const embedUrl = computed(() => {
+  const url = props.contestant?.video_url?.trim()
+  if (!url) return null
+  const patterns = [
+    /(?:youtube\.com\/watch\?(?:.*&)?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([\w-]{11})/,
+  ]
+  for (const re of patterns) {
+    const m = url.match(re)
+    if (m?.[1]) return `https://www.youtube-nocookie.com/embed/${m[1]}`
+  }
+  return null
+})
 </script>
 
 <template>
@@ -23,10 +39,10 @@ const colors = computed(() => (props.contestant ? getTribeColors(props.contestan
         @click.self="emit('close')"
       >
         <div
-          class="bg-stone-900 rounded-2xl border border-stone-700 w-full max-w-md overflow-hidden shadow-2xl"
+          class="bg-stone-900 rounded-2xl border border-stone-700 w-full max-w-md overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
         >
           <!-- Photo header -->
-          <div class="relative h-72 bg-stone-800">
+          <div class="relative h-72 shrink-0 bg-stone-800">
             <img
               v-if="contestant.photo_url"
               :src="contestant.photo_url"
@@ -66,7 +82,7 @@ const colors = computed(() => (props.contestant ? getTribeColors(props.contestan
           </div>
 
           <!-- Content -->
-          <div class="p-5">
+          <div class="p-5 overflow-y-auto">
             <div class="mb-4">
               <h2 class="text-2xl font-bold text-white">{{ contestant.name }}</h2>
               <div class="flex items-center gap-2 mt-1 flex-wrap">
@@ -105,6 +121,21 @@ const colors = computed(() => (props.contestant ? getTribeColors(props.contestan
                   contestant.bio ?? 'No bio available yet. Check back after the season premieres.'
                 }}
               </p>
+            </div>
+
+            <!-- Video -->
+            <div v-if="embedUrl" class="mt-4">
+              <p class="text-xs text-stone-500 mb-2 uppercase tracking-wide">Video</p>
+              <div class="relative aspect-video overflow-hidden rounded-xl bg-stone-800">
+                <iframe
+                  :src="embedUrl"
+                  :title="`${contestant.name} video`"
+                  class="absolute inset-0 h-full w-full"
+                  frameborder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowfullscreen
+                />
+              </div>
             </div>
           </div>
         </div>

@@ -4,6 +4,7 @@ export type ContestantFull = {
   tribe: string
   photo_url: string | null
   alt_image: string | null
+  video_url: string | null
   bio: string | null
   age: number | null
   hometown: string | null

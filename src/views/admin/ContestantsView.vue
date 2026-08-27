@@ -11,6 +11,7 @@ type Contestant = {
   name: string
   photo_url: string | null
   alt_image: string | null
+  video_url: string | null
   bio: string | null
   age: number | null
   hometown: string | null
@@ -41,6 +42,7 @@ const form = ref({
   name: '',
   photo_url: '',
   alt_image: '',
+  video_url: '',
   bio: '',
   age: '',
   hometown: '',
@@ -291,6 +293,7 @@ async function saveContestant() {
     name: form.value.name,
     photo_url: form.value.photo_url || null,
     alt_image: form.value.alt_image || null,
+    video_url: form.value.video_url || null,
     bio: form.value.bio || null,
     age: form.value.age ? parseInt(form.value.age) : null,
     hometown: form.value.hometown || null,
@@ -367,6 +370,7 @@ function openEdit(c: Contestant) {
     name: c.name,
     photo_url: c.photo_url ?? '',
     alt_image: c.alt_image ?? '',
+    video_url: c.video_url ?? '',
     bio: c.bio ?? '',
     age: c.age !== null ? String(c.age) : '',
     hometown: c.hometown ?? '',
@@ -381,6 +385,7 @@ function resetForm() {
     name: '',
     photo_url: '',
     alt_image: '',
+    video_url: '',
     bio: '',
     age: '',
     hometown: '',
@@ -893,6 +898,21 @@ onMounted(loadSeasons)
             />
             <p class="mt-1 text-xs text-gray-400">
               Shown in place of the main photo in certain views.
+            </p>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1"
+              >YouTube video URL <span class="text-gray-400 font-normal">(optional)</span></label
+            >
+            <input
+              v-model="form.video_url"
+              type="url"
+              placeholder="https://www.youtube.com/watch?v=…"
+              class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <p class="mt-1 text-xs text-gray-400">
+              Embedded on the contestant's profile. Paste any YouTube link.
             </p>
           </div>
 
