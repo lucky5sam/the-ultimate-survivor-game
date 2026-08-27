@@ -31,11 +31,22 @@ const emit = defineEmits<{ close: [] }>()
 
 const colors = computed(() => (props.contestant ? getTribeColors(props.contestant.tribe) : null))
 
+// True once the photo has scrolled far enough that the identity/tabs bar is
+// stuck to the top. Drives which close button is shown (over the photo vs. in
+// the header). The photo is h-72 (288px); flip a bit before it's fully gone.
+const scrollEl = ref<HTMLElement | null>(null)
+const stuck = ref(false)
+function onScroll() {
+  stuck.value = (scrollEl.value?.scrollTop ?? 0) > 240
+}
+
 // Lock background scroll while the modal is open, restoring it on close/unmount.
+// Also reset the scroll position/stuck state each time it opens.
 watch(
   () => props.show,
   (open) => {
     document.body.style.overflow = open ? 'hidden' : ''
+    if (open) stuck.value = false
   },
 )
 onUnmounted(() => {
@@ -102,10 +113,12 @@ const embedUrl = computed(() => {
         @click.self="emit('close')"
       >
         <div
-          class="bg-stone-900 rounded-2xl border border-stone-700 w-full max-w-md overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+          ref="scrollEl"
+          class="bg-stone-900 rounded-2xl border border-stone-700 w-full max-w-md overflow-y-auto shadow-2xl max-h-[90vh]"
+          @scroll="onScroll"
         >
-          <!-- Photo header -->
-          <div class="relative h-72 shrink-0 overflow-hidden bg-stone-800">
+          <!-- Photo — scrolls away with the rest of the content -->
+          <div class="relative h-72 overflow-hidden bg-stone-800">
             <img
               v-if="headerImage"
               :src="headerImage"
@@ -127,13 +140,14 @@ const embedUrl = computed(() => {
               class="absolute bottom-0 left-0 right-0 h-1"
               :style="{ backgroundColor: colors?.primary }"
             />
-            <!-- Close button -->
+            <!-- Close button over the photo (until the header sticks) -->
             <button
-              class="absolute top-3 right-3 w-8 h-8 bg-black/60 hover:bg-black/90 rounded-full flex items-center justify-center text-white transition-colors"
+              class="absolute top-3 right-3 flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white transition-opacity hover:bg-black/90"
+              :class="stuck ? 'pointer-events-none opacity-0' : 'opacity-100'"
               @click="emit('close')"
             >
               <svg
-                class="w-4 h-4"
+                class="h-4 w-4"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -144,22 +158,41 @@ const embedUrl = computed(() => {
             </button>
           </div>
 
-          <!-- Pinned identity + tabs: stays put while the tab content scrolls -->
-          <div class="shrink-0 border-b border-stone-800">
-            <div class="px-5 pt-4" :class="showEventLog ? 'pb-3' : 'pb-4'">
-              <h2 class="text-2xl font-bold text-white">
-                {{ contestant.name }}<span v-if="contestant.age">, {{ contestant.age }}</span>
-              </h2>
-              <div class="flex items-center gap-2 mt-1 flex-wrap">
-                <span class="text-sm font-semibold" :style="{ color: colors?.text }">{{
-                  contestant.tribe
-                }}</span>
-                <span v-if="seasonName" class="text-stone-500 text-sm">· {{ seasonName }}</span>
+          <!-- Identity + tabs: sticks to the top of the modal once the photo
+               scrolls past it. Opaque background so content scrolls underneath. -->
+          <div class="sticky top-0 z-20 border-b border-stone-800 bg-stone-900">
+            <div class="flex items-start justify-between gap-3 px-5 pt-4">
+              <div>
+                <h2 class="text-2xl font-bold text-white">
+                  {{ contestant.name }}<span v-if="contestant.age">, {{ contestant.age }}</span>
+                </h2>
+                <div class="flex items-center gap-2 mt-1 flex-wrap">
+                  <span class="text-sm font-semibold" :style="{ color: colors?.text }">{{
+                    contestant.tribe
+                  }}</span>
+                  <span v-if="seasonName" class="text-stone-500 text-sm">· {{ seasonName }}</span>
+                </div>
               </div>
+              <!-- Close button in the header — appears once the bar is stuck -->
+              <button
+                class="-mr-1.5 shrink-0 rounded-full p-1.5 text-stone-400 transition-opacity hover:bg-stone-800 hover:text-white"
+                :class="stuck ? 'opacity-100' : 'pointer-events-none opacity-0'"
+                @click="emit('close')"
+              >
+                <svg
+                  class="h-5 w-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                >
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
 
             <!-- Tabs -->
-            <div v-if="showEventLog" class="flex gap-6 px-5">
+            <div v-if="showEventLog" class="mt-3 flex gap-6 px-5">
               <button
                 v-for="tab in [
                   { id: 'info', label: 'Info' },
@@ -177,10 +210,11 @@ const embedUrl = computed(() => {
                 {{ tab.label }}
               </button>
             </div>
+            <div v-else class="h-4"></div>
           </div>
 
           <!-- Content -->
-          <div class="p-5 overflow-y-auto">
+          <div class="p-5">
             <!-- ── Info tab ── -->
             <template v-if="!showEventLog || activeTab === 'info'">
               <!-- Stats grid -->
