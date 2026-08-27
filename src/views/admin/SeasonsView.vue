@@ -9,6 +9,7 @@ type Season = {
   name: string
   status: string
   starts_at: string | null
+  image_url: string | null
   bounty_points_pre_merge: number
   bounty_points_post_merge: number
   bounty_points_finale: number
@@ -47,6 +48,7 @@ const form = ref({
   name: '',
   status: 'upcoming',
   starts_at: '',
+  image_url: '',
   bounty_points_pre_merge: 5,
   bounty_points_post_merge: 10,
   bounty_points_finale: 15,
@@ -233,7 +235,11 @@ async function saveSeason() {
   errorMsg.value = ''
   try {
     // starts_at is entered as an ET wall-clock string; store it as a UTC instant.
-    const payload = { ...form.value, starts_at: etInputToIso(form.value.starts_at) }
+    const payload = {
+      ...form.value,
+      starts_at: etInputToIso(form.value.starts_at),
+      image_url: form.value.image_url.trim() || null,
+    }
     let seasonId = editingId.value
 
     if (editingId.value) {
@@ -284,6 +290,7 @@ async function openEdit(season: Season) {
     name: season.name,
     status: season.status,
     starts_at: isoToEtInput(season.starts_at),
+    image_url: season.image_url ?? '',
     bounty_points_pre_merge: season.bounty_points_pre_merge,
     bounty_points_post_merge: season.bounty_points_post_merge,
     bounty_points_finale: season.bounty_points_finale,
@@ -308,6 +315,7 @@ function resetForm() {
     name: '',
     status: 'upcoming',
     starts_at: '',
+    image_url: '',
     bounty_points_pre_merge: 5,
     bounty_points_post_merge: 10,
     bounty_points_finale: 15,
@@ -471,6 +479,31 @@ onMounted(loadSeasons)
                 placeholder="e.g. Survivor 50"
                 class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Season image URL</label>
+              <div class="flex items-center gap-3">
+                <img
+                  v-if="form.image_url.trim()"
+                  :src="form.image_url.trim()"
+                  alt="Season image preview"
+                  class="h-10 w-10 shrink-0 rounded-full border border-gray-200 object-cover"
+                />
+                <span
+                  v-else
+                  class="h-10 w-10 shrink-0 rounded-full border border-gray-200 bg-gray-100"
+                ></span>
+                <input
+                  v-model="form.image_url"
+                  type="url"
+                  placeholder="https://example.com/survivor-51.png"
+                  class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <p class="mt-1 text-xs text-gray-400">
+                Shown in the season selector. Leave blank for a placeholder circle.
+              </p>
             </div>
 
             <div>
