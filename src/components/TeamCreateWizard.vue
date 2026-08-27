@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { supabase } from '../lib/supabase'
 import type { ContestantFull } from '../types/contestant'
 import { getTribeColors } from '../utils/tribeColors'
@@ -70,6 +70,12 @@ const reviewPlayers = computed(() =>
 onMounted(() => {
   const saved = sessionStorage.getItem('pending_league_code')
   if (saved) leagueCode.value = saved
+})
+
+// Each step is a section of the same scrolling page, so moving between them keeps
+// the old scroll position. Reset to the top on every step change.
+watch(step, () => {
+  window.scrollTo(0, 0)
 })
 
 function toggle(id: string) {
