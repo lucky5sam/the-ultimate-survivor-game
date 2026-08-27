@@ -96,7 +96,7 @@ onUnmounted(() => {
 <template>
   <div
     v-if="inviteOpen && !ui.wizardActive && ui.hasTeam === true"
-    class="mx-auto w-full max-w-3xl px-4 pt-6 sm:px-6"
+    class="mx-auto w-full max-w-5xl pt-6"
   >
     <div
       class="flex flex-col-reverse items-start gap-6 overflow-hidden rounded-lg border border-border-subtle bg-surface-default p-6 sm:flex-row sm:justify-between"

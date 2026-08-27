@@ -7,7 +7,6 @@ import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../stores/auth'
 import { useSeasonStore } from '../stores/season'
 import { useUiStore } from '../stores/ui'
-import InviteBanner from '../components/InviteBanner.vue'
 import SeasonSelect from '../components/SeasonSelect.vue'
 
 const auth = useAuthStore()
@@ -101,7 +100,7 @@ async function handleSignOut() {
     </RouterLink>
 
     <header
-      class="bg-surface-default border-b border-border-subtle px-6 py-4 flex items-center justify-between shrink-0"
+      class="bg-surface-page border-b border-border-subtle px-6 py-4 flex items-center justify-between shrink-0"
     >
       <h1 class="text-xl font-bold text-text-default">The Ultimate Survivor Game</h1>
       <div class="flex items-center gap-4 text-sm">
@@ -117,7 +116,7 @@ async function handleSignOut() {
           <button
             @click="userMenuOpen = !userMenuOpen"
             :aria-label="ownerName || 'Account'"
-            class="flex h-9 w-9 items-center justify-center rounded-full bg-surface-accent text-sm font-semibold text-text-accent transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-accent"
+            class="flex h-9 w-9 items-center justify-center rounded-full bg-surface-subtle text-sm font-semibold text-text-subtle transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-accent"
           >
             {{ userInitials }}
           </button>
@@ -158,13 +157,13 @@ async function handleSignOut() {
     <!-- Primary tabs (desktop) — hidden until the user has a team this season -->
     <nav
       v-if="showTabs"
-      class="hidden shrink-0 border-b border-border-subtle bg-surface-default px-6 sm:flex"
+      class="hidden shrink-0 border-b border-border-subtle bg-surface-page px-6 sm:flex"
     >
       <RouterLink
         v-for="t in tabs"
         :key="t.to"
         :to="t.to"
-        class="relative px-4 py-3 text-sm font-medium transition-colors"
+        class="relative mr-4 py-3 text-sm font-medium transition-colors"
         :class="
           route.path === t.to ? 'text-text-accent' : 'text-text-muted hover:text-text-default'
         "
@@ -234,7 +233,6 @@ async function handleSignOut() {
           <SeasonSelect />
         </div>
       </div>
-      <InviteBanner />
       <RouterView />
     </main>
   </div>

@@ -29,6 +29,7 @@ import { loadTribeColors } from '../utils/tribeColors'
 import { fullName, displayName } from '../utils/contestantName'
 import type { ContestantFull } from '../types/contestant'
 import type { BountyHistoryRow } from '../types/bounty'
+import InviteBanner from '../components/InviteBanner.vue'
 
 type Season = {
   id: string
@@ -864,7 +865,7 @@ onUnmounted(() => {
             <p class="text-xs font-medium text-text-subtle">Place</p>
             <p class="mt-0.5 text-2xl font-bold text-text-default">{{ ordinal(myRank ?? 0) }}</p>
             <p class="mt-2 text-xs text-text-muted">
-              out of {{ totalTeams }} team{{ totalTeams !== 1 ? 's' : '' }}
+             {{ totalTeams }} total teams
             </p>
           </BaseCard>
           <BaseCard
@@ -879,10 +880,10 @@ onUnmounted(() => {
             <p class="text-xs font-medium text-text-subtle">Score</p>
             <p class="mt-0.5 text-2xl font-bold text-text-default">{{ fmtPts(myScore ?? 0) }}</p>
             <p v-if="myRank === 1" class="mt-2 text-xs text-text-muted">
-              {{ fmtPts(pointsAheadOfSecond) }} points ahead of 2nd Place
+              {{ fmtPts(pointsAheadOfSecond) }} points ahead
             </p>
             <p v-else class="mt-2 text-xs text-text-muted">
-              {{ fmtPts(pointsFromFirst) }} points out of 1st Place
+              {{ fmtPts(pointsFromFirst) }} points behind 1st
             </p>
           </BaseCard>
         </div>
@@ -968,6 +969,7 @@ onUnmounted(() => {
         </BountyHistoryList>
 
         <p v-if="existingTeam && errorMsg" class="text-status-error text-sm mt-4">{{ errorMsg }}</p>
+        <InviteBanner />
       </template>
     </div>
 
