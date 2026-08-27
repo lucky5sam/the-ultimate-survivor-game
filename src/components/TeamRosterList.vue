@@ -28,11 +28,21 @@ const props = withDefaults(
     chipInteractive?: boolean
     emptyText?: string
     showScores?: boolean
+    detailsInteractive?: boolean
   }>(),
-  { title: 'Roster', chipInteractive: false, emptyText: 'No roster set.', showScores: true },
+  {
+    title: 'Roster',
+    chipInteractive: false,
+    emptyText: 'No roster set.',
+    showScores: true,
+    detailsInteractive: false,
+  },
 )
 
-const emit = defineEmits<{ 'chip-click': [player: ActivePlayer, event: MouseEvent] }>()
+const emit = defineEmits<{
+  'chip-click': [player: ActivePlayer, event: MouseEvent]
+  'open-details': [contestantId: string]
+}>()
 
 function fmtPts(n: number) {
   return n.toFixed(1)
@@ -112,25 +122,36 @@ function playerStatus(id: string): { out: boolean; ep: number | null } {
           >{{ positionLabel[player.contestant_id] }}</span
         >
 
-        <ContestantAvatar
-          :photo-url="contestantPhoto(player.contestant_id)"
-          :name="contestantName(player.contestant_id)"
-          :tribe="contestantTribe(player.contestant_id)"
-          show-tribe
-        />
-        <div>
-          <p class="text-sm font-medium leading-tight">
-            <span class="text-text-default">{{ contestantFirstName(player.contestant_id) }}</span>
-            <span
-              v-if="contestantLastName(player.contestant_id)"
-              class="ml-1 hidden text-text-subtle sm:inline"
-              >{{ contestantLastName(player.contestant_id) }}</span
-            >
-          </p>
-          <div class="mt-0.5 text-xs text-text-muted">
-            Ep {{ player.effective_from_episode }}–now
+        <component
+          :is="detailsInteractive ? 'button' : 'div'"
+          :class="[
+            'flex items-center gap-3 text-left',
+            detailsInteractive
+              ? '-mx-1 cursor-pointer rounded-md px-1 py-0.5 transition-colors hover:bg-surface-subtle'
+              : '',
+          ]"
+          @click="detailsInteractive && emit('open-details', player.contestant_id)"
+        >
+          <ContestantAvatar
+            :photo-url="contestantPhoto(player.contestant_id)"
+            :name="contestantName(player.contestant_id)"
+            :tribe="contestantTribe(player.contestant_id)"
+            show-tribe
+          />
+          <div>
+            <p class="text-sm font-medium leading-tight">
+              <span class="text-text-default">{{ contestantFirstName(player.contestant_id) }}</span>
+              <span
+                v-if="contestantLastName(player.contestant_id)"
+                class="ml-1 hidden text-text-subtle sm:inline"
+                >{{ contestantLastName(player.contestant_id) }}</span
+              >
+            </p>
+            <div class="mt-0.5 text-xs text-text-muted">
+              Ep {{ player.effective_from_episode }}–now
+            </div>
           </div>
-        </div>
+        </component>
       </div>
       <div v-if="showScores" class="text-right">
         <p class="text-sm font-semibold tabular-nums text-text-default">

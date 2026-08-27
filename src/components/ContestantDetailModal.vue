@@ -1,17 +1,80 @@
 <script setup lang="ts">
 import { getTribeColors } from '../utils/tribeColors'
-import { computed } from 'vue'
+import { computed, ref, watch, onUnmounted } from 'vue'
 import type { ContestantFull } from '../types/contestant'
 
-const props = defineProps<{
-  contestant: ContestantFull | null
-  show: boolean
-  seasonName?: string
-}>()
+// One scored action for the Event Log tab. `points` is the per-action value and
+// `count` how many times it happened that episode; the line total is points×count.
+export type ContestantEventItem = {
+  episodeNumber: number
+  label: string
+  points: number
+  count: number
+}
+
+const props = withDefaults(
+  defineProps<{
+    contestant: ContestantFull | null
+    show: boolean
+    seasonName?: string
+    // When set, the modal shows Info / Event Log tabs. The parent supplies the
+    // events (fetched on open) and the loading flag. Off by default so the
+    // wizard's info-only usage is unchanged.
+    showEventLog?: boolean
+    events?: ContestantEventItem[]
+    eventsLoading?: boolean
+  }>(),
+  { showEventLog: false, events: () => [], eventsLoading: false },
+)
 
 const emit = defineEmits<{ close: [] }>()
 
 const colors = computed(() => (props.contestant ? getTribeColors(props.contestant.tribe) : null))
+
+// Lock background scroll while the modal is open, restoring it on close/unmount.
+watch(
+  () => props.show,
+  (open) => {
+    document.body.style.overflow = open ? 'hidden' : ''
+  },
+)
+onUnmounted(() => {
+  document.body.style.overflow = ''
+})
+
+const activeTab = ref<'info' | 'events'>('info')
+// Always land on Info when the modal opens or the contestant changes.
+watch(
+  () => [props.show, props.contestant?.id],
+  () => {
+    activeTab.value = 'info'
+  },
+)
+
+// Events grouped by episode, newest first, with a per-episode point subtotal.
+const eventsByEpisode = computed(() => {
+  const groups = new Map<number, ContestantEventItem[]>()
+  for (const e of props.events) {
+    if (!groups.has(e.episodeNumber)) groups.set(e.episodeNumber, [])
+    groups.get(e.episodeNumber)!.push(e)
+  }
+  return [...groups.entries()]
+    .sort((a, b) => b[0] - a[0])
+    .map(([episodeNumber, items]) => ({
+      episodeNumber,
+      items,
+      subtotal: items.reduce((s, i) => s + i.points * i.count, 0),
+    }))
+})
+
+function fmtPts(n: number) {
+  const s = n.toFixed(1)
+  return n > 0 ? `+${s}` : s
+}
+
+// The header shows the alt image when set, falling back to the main photo. It's
+// cropped to cover, anchored to the top so the contestant's face stays in frame.
+const headerImage = computed(() => props.contestant?.alt_image ?? props.contestant?.photo_url ?? null)
 
 // Turn any common YouTube link (watch?v=, youtu.be/, /embed/, /shorts/) into a
 // privacy-friendly embed URL. Returns null for empty or unrecognized values so
@@ -42,12 +105,12 @@ const embedUrl = computed(() => {
           class="bg-stone-900 rounded-2xl border border-stone-700 w-full max-w-md overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
         >
           <!-- Photo header -->
-          <div class="relative h-72 shrink-0 bg-stone-800">
+          <div class="relative h-72 shrink-0 overflow-hidden bg-stone-800">
             <img
-              v-if="contestant.photo_url"
-              :src="contestant.photo_url"
+              v-if="headerImage"
+              :src="headerImage"
               :alt="contestant.name"
-              class="w-full h-full object-cover object-top"
+              class="absolute inset-0 h-full w-full object-cover object-[center_10%]"
             />
             <div v-else class="absolute inset-0 flex items-center justify-center">
               <svg class="w-24 h-24 text-stone-600" fill="currentColor" viewBox="0 0 24 24">
@@ -81,10 +144,12 @@ const embedUrl = computed(() => {
             </button>
           </div>
 
-          <!-- Content -->
-          <div class="p-5 overflow-y-auto">
-            <div class="mb-4">
-              <h2 class="text-2xl font-bold text-white">{{ contestant.name }}</h2>
+          <!-- Pinned identity + tabs: stays put while the tab content scrolls -->
+          <div class="shrink-0 border-b border-stone-800">
+            <div class="px-5 pt-4" :class="showEventLog ? 'pb-3' : 'pb-4'">
+              <h2 class="text-2xl font-bold text-white">
+                {{ contestant.name }}<span v-if="contestant.age">, {{ contestant.age }}</span>
+              </h2>
               <div class="flex items-center gap-2 mt-1 flex-wrap">
                 <span class="text-sm font-semibold" :style="{ color: colors?.text }">{{
                   contestant.tribe
@@ -93,38 +158,49 @@ const embedUrl = computed(() => {
               </div>
             </div>
 
-            <!-- Stats grid -->
-            <div class="grid grid-cols-3 gap-2 mb-4">
-              <div class="bg-stone-800 rounded-xl p-3 text-center">
-                <p class="text-xs text-stone-500 mb-1 uppercase tracking-wide">Age</p>
-                <p class="font-bold text-white text-lg leading-none">{{ contestant.age ?? '—' }}</p>
-              </div>
-              <div class="bg-stone-800 rounded-xl p-3 text-center">
+            <!-- Tabs -->
+            <div v-if="showEventLog" class="flex gap-6 px-5">
+              <button
+                v-for="tab in [
+                  { id: 'info', label: 'Info' },
+                  { id: 'events', label: 'Event Log' },
+                ]"
+                :key="tab.id"
+                class="-mb-px border-b-2 pb-2 text-sm font-semibold transition-colors"
+                :class="
+                  activeTab === tab.id
+                    ? 'border-white text-white'
+                    : 'border-transparent text-stone-500 hover:text-stone-300'
+                "
+                @click="activeTab = tab.id as 'info' | 'events'"
+              >
+                {{ tab.label }}
+              </button>
+            </div>
+          </div>
+
+          <!-- Content -->
+          <div class="p-5 overflow-y-auto">
+            <!-- ── Info tab ── -->
+            <template v-if="!showEventLog || activeTab === 'info'">
+              <!-- Stats grid -->
+              <div class="grid grid-cols-2 gap-2 mb-4">
+              <div class="bg-stone-800 rounded-lg p-3 text-left">
                 <p class="text-xs text-stone-500 mb-1 uppercase tracking-wide">Hometown</p>
-                <p class="font-semibold text-white text-xs leading-snug">
+                <p class="font-semibold text-white text-sm leading-snug line-clamp-2">
                   {{ contestant.hometown ?? 'TBD' }}
                 </p>
               </div>
-              <div class="bg-stone-800 rounded-xl p-3 text-center">
+              <div class="bg-stone-800 rounded-lg p-3 text-left">
                 <p class="text-xs text-stone-500 mb-1 uppercase tracking-wide">Occupation</p>
-                <p class="font-semibold text-white text-xs leading-snug">
+                <p class="font-semibold text-white text-sm leading-snug line-clamp-2">
                   {{ contestant.occupation ?? 'TBD' }}
                 </p>
               </div>
             </div>
 
-            <!-- Bio -->
-            <div class="bg-stone-800 rounded-xl p-4">
-              <p class="text-xs text-stone-500 mb-2 uppercase tracking-wide">About</p>
-              <p class="text-sm text-stone-200 leading-relaxed">
-                {{
-                  contestant.bio ?? 'No bio available yet. Check back after the season premieres.'
-                }}
-              </p>
-            </div>
-
             <!-- Video -->
-            <div v-if="embedUrl" class="mt-4">
+            <div v-if="embedUrl" class="mb-4">
               <p class="text-xs text-stone-500 mb-2 uppercase tracking-wide">Video</p>
               <div class="relative aspect-video overflow-hidden rounded-xl bg-stone-800">
                 <iframe
@@ -137,6 +213,63 @@ const embedUrl = computed(() => {
                 />
               </div>
             </div>
+
+              <!-- Bio -->
+              <div class="bg-stone-800 rounded-xl p-4">
+                <p class="text-xs text-stone-500 mb-2 uppercase tracking-wide">About</p>
+                <p class="text-sm text-stone-200 leading-relaxed">
+                  {{
+                    contestant.bio ?? 'No bio available yet. Check back after the season premieres.'
+                  }}
+                </p>
+              </div>
+            </template>
+
+            <!-- ── Event Log tab ── -->
+            <template v-else>
+              <div v-if="eventsLoading" class="py-8 text-center text-sm text-stone-500">
+                Loading events…
+              </div>
+              <div
+                v-else-if="eventsByEpisode.length === 0"
+                class="py-8 text-center text-sm text-stone-500"
+              >
+                No scored events yet.
+              </div>
+              <div v-else class="space-y-4">
+                <div v-for="group in eventsByEpisode" :key="group.episodeNumber">
+                  <div class="mb-2 flex items-center justify-between">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-stone-500">
+                      Episode {{ group.episodeNumber }}
+                    </p>
+                    <p
+                      class="text-xs font-semibold tabular-nums"
+                      :class="group.subtotal >= 0 ? 'text-emerald-400' : 'text-red-400'"
+                    >
+                      {{ fmtPts(group.subtotal) }}
+                    </p>
+                  </div>
+                  <div class="overflow-hidden rounded-xl bg-stone-800">
+                    <div
+                      v-for="(item, i) in group.items"
+                      :key="i"
+                      class="flex items-center justify-between border-b border-stone-700/60 px-3 py-2 last:border-0"
+                    >
+                      <p class="text-sm text-stone-200">
+                        {{ item.label }}
+                        <span v-if="item.count > 1" class="text-stone-500">×{{ item.count }}</span>
+                      </p>
+                      <p
+                        class="text-sm font-semibold tabular-nums"
+                        :class="item.points >= 0 ? 'text-emerald-400' : 'text-red-400'"
+                      >
+                        {{ fmtPts(item.points * item.count) }}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </template>
           </div>
         </div>
       </div>

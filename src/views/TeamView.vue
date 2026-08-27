@@ -13,6 +13,9 @@ import ContestantCard from '../components/ContestantCard.vue'
 import TeamRosterList from '../components/TeamRosterList.vue'
 import BountyHistoryList from '../components/BountyHistoryList.vue'
 import ScoreBreakdownModal from '../components/ScoreBreakdownModal.vue'
+import ContestantDetailModal, {
+  type ContestantEventItem,
+} from '../components/ContestantDetailModal.vue'
 import BaseButton from '../components/base/BaseButton.vue'
 import BaseCard from '../components/base/BaseCard.vue'
 import BaseModal from '../components/base/BaseModal.vue'
@@ -106,6 +109,11 @@ const pointsAheadOfSecond = computed(() => Math.max(0, (myScore.value ?? 0) - se
 const myPlayerPoints = ref<Record<string, number>>({})
 const breakdown = ref<TeamBreakdown | null>(null)
 const breakdownLoading = ref(false)
+
+// Contestant detail modal (opened from a roster row's name/avatar).
+const detailContestant = ref<ContestantFull | null>(null)
+const detailEvents = ref<ContestantEventItem[]>([])
+const detailEventsLoading = ref(false)
 
 function fmtPts(n: number) {
   return n.toFixed(1)
@@ -523,6 +531,37 @@ async function openBreakdown() {
   }
 }
 
+// Open the contestant detail modal for a roster player and load their scored
+// actions across this season's episodes (the Event Log tab). Read-only; failure
+// just leaves an empty log.
+async function openContestantDetails(contestantId: string) {
+  const c = allContestants.value.find((x) => x.id === contestantId) ?? null
+  if (!c) return
+  detailContestant.value = c
+  detailEvents.value = []
+  detailEventsLoading.value = true
+  try {
+    const epNumById = Object.fromEntries(allEpisodes.value.map((e) => [e.id, e.number]))
+    const episodeIds = allEpisodes.value.map((e) => e.id)
+    if (episodeIds.length === 0) return
+    const { data } = await supabase
+      .from('contestant_actions')
+      .select('episode_id, count, action_types(type, points)')
+      .eq('contestant_id', contestantId)
+      .in('episode_id', episodeIds)
+    detailEvents.value = (data ?? []).map((a: any) => ({
+      episodeNumber: epNumById[a.episode_id] ?? 0,
+      label: (a.action_types as { type: string } | null)?.type ?? 'Action',
+      points: (a.action_types as { points: number } | null)?.points ?? 0,
+      count: a.count ?? 1,
+    }))
+  } catch {
+    detailEvents.value = []
+  } finally {
+    detailEventsLoading.value = false
+  }
+}
+
 function openBountyModal() {
   newBountyContestantId.value = currentBountyPick.value?.contestant_id ?? null
   changingBounty.value = true
@@ -853,7 +892,9 @@ onUnmounted(() => {
           :episodes="allEpisodes"
           :points-by-id="myPlayerPoints"
           :chip-interactive="canManageRoster"
+          details-interactive
           @chip-click="toggleMenu"
+          @open-details="openContestantDetails"
         >
           <template #header-actions>
             <BaseButton v-if="canManageRoster" variant="secondary" size="sm" @click="openEditRoster"
@@ -930,6 +971,17 @@ onUnmounted(() => {
       :loading="breakdownLoading"
       :breakdown="breakdown"
       @close="breakdownModalOpen = false"
+    />
+
+    <!-- Contestant detail modal (Info + Event Log) -->
+    <ContestantDetailModal
+      :contestant="detailContestant"
+      :show="!!detailContestant"
+      :season-name="currentSeason?.name"
+      show-event-log
+      :events="detailEvents"
+      :events-loading="detailEventsLoading"
+      @close="detailContestant = null"
     />
 
     <!-- Swap modal -->
