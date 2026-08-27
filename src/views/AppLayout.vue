@@ -143,11 +143,20 @@ async function handleSignOut() {
     >
       <button
         @click="menuOpen = !menuOpen"
-        class="flex w-full items-center justify-between rounded-md border border-interactive-input-border bg-interactive-input px-3 py-2 text-sm font-medium text-text-default"
+        class="flex min-h-12 w-full items-center gap-2.5 rounded-md border border-interactive-input-border bg-interactive-input px-3 py-2 text-left text-sm font-medium text-text-default transition-colors hover:border-border-strong focus:outline-none focus-visible:ring-2 focus-visible:ring-border-accent"
       >
-        {{ activeTab.label }}
         <svg
-          class="h-4 w-4 text-icon-subtle transition-transform"
+          class="h-5 w-5 shrink-0 text-icon-subtle"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+        <span class="flex-1 truncate">{{ activeTab.label }}</span>
+        <svg
+          class="h-4 w-4 shrink-0 text-icon-subtle transition-transform"
           :class="menuOpen ? 'rotate-180' : ''"
           fill="none"
           viewBox="0 0 24 24"
