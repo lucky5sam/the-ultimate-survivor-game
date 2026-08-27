@@ -3,7 +3,8 @@
 // roster slots (empty = dashed circle with the slot number), a vertical divider,
 // then a 5th bounty slot (empty = dashed circle with "B"). The MVP slot gets a
 // gold ring + crown; the bounty slot gets a red ring. A trailing label is
-// supplied per-step via the default slot.
+// supplied per-step via the default slot. When `teamName` is provided it shows
+// above the slots (left-aligned), falling back to "Team Name" until one is set.
 import { getTribeColors } from '../utils/tribeColors'
 import type { ContestantFull } from '../types/contestant'
 
@@ -11,12 +12,23 @@ defineProps<{
   picks: ContestantFull[] // the selected roster, 0–4 entries
   mvpId: string | null
   bounty: ContestantFull | null
+  teamName?: string
 }>()
 </script>
 
 <template>
-  <div class="mb-3 flex flex-wrap items-center gap-x-2 gap-y-3">
-    <!-- Roster slots -->
+  <div class="mb-3">
+    <!-- Team name above the slots (left-aligned) -->
+    <p
+      v-if="teamName !== undefined"
+      class="mb-2 truncate text-sm font-semibold"
+      :class="teamName ? 'text-text-default' : 'text-text-muted'"
+    >
+      {{ teamName || 'Team Name' }}
+    </p>
+
+    <div class="flex flex-wrap items-center gap-x-2 gap-y-3">
+      <!-- Roster slots -->
     <div v-for="i in 4" :key="i" class="flex w-11 flex-col items-center gap-0.5">
       <template v-if="picks[i - 1]">
         <div class="relative">
@@ -116,8 +128,9 @@ defineProps<{
       </template>
     </div>
 
-    <!-- Per-step trailing content (actions). Hugs the right on wide rows; drops to
-         its own full-width line on mobile so the buttons can stretch. -->
-    <div class="ml-auto w-full sm:w-auto"><slot /></div>
+      <!-- Per-step trailing content (actions). Hugs the right on wide rows; drops to
+           its own full-width line on mobile so the buttons can stretch. -->
+      <div class="ml-auto w-full sm:w-auto"><slot /></div>
+    </div>
   </div>
 </template>

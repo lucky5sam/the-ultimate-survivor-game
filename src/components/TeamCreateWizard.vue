@@ -11,6 +11,7 @@ import WizardPicksStrip from './WizardPicksStrip.vue'
 import BaseButton from './base/BaseButton.vue'
 import BaseInput from './base/BaseInput.vue'
 import ThemeAtmosphere from './decor/ThemeAtmosphere.vue'
+import survivorLogoUrl from '../assets/survivor_51_logo.png'
 
 const props = defineProps<{
   seasonId: string
@@ -221,29 +222,27 @@ async function lockIn() {
       <!-- ── Step 1: League Code ── -->
       <template v-if="step === 1">
         <div class="mx-auto w-full max-w-5xl">
-          <h2 class="text-xl font-bold text-text-default mb-1">Enter League Code</h2>
-          <p class="text-text-subtle text-sm mb-6">
-            Ask your league admin for the code to join {{ seasonName }}.
-          </p>
-          <BaseInput
-            v-model="leagueCode"
-            size="lg"
-            class="max-w-md"
-            placeholder="Enter code…"
-            :error="errorMsg"
-            @keyup.enter="nextStep"
-          />
-        </div>
-
-        <!-- Sticky footer: single full-width action -->
-        <div
-          class="sticky bottom-0 z-30 -mx-8 -mb-16 mt-auto border-t border-border-subtle bg-surface-page/95 px-8 py-3 backdrop-blur sm:-mx-12 sm:px-12 lg:-mx-20 lg:px-20"
-        >
-          <div class="mx-auto w-full max-w-5xl">
-            <BaseButton
-              block
+          <div class="rounded-lg border border-border-subtle bg-surface-default p-6 sm:p-8">
+            <img
+              :src="survivorLogoUrl"
+              alt="Survivor 51"
+              class="pointer-events-none mb-4 h-20 w-auto select-none sm:h-24"
+            />
+            <h2 class="text-xl font-bold text-text-default mb-1">Enter League Code</h2>
+            <p class="text-text-subtle text-sm mb-6">
+              Ask your league admin for the code to join {{ seasonName }}.
+            </p>
+            <BaseInput
+              v-model="leagueCode"
               size="lg"
               class="max-w-md"
+              placeholder="Enter code…"
+              :error="errorMsg"
+              @keyup.enter="nextStep"
+            />
+            <BaseButton
+              size="lg"
+              class="mt-4"
               :loading="loading"
               :disabled="!leagueCode.trim()"
               @click="nextStep"
@@ -269,18 +268,35 @@ async function lockIn() {
           />
         </div>
 
-        <!-- Sticky footer: Back + Continue -->
+        <!-- Sticky footer: pick strip (empty here) with team name + actions -->
         <div
           class="sticky bottom-0 z-30 -mx-8 -mb-16 mt-auto border-t border-border-subtle bg-surface-page/95 px-8 py-3 backdrop-blur sm:-mx-12 sm:px-12 lg:-mx-20 lg:px-20"
         >
-          <div class="mx-auto w-full max-w-5xl">
-            <div class="flex max-w-md gap-3">
-              <BaseButton variant="secondary" size="lg" @click="step--">Back</BaseButton>
-              <BaseButton size="lg" class="flex-1" :disabled="!teamName.trim()" @click="nextStep">
+          <WizardPicksStrip
+            class="mx-auto w-full max-w-5xl"
+            :picks="selectedContestants"
+            :mvp-id="mvpId"
+            :bounty="bountyContestant"
+            :team-name="teamName"
+          >
+            <div class="flex w-full gap-3 sm:w-auto">
+              <BaseButton
+                variant="secondary"
+                size="lg"
+                class="flex-1 sm:flex-none"
+                @click="step--"
+                >Back</BaseButton
+              >
+              <BaseButton
+                size="lg"
+                class="flex-1 sm:flex-none"
+                :disabled="!teamName.trim()"
+                @click="nextStep"
+              >
                 Continue
               </BaseButton>
             </div>
-          </div>
+          </WizardPicksStrip>
         </div>
       </template>
 
@@ -318,6 +334,7 @@ async function lockIn() {
             :picks="selectedContestants"
             :mvp-id="mvpId"
             :bounty="bountyContestant"
+            :team-name="teamName"
           >
             <div class="flex w-full gap-3 sm:w-auto">
               <BaseButton
@@ -374,6 +391,7 @@ async function lockIn() {
             :picks="selectedContestants"
             :mvp-id="mvpId"
             :bounty="bountyContestant"
+            :team-name="teamName"
           >
             <div class="flex w-full gap-3 sm:w-auto">
               <BaseButton
@@ -427,6 +445,7 @@ async function lockIn() {
             :picks="selectedContestants"
             :mvp-id="mvpId"
             :bounty="bountyContestant"
+            :team-name="teamName"
           >
             <div class="flex w-full gap-3 sm:w-auto">
               <BaseButton
