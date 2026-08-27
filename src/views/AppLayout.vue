@@ -187,7 +187,7 @@ async function handleSignOut() {
 
     <main class="flex flex-1 flex-col">
       <!-- League season selector — drives every page's data -->
-      <div class="px-4 pt-4 sm:px-6">
+      <div class="mx-auto w-full max-w-3xl px-4 pt-4 sm:px-6">
         <div class="w-full sm:max-w-xs">
           <SeasonSelect />
         </div>

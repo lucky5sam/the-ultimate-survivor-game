@@ -7,12 +7,14 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { supabase } from '../lib/supabase'
 import { fmtEt } from '../lib/time'
 import { useToast } from '../composables/useToast'
+import { useUiStore } from '../stores/ui'
 import BaseButton from './base/BaseButton.vue'
 import survivorLogoUrl from '../assets/survivor_51_logo.png'
 
 type Season = { id: string; name: string; status: string; starts_at: string | null }
 
 const toast = useToast()
+const ui = useUiStore()
 
 const season = ref<Season | null>(null)
 const leagueCode = ref('')
@@ -92,7 +94,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div v-if="inviteOpen" class="px-4 pt-6 sm:px-6">
+  <div v-if="inviteOpen && !ui.wizardActive" class="mx-auto w-full max-w-3xl px-4 pt-6 sm:px-6">
     <div
       class="flex flex-col-reverse items-start gap-6 overflow-hidden rounded-lg border border-border-subtle bg-surface-default p-6 sm:flex-row sm:justify-between"
     >

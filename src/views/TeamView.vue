@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { fmtEt } from '../lib/time'
 import { useAuthStore } from '../stores/auth'
 import { useSeasonStore } from '../stores/season'
+import { useUiStore } from '../stores/ui'
 import TeamCreateWizard from '../components/TeamCreateWizard.vue'
 import ContestantAvatar from '../components/ContestantAvatar.vue'
 import ContestantSelect from '../components/ContestantSelect.vue'
@@ -69,6 +70,7 @@ const auth = useAuthStore()
 const router = useRouter()
 const toast = useToast()
 const seasonStore = useSeasonStore()
+const uiStore = useUiStore()
 
 // Season list + selection live in the shared store (driven by the top-of-page
 // season selector). Aliased here so the rest of this view is unchanged.
@@ -355,6 +357,15 @@ function registrationOpenFor(s: Season | null): boolean {
 }
 // Gate for the wizard/closed message on the season being viewed.
 const registrationOpen = computed(() => registrationOpenFor(currentSeason.value))
+// The full-page team-creation wizard is showing (mirrors the template branch).
+// Published to the UI store so global chrome (invite banner) can hide behind it.
+const showWizard = computed(
+  () => !loading.value && seasons.value.length > 0 && !existingTeam.value && registrationOpen.value,
+)
+watch(showWizard, (v) => (uiStore.wizardActive = v), { immediate: true })
+onUnmounted(() => {
+  uiStore.wizardActive = false
+})
 const seasonStartDisplay = computed(() =>
   currentSeason.value?.starts_at ? fmtEt(currentSeason.value.starts_at) : null,
 )
