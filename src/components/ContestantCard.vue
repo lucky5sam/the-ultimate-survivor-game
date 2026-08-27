@@ -112,11 +112,10 @@ const cardStyle = computed(() => ({
       </svg>
     </div>
 
-    <!-- Info button (visible on hover) -->
+    <!-- Info button — always visible so it's tappable on touch devices -->
     <button
       v-if="!disabled"
-      class="absolute top-2 right-2 w-7 h-7 bg-black/60 hover:bg-black/90 rounded-full flex items-center justify-center text-white z-10 transition-opacity duration-200"
-      :class="hovered ? 'opacity-100' : 'opacity-0'"
+      class="absolute top-2 right-2 w-7 h-7 bg-black/60 hover:bg-black/90 rounded-full flex items-center justify-center text-white z-10"
       @click.stop="emit('view-details')"
     >
       <svg
