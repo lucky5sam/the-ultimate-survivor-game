@@ -47,6 +47,8 @@
   --color-surface-strong: #e7e5e4;
   --color-surface-overlay: #ffffff;
   --color-surface-accent: #fff7ed;
+  /* Subtle gold wash to flag the viewer's own row (leaderboard). */
+  --color-surface-highlight: #fbf3e0;
   --color-surface-inverse: #1c1917;
 
   /* border — outlines and dividers */
@@ -219,6 +221,7 @@
     --color-surface-strong: #44403c;
     --color-surface-overlay: #1c1917;
     --color-surface-accent: #431407;
+    --color-surface-highlight: #2b2417;
     --color-surface-inverse: #fafaf9;
 
     /* border */

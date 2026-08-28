@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase'
-import { displayName } from '../utils/contestantName'
+import { displayName, shortName } from '../utils/contestantName'
 
 // Shared client-side scoring. Used by the leaderboard and the Team page so the
 // two never drift. Throws on query error; caller handles messaging.
@@ -20,12 +20,17 @@ type TeamPlayerRecord = {
 export type LeaderboardPlayer = {
   contestantId: string
   name: string
+  photoUrl: string | null
+  tribe: string
   isMvp: boolean
   points: number
+  out: boolean
 }
 export type LeaderboardRow = {
   teamId: string
   teamName: string | null
+  teamImageUrl: string | null
+  ownerId: string
   ownerName: string
   players: LeaderboardPlayer[]
   actionPoints: number
@@ -52,7 +57,7 @@ export async function computeLeaderboard(seasonId: string): Promise<LeaderboardR
       .eq('season_id', seasonId)
       .order('number'),
     supabase.from('contestants').select('id, eliminated_episode_id').eq('season_id', seasonId),
-    supabase.from('teams').select('id, team_name, user_id').eq('season_id', seasonId),
+    supabase.from('teams').select('id, team_name, team_image_url, user_id').eq('season_id', seasonId),
     supabase
       .from('bounty_picks')
       .select('team_id, contestant_id, effective_from_episode')
@@ -85,9 +90,12 @@ export async function computeLeaderboard(seasonId: string): Promise<LeaderboardR
 
   // Eliminations are the source of truth for regular-episode bounties.
   const eliminatedByEpisode: Record<string, Set<string>> = {}
+  const eliminatedContestants = new Set<string>()
   for (const c of elimRes.data ?? []) {
-    if (c.eliminated_episode_id)
-      (eliminatedByEpisode[c.eliminated_episode_id] ??= new Set()).add(c.id)
+    if (c.eliminated_episode_id) {
+      ;(eliminatedByEpisode[c.eliminated_episode_id] ??= new Set()).add(c.id)
+      eliminatedContestants.add(c.id)
+    }
   }
 
   const teams = teamsRes.data ?? []
@@ -157,13 +165,28 @@ export async function computeLeaderboard(seasonId: string): Promise<LeaderboardR
       ...(bountyRes.data ?? []).map((p) => p.contestant_id),
     ]),
   ]
+  // Full name for the bounty column; condensed (preferred/first) name for the
+  // player columns, which are tight on horizontal space.
   const contestantNameMap: Record<string, string> = {}
+  const contestantShortNameMap: Record<string, string> = {}
+  const contestantPhotoMap: Record<string, string | null> = {}
+  const contestantTribeMap: Record<string, string> = {}
   if (contestantIds.length > 0) {
     const { data: nameData } = await supabase
       .from('contestants')
-      .select('id, first_name, last_name, preferred_name')
+      .select(
+        'id, first_name, last_name, preferred_name, photo_url, contestant_tribe_assignments(tribe, effective_from_episode)',
+      )
       .in('id', contestantIds)
-    for (const c of nameData ?? []) contestantNameMap[c.id] = displayName(c)
+    for (const c of nameData ?? []) {
+      contestantNameMap[c.id] = displayName(c)
+      contestantShortNameMap[c.id] = shortName(c)
+      contestantPhotoMap[c.id] = c.photo_url ?? null
+      // Match the roster view: use the starting (episode 1) tribe assignment.
+      contestantTribeMap[c.id] =
+        ((c.contestant_tribe_assignments as { tribe: string; effective_from_episode: number }[]) ??
+          []).find((a) => a.effective_from_episode === 1)?.tribe ?? 'Unknown'
+    }
   }
 
   // Bounty points per team. Regular episodes: hit if the pick was eliminated
@@ -230,9 +253,12 @@ export async function computeLeaderboard(seasonId: string): Promise<LeaderboardR
         .filter(([, v]) => v.active)
         .map(([contestantId, v]) => ({
           contestantId,
-          name: contestantNameMap[contestantId] ?? '?',
+          name: contestantShortNameMap[contestantId] ?? '?',
+          photoUrl: contestantPhotoMap[contestantId] ?? null,
+          tribe: contestantTribeMap[contestantId] ?? 'Unknown',
           isMvp: v.isMvp,
           points: v.pts,
+          out: eliminatedContestants.has(contestantId),
         }))
         .sort((a, b) => b.points - a.points)
 
@@ -257,6 +283,8 @@ export async function computeLeaderboard(seasonId: string): Promise<LeaderboardR
       return {
         teamId: team.id,
         teamName: team.team_name,
+        teamImageUrl: team.team_image_url,
+        ownerId: team.user_id,
         ownerName: ownerNameMap[team.user_id] ?? '',
         players,
         actionPoints,
