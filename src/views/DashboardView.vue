@@ -43,7 +43,7 @@ onMounted(() => seasonStore.load())
 </script>
 
 <template>
-  <div class="mx-auto w-full max-w-3xl px-6 py-8">
+  <div class="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6">
     <h2 class="mb-6 text-2xl font-bold text-text-default">Dashboard</h2>
 
     <p v-if="errorMsg" class="mb-4 text-sm text-status-error">{{ errorMsg }}</p>

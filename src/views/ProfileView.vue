@@ -186,7 +186,7 @@ async function changePassword() {
 </script>
 
 <template>
-  <div class="mx-auto w-full max-w-lg px-6 py-8">
+  <div class="mx-auto w-full max-w-lg px-4 py-8 sm:px-6">
     <h2 class="mb-6 text-2xl font-bold text-text-default">Account</h2>
 
     <!-- Profile photo -->

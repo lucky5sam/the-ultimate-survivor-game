@@ -346,16 +346,18 @@ onUnmounted(() => {
       </button>
     </div>
 
-    <div v-if="loading" class="mx-auto max-w-3xl px-6 py-8 text-sm text-text-muted">Loading…</div>
+    <div v-if="loading" class="mx-auto max-w-3xl px-4 py-8 text-sm text-text-muted sm:px-6">
+      Loading…
+    </div>
 
-    <div v-else-if="errorMsg" class="mx-auto max-w-md px-6 py-16 text-center">
+    <div v-else-if="errorMsg" class="mx-auto max-w-md px-4 py-16 text-center sm:px-6">
       <h2 class="text-xl font-bold text-text-default">{{ errorMsg }}</h2>
       <BaseButton variant="secondary" class="mt-6" @click="router.push('/leaderboard')">
         Back to Leaderboard
       </BaseButton>
     </div>
 
-    <div v-else class="mx-auto w-full max-w-3xl px-6 py-8">
+    <div v-else class="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6">
       <!-- Team header -->
       <div class="mb-6">
         <h2 class="text-2xl font-bold text-text-default">{{ teamName || '(no name)' }}</h2>

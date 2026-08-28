@@ -861,10 +861,12 @@ onUnmounted(() => {
     </div>
 
     <!-- Loading -->
-    <div v-if="loading" class="max-w-3xl mx-auto px-6 py-8 text-text-muted text-sm">Loading…</div>
+    <div v-if="loading" class="max-w-3xl mx-auto px-4 py-8 text-text-muted text-sm sm:px-6">
+      Loading…
+    </div>
 
     <template v-else-if="seasons.length === 0">
-      <div class="max-w-3xl mx-auto px-4 py-6 text-text-subtle text-sm">
+      <div class="max-w-3xl mx-auto px-4 py-6 text-text-subtle text-sm sm:px-6">
         No active seasons right now. Check back soon!
       </div>
     </template>
@@ -882,7 +884,7 @@ onUnmounted(() => {
     </template>
 
     <!-- Registration closed: no team and the season has already started -->
-    <div v-else-if="!existingTeam" class="max-w-md mx-auto px-6 py-16 text-center">
+    <div v-else-if="!existingTeam" class="max-w-md mx-auto px-4 py-16 text-center sm:px-6">
       <div
         class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-surface-subtle"
       >
@@ -912,7 +914,7 @@ onUnmounted(() => {
     </div>
 
     <!-- Constrained team management view when team exists -->
-    <div v-else class="max-w-3xl mx-auto px-6 py-8 w-full">
+    <div v-else class="max-w-3xl mx-auto px-4 py-8 w-full sm:px-6">
       <template v-if="seasons.length > 0">
         <!-- Team header — team photo beside the team name (primary identity) -->
         <div class="mb-6 flex items-center gap-4">
