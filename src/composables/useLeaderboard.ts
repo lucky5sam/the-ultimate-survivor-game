@@ -30,6 +30,8 @@ export type LeaderboardRow = {
   teamId: string
   teamName: string | null
   teamImageUrl: string | null
+  teamEmoji: string | null
+  teamColor: string | null
   ownerId: string
   ownerName: string
   players: LeaderboardPlayer[]
@@ -57,7 +59,10 @@ export async function computeLeaderboard(seasonId: string): Promise<LeaderboardR
       .eq('season_id', seasonId)
       .order('number'),
     supabase.from('contestants').select('id, eliminated_episode_id').eq('season_id', seasonId),
-    supabase.from('teams').select('id, team_name, team_image_url, user_id').eq('season_id', seasonId),
+    supabase
+      .from('teams')
+      .select('id, team_name, team_image_url, team_emoji, team_color, user_id')
+      .eq('season_id', seasonId),
     supabase
       .from('bounty_picks')
       .select('team_id, contestant_id, effective_from_episode')
@@ -284,6 +289,8 @@ export async function computeLeaderboard(seasonId: string): Promise<LeaderboardR
         teamId: team.id,
         teamName: team.team_name,
         teamImageUrl: team.team_image_url,
+        teamEmoji: team.team_emoji,
+        teamColor: team.team_color,
         ownerId: team.user_id,
         ownerName: ownerNameMap[team.user_id] ?? '',
         players,

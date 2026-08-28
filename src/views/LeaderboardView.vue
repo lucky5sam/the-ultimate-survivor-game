@@ -5,6 +5,7 @@ import { useSeasonStore } from '../stores/season'
 import { useAuthStore } from '../stores/auth'
 import BaseCard from '../components/base/BaseCard.vue'
 import ContestantAvatar from '../components/ContestantAvatar.vue'
+import TeamAvatar from '../components/TeamAvatar.vue'
 import { loadTribeColors } from '../utils/tribeColors'
 
 const seasonStore = useSeasonStore()
@@ -100,16 +101,14 @@ onMounted(() => seasonStore.load())
             :class="row.rank === 1 ? 'text-survivor-sand' : 'text-text-subtle'"
             >{{ row.rank }}</span
           >
-          <div
-            class="h-10 w-10 shrink-0 overflow-hidden rounded-sm border border-border-subtle bg-surface-subtle"
-          >
-            <img
-              v-if="row.teamImageUrl"
-              :src="row.teamImageUrl"
-              :alt="row.teamName ?? 'Team'"
-              class="h-full w-full object-cover object-top"
-            />
-          </div>
+          <TeamAvatar
+            :image-url="row.teamImageUrl"
+            :emoji="row.teamEmoji"
+            :color="row.teamColor"
+            :name="row.teamName ?? 'Team'"
+            :size="40"
+            class="rounded-sm border border-border-subtle"
+          />
           <div class="min-w-0 flex-1">
             <p class="truncate font-semibold text-text-default">
               {{ row.teamName ?? '(no name)' }}
@@ -188,16 +187,14 @@ onMounted(() => seasonStore.load())
                     :class="row.rank === 1 ? 'text-survivor-sand' : 'text-text-subtle'"
                     >{{ row.rank }}</span
                   >
-                  <div
-                    class="h-8 w-8 shrink-0 overflow-hidden rounded-sm border border-border-subtle bg-surface-subtle"
-                  >
-                    <img
-                      v-if="row.teamImageUrl"
-                      :src="row.teamImageUrl"
-                      :alt="row.teamName ?? 'Team'"
-                      class="h-full w-full object-cover object-top"
-                    />
-                  </div>
+                  <TeamAvatar
+                    :image-url="row.teamImageUrl"
+                    :emoji="row.teamEmoji"
+                    :color="row.teamColor"
+                    :name="row.teamName ?? 'Team'"
+                    :size="32"
+                    class="rounded-sm border border-border-subtle"
+                  />
                   <div class="min-w-0">
                     <RouterLink
                       :to="`/team/${row.teamId}`"

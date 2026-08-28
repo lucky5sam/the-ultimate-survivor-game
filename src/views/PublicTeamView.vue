@@ -14,6 +14,7 @@ import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../stores/auth'
 import BaseButton from '../components/base/BaseButton.vue'
 import BaseCard from '../components/base/BaseCard.vue'
+import TeamAvatar from '../components/TeamAvatar.vue'
 import TeamRosterList from '../components/TeamRosterList.vue'
 import BountyHistoryList from '../components/BountyHistoryList.vue'
 import ScoreBreakdownModal from '../components/ScoreBreakdownModal.vue'
@@ -58,10 +59,11 @@ const loading = ref(true)
 const errorMsg = ref('')
 
 const teamName = ref<string | null>(null)
+const teamImageUrl = ref<string | null>(null)
+const teamEmoji = ref<string | null>(null)
+const teamColor = ref<string | null>(null)
 const ownerName = ref('')
 const seasonId = ref('')
-const seasonName = ref('')
-const seasonStatus = ref('')
 const currentEpisodeId = ref<string | null>(null)
 
 const allContestants = ref<Contestant[]>([])
@@ -77,6 +79,8 @@ const seasonConfig = ref<SeasonConfig>({
 
 const rank = ref<number | null>(null)
 const score = ref<number | null>(null)
+const totalTeams = ref(0)
+const topScore = ref(0)
 const playerPoints = ref<Record<string, number>>({})
 
 const breakdownModalOpen = ref(false)
@@ -105,22 +109,19 @@ const currentEpisodeNumber = computed(() =>
     : null,
 )
 
-const seasonStatusBadge = computed(() => {
-  if (seasonStatus.value === 'active')
-    return {
-      label: currentEpisodeNumber.value
-        ? `Active · Episode ${currentEpisodeNumber.value}`
-        : 'Active',
-      classes: 'bg-status-success-surface text-status-success',
-    }
-  if (seasonStatus.value === 'upcoming')
-    return { label: 'Upcoming', classes: 'bg-status-warning-surface text-status-warning' }
-  if (seasonStatus.value === 'completed')
-    return { label: 'Completed', classes: 'bg-surface-subtle text-text-subtle' }
-  return null
-})
-
 const mergeEpNumber = computed(() => allEpisodes.value.find((e) => e.is_merge)?.number ?? Infinity)
+
+// The bounty value in force for the current (or latest) episode's stage, shown
+// in the bounty card footer to mirror the Team page.
+const currentBountyValue = computed<{ points: number; stage: string }>(() => {
+  const epNums = allEpisodes.value.map((e) => e.number)
+  const targetEpNum = currentEpisodeNumber.value ?? (epNums.length > 0 ? Math.max(...epNums) : 1)
+  const ep = allEpisodes.value.find((e) => e.number === targetEpNum) ?? null
+  if (ep?.is_finale) return { points: seasonConfig.value.bounty_points_finale, stage: 'finale' }
+  if (targetEpNum >= mergeEpNumber.value)
+    return { points: seasonConfig.value.bounty_points_post_merge, stage: 'post-merge' }
+  return { points: seasonConfig.value.bounty_points_pre_merge, stage: 'pre-merge' }
+})
 
 const episodesWithEliminations = computed(
   () => new Set(Object.values(eliminatedEpisodeIdByContestant.value).filter(Boolean) as string[]),
@@ -191,7 +192,7 @@ async function load() {
     // Team + season basics.
     const { data: team, error: teamErr } = await supabase
       .from('teams')
-      .select('id, team_name, user_id, season_id')
+      .select('id, team_name, team_image_url, team_emoji, team_color, user_id, season_id')
       .eq('id', teamId.value)
       .maybeSingle()
 
@@ -211,6 +212,9 @@ async function load() {
     }
 
     teamName.value = team.team_name
+    teamImageUrl.value = team.team_image_url
+    teamEmoji.value = team.team_emoji
+    teamColor.value = team.team_color
     seasonId.value = team.season_id
     loadTribeColors(team.season_id)
 
@@ -232,8 +236,6 @@ async function load() {
     ])
 
     if (season) {
-      seasonName.value = season.name
-      seasonStatus.value = season.status
       currentEpisodeId.value = season.current_episode_id
       seasonConfig.value = {
         bounty_points_pre_merge: season.bounty_points_pre_merge,
@@ -300,6 +302,8 @@ async function load() {
     // Standing (rank + score + per-player points) from the shared leaderboard math.
     try {
       const board = await computeLeaderboard(team.season_id)
+      totalTeams.value = board.length
+      topScore.value = board[0]?.totalPoints ?? 0
       const idx = board.findIndex((r) => r.teamId === team.id)
       if (idx >= 0) {
         rank.value = idx + 1
@@ -358,41 +362,50 @@ onUnmounted(() => {
     </div>
 
     <div v-else class="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6">
-      <!-- Team header -->
-      <div class="mb-6">
-        <h2 class="text-2xl font-bold text-text-default">{{ teamName || '(no name)' }}</h2>
-        <p v-if="ownerName" class="text-sm text-text-muted">{{ ownerName }}</p>
-        <div class="mt-1 flex flex-wrap items-center gap-2">
-          <span class="text-sm text-text-subtle">{{ seasonName }}</span>
-          <span
-            v-if="seasonStatusBadge"
-            :class="['rounded-full px-2.5 py-1 text-xs font-semibold', seasonStatusBadge.classes]"
-            >{{ seasonStatusBadge.label }}</span
-          >
+      <!-- Team header — team photo beside the team name (primary identity) -->
+      <div class="mb-6 flex items-center gap-4">
+        <TeamAvatar
+          v-if="teamImageUrl || teamEmoji"
+          :image-url="teamImageUrl"
+          :emoji="teamEmoji"
+          :color="teamColor"
+          :name="teamName || 'Team'"
+          :size="64"
+          class="rounded-2xl border border-border-default"
+        />
+        <div class="min-w-0">
+          <h2 class="truncate text-2xl font-bold text-text-default">{{ teamName || '(no name)' }}</h2>
+          <p v-if="ownerName" class="text-base text-text-subtle">{{ ownerName }}</p>
         </div>
       </div>
 
-      <!-- Standing: rank + score -->
-      <div v-if="rank !== null" class="mb-6 grid grid-cols-2 gap-3">
-        <BaseCard padding="sm" class="text-center">
-          <p class="text-xs uppercase tracking-wide text-text-muted">Score</p>
-          <p class="mt-0.5 text-2xl font-bold text-text-default">{{ fmtPts(score ?? 0) }}</p>
-          <BaseButton variant="secondary" size="sm" block class="mt-3" @click="openBreakdown">
-            View Breakdown
-          </BaseButton>
-        </BaseCard>
-        <BaseCard padding="sm" class="text-center">
-          <p class="text-xs uppercase tracking-wide text-text-muted">Place</p>
+      <!-- Standing: rank + score. Each card links to its detail view. -->
+      <div v-if="rank !== null" class="mb-6 flex flex-wrap gap-3">
+        <BaseCard
+          padding="sm"
+          role="button"
+          tabindex="0"
+          class="min-w-[7rem] flex-1 cursor-pointer text-center transition-colors hover:border-border-accent hover:bg-surface-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-border-accent"
+          @click="router.push('/leaderboard')"
+          @keydown.enter="router.push('/leaderboard')"
+          @keydown.space.prevent="router.push('/leaderboard')"
+        >
+          <p class="text-sm font-medium text-text-subtle">Place</p>
           <p class="mt-0.5 text-2xl font-bold text-text-default">{{ ordinal(rank ?? 0) }}</p>
-          <BaseButton
-            variant="secondary"
-            size="sm"
-            block
-            class="mt-3"
-            @click="router.push('/leaderboard')"
-          >
-            View Leaderboard
-          </BaseButton>
+          <p class="text-xs text-text-muted">{{ totalTeams }} total teams</p>
+        </BaseCard>
+        <BaseCard
+          padding="sm"
+          role="button"
+          tabindex="0"
+          class="min-w-[7rem] flex-1 cursor-pointer text-center transition-colors hover:border-border-accent hover:bg-surface-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-border-accent"
+          @click="openBreakdown"
+          @keydown.enter="openBreakdown"
+          @keydown.space.prevent="openBreakdown"
+        >
+          <p class="text-sm font-medium text-text-subtle">Score</p>
+          <p class="mt-0.5 text-2xl font-bold text-text-default">{{ fmtPts(score ?? 0) }}</p>
+          <p class="text-xs text-text-muted">1st Place: {{ fmtPts(topScore) }} points</p>
         </BaseCard>
       </div>
 
@@ -409,11 +422,20 @@ onUnmounted(() => {
       <!-- Bounty history (read-only; unlocked upcoming pick hidden) -->
       <BountyHistoryList
         class="mb-4"
-        title="Bounty Picks"
         empty-text="No bounty picks locked in yet."
         :rows="bountyHistory"
         :contestants="allContestants"
-      />
+      >
+        <template #footer>
+          <div class="px-4 py-2 bg-surface-subtle border-t border-border-subtle">
+            <p class="text-xs text-text-subtle">
+              Bounty value: +{{ fmtPts(currentBountyValue.points) }} pts ({{
+                currentBountyValue.stage
+              }})
+            </p>
+          </div>
+        </template>
+      </BountyHistoryList>
     </div>
 
     <!-- Score breakdown modal -->

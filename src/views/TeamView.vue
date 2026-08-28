@@ -20,6 +20,8 @@ import BaseCard from '../components/base/BaseCard.vue'
 import BaseModal from '../components/base/BaseModal.vue'
 import BaseInput from '../components/base/BaseInput.vue'
 import ImageUploadField from '../components/ImageUploadField.vue'
+import EmojiColorPicker from '../components/EmojiColorPicker.vue'
+import TeamAvatar from '../components/TeamAvatar.vue'
 import { uploadImage } from '../lib/uploadImage'
 import { useToast } from '../composables/useToast'
 import {
@@ -97,6 +99,8 @@ const existingTeam = ref<{
   id: string
   team_name: string | null
   team_image_url: string | null
+  team_emoji: string | null
+  team_color: string | null
 } | null>(null)
 const activePlayers = ref<ActivePlayer[]>([])
 const loading = ref(true)
@@ -186,11 +190,15 @@ const seasonConfig = ref<SeasonConfig>({
 })
 const swapsUsed = ref(0)
 
-// Edit team details (name + photo) modal.
+// Edit team details (name + avatar) modal. The avatar is either an uploaded
+// photo or an emoji-on-color tile, chosen via `editAvatarMode`.
 const editModalOpen = ref(false)
 const editName = ref('')
+const editAvatarMode = ref<'photo' | 'emoji'>('photo')
 const editImageFile = ref<File | null>(null)
 const editImageRemoved = ref(false)
+const editEmoji = ref<string | null>(null)
+const editColor = ref<string | null>(null)
 const savingTeam = ref(false)
 const editError = ref('')
 
@@ -451,7 +459,7 @@ async function loadMyTeam() {
   const { data } = await supabase
     .from('teams')
     .select(
-      'id, team_name, team_image_url, team_players(contestant_id, role, effective_from_episode, effective_to_episode)',
+      'id, team_name, team_image_url, team_emoji, team_color, team_players(contestant_id, role, effective_from_episode, effective_to_episode)',
     )
     .eq('season_id', selectedSeasonId.value)
     .eq('user_id', auth.user.id)
@@ -462,6 +470,8 @@ async function loadMyTeam() {
       id: data.id,
       team_name: data.team_name,
       team_image_url: data.team_image_url,
+      team_emoji: data.team_emoji,
+      team_color: data.team_color,
     }
     const allTp = data.team_players as TeamPlayer[]
     const currentTp = allTp.filter((p) => p.effective_to_episode === null)
@@ -483,6 +493,11 @@ function openEditTeam() {
   editName.value = existingTeam.value.team_name ?? ''
   editImageFile.value = null
   editImageRemoved.value = false
+  editEmoji.value = existingTeam.value.team_emoji
+  editColor.value = existingTeam.value.team_color
+  // Default to whichever avatar kind the team already uses.
+  editAvatarMode.value =
+    !existingTeam.value.team_image_url && existingTeam.value.team_emoji ? 'emoji' : 'photo'
   editError.value = ''
   editModalOpen.value = true
 }
@@ -506,16 +521,34 @@ async function saveTeamDetails() {
   editError.value = ''
   savingTeam.value = true
   try {
-    let imageUrl: string | null = existingTeam.value.team_image_url
-    if (editImageFile.value) {
-      imageUrl = await uploadImage(editImageFile.value, 'teams')
-    } else if (editImageRemoved.value) {
-      imageUrl = null
+    // Only one avatar kind is stored at a time; the other is cleared.
+    const updates: {
+      team_name: string
+      team_image_url: string | null
+      team_emoji: string | null
+      team_color: string | null
+    } = {
+      team_name: name,
+      team_image_url: existingTeam.value.team_image_url,
+      team_emoji: null,
+      team_color: null,
+    }
+
+    if (editAvatarMode.value === 'emoji') {
+      updates.team_image_url = null
+      updates.team_emoji = editEmoji.value
+      updates.team_color = editColor.value
+    } else {
+      if (editImageFile.value) {
+        updates.team_image_url = await uploadImage(editImageFile.value, 'teams')
+      } else if (editImageRemoved.value) {
+        updates.team_image_url = null
+      }
     }
 
     const { error } = await supabase
       .from('teams')
-      .update({ team_name: name, team_image_url: imageUrl })
+      .update(updates)
       .eq('id', existingTeam.value.id)
     if (error) throw new Error(error.message)
 
@@ -928,13 +961,16 @@ onUnmounted(() => {
     <!-- Constrained team management view when team exists -->
     <div v-else class="max-w-3xl mx-auto px-4 py-8 w-full sm:px-6">
       <template v-if="seasons.length > 0">
-        <!-- Team header — team photo beside the team name (primary identity) -->
+        <!-- Team header — team avatar beside the team name (primary identity) -->
         <div class="mb-6 flex items-center gap-4">
-          <img
-            v-if="existingTeam?.team_image_url"
-            :src="existingTeam.team_image_url"
-            :alt="existingTeam.team_name || 'Team photo'"
-            class="h-16 w-16 shrink-0 rounded-2xl border border-border-default object-cover"
+          <TeamAvatar
+            v-if="existingTeam?.team_image_url || existingTeam?.team_emoji"
+            :image-url="existingTeam.team_image_url"
+            :emoji="existingTeam.team_emoji"
+            :color="existingTeam.team_color"
+            :name="existingTeam.team_name || 'Team'"
+            :size="64"
+            class="rounded-2xl border border-border-default"
           />
           <div class="min-w-0">
             <div class="flex items-center gap-2">
@@ -1115,14 +1151,50 @@ onUnmounted(() => {
           placeholder="e.g. The Fire Starters"
           @keyup.enter="saveTeamDetails"
         />
-        <ImageUploadField
-          :model-value="editImageRemoved ? null : (existingTeam?.team_image_url ?? null)"
-          label="Team photo"
-          shape="square"
-          :size="120"
-          @select="onEditImageSelect"
-          @remove="onEditImageRemove"
-        />
+        <div>
+          <label class="mb-1.5 block text-sm font-medium text-text-default">Team avatar</label>
+          <!-- Photo / Emoji mode toggle -->
+          <div class="mb-3 inline-flex rounded-md border border-border-subtle p-0.5">
+            <button
+              type="button"
+              class="rounded px-3 py-1 text-sm font-medium transition-colors"
+              :class="
+                editAvatarMode === 'photo'
+                  ? 'bg-surface-subtle text-text-default'
+                  : 'text-text-subtle hover:text-text-default'
+              "
+              @click="editAvatarMode = 'photo'"
+            >
+              Photo
+            </button>
+            <button
+              type="button"
+              class="rounded px-3 py-1 text-sm font-medium transition-colors"
+              :class="
+                editAvatarMode === 'emoji'
+                  ? 'bg-surface-subtle text-text-default'
+                  : 'text-text-subtle hover:text-text-default'
+              "
+              @click="editAvatarMode = 'emoji'"
+            >
+              Emoji
+            </button>
+          </div>
+
+          <ImageUploadField
+            v-if="editAvatarMode === 'photo'"
+            :model-value="editImageRemoved ? null : (existingTeam?.team_image_url ?? null)"
+            shape="square"
+            :size="120"
+            @select="onEditImageSelect"
+            @remove="onEditImageRemove"
+          />
+          <EmojiColorPicker
+            v-else
+            v-model:emoji="editEmoji"
+            v-model:color="editColor"
+          />
+        </div>
         <p v-if="editError" class="text-sm text-status-error">{{ editError }}</p>
       </div>
       <template #footer>

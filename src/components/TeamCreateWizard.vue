@@ -12,6 +12,7 @@ import WizardPicksStrip from './WizardPicksStrip.vue'
 import BaseButton from './base/BaseButton.vue'
 import BaseInput from './base/BaseInput.vue'
 import ImageUploadField from './ImageUploadField.vue'
+import EmojiColorPicker from './EmojiColorPicker.vue'
 import ThemeAtmosphere from './decor/ThemeAtmosphere.vue'
 import { uploadImage } from '../lib/uploadImage'
 import survivorLogoUrl from '../assets/survivor_51_logo.png'
@@ -40,9 +41,12 @@ const step = ref(1)
 const leagueCode = ref('')
 const rulesAcknowledged = ref(false)
 const teamName = ref('')
-// Team photo is optional; the file is uploaded on lock-in (the team id doesn't
-// exist until then).
+// Team avatar is optional: either an uploaded photo (uploaded on lock-in, since
+// the team id doesn't exist until then) or an emoji-on-color tile.
+const avatarMode = ref<'photo' | 'emoji'>('photo')
 const teamImageFile = ref<File | null>(null)
+const teamEmoji = ref<string | null>(null)
+const teamColor = ref<string | null>(null)
 const selectedIds = ref<string[]>([])
 const mvpId = ref<string | null>(null)
 const bountyId = ref<string | null>(null)
@@ -149,15 +153,20 @@ async function lockIn() {
     return
   }
 
-  // Upload the optional team photo now that we have the team id. A failed
-  // upload shouldn't block team creation, so it's best-effort.
-  if (teamImageFile.value) {
-    try {
+  // Apply the optional team avatar now that we have the team id. Best-effort:
+  // a failure here shouldn't block team creation (it can be set later).
+  try {
+    if (avatarMode.value === 'emoji' && teamEmoji.value) {
+      await supabase
+        .from('teams')
+        .update({ team_emoji: teamEmoji.value, team_color: teamColor.value })
+        .eq('id', team.id)
+    } else if (avatarMode.value === 'photo' && teamImageFile.value) {
       const url = await uploadImage(teamImageFile.value, 'teams')
       await supabase.from('teams').update({ team_image_url: url }).eq('id', team.id)
-    } catch {
-      // Non-fatal: the team is created; the photo can be added later from My Team.
     }
+  } catch {
+    // Non-fatal: the team is created; the avatar can be added later from My Team.
   }
 
   const { error: e2 } = await supabase.from('team_players').insert(
@@ -338,14 +347,45 @@ async function lockIn() {
             />
 
             <div class="mt-6">
+              <label class="mb-1.5 block text-sm font-medium text-text-default"
+                >Team avatar (optional)</label
+              >
+              <div class="mb-3 inline-flex rounded-md border border-border-subtle p-0.5">
+                <button
+                  type="button"
+                  class="rounded px-3 py-1 text-sm font-medium transition-colors"
+                  :class="
+                    avatarMode === 'photo'
+                      ? 'bg-surface-subtle text-text-default'
+                      : 'text-text-subtle hover:text-text-default'
+                  "
+                  @click="avatarMode = 'photo'"
+                >
+                  Photo
+                </button>
+                <button
+                  type="button"
+                  class="rounded px-3 py-1 text-sm font-medium transition-colors"
+                  :class="
+                    avatarMode === 'emoji'
+                      ? 'bg-surface-subtle text-text-default'
+                      : 'text-text-subtle hover:text-text-default'
+                  "
+                  @click="avatarMode = 'emoji'"
+                >
+                  Emoji
+                </button>
+              </div>
+
               <ImageUploadField
+                v-if="avatarMode === 'photo'"
                 :model-value="null"
-                label="Team photo (optional)"
                 shape="square"
                 :size="120"
                 @select="teamImageFile = $event"
                 @remove="teamImageFile = null"
               />
+              <EmojiColorPicker v-else v-model:emoji="teamEmoji" v-model:color="teamColor" />
             </div>
           </div>
         </div>
