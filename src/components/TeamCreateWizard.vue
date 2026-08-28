@@ -65,17 +65,19 @@ onUnmounted(() => {
 const fallbackAvatar = randomTeamAvatar()
 
 // What the review step (and the saved team) will display.
-const displayAvatar = computed<{ imageUrl: string | null; emoji: string | null; color: string | null }>(
-  () => {
-    if (avatarMode.value === 'photo' && teamImageFile.value) {
-      return { imageUrl: teamImagePreviewUrl.value, emoji: null, color: null }
-    }
-    if (avatarMode.value === 'emoji' && teamEmoji.value) {
-      return { imageUrl: null, emoji: teamEmoji.value, color: teamColor.value }
-    }
-    return { imageUrl: null, emoji: fallbackAvatar.emoji, color: fallbackAvatar.color }
-  },
-)
+const displayAvatar = computed<{
+  imageUrl: string | null
+  emoji: string | null
+  color: string | null
+}>(() => {
+  if (avatarMode.value === 'photo' && teamImageFile.value) {
+    return { imageUrl: teamImagePreviewUrl.value, emoji: null, color: null }
+  }
+  if (avatarMode.value === 'emoji' && teamEmoji.value) {
+    return { imageUrl: null, emoji: teamEmoji.value, color: teamColor.value }
+  }
+  return { imageUrl: null, emoji: fallbackAvatar.emoji, color: fallbackAvatar.color }
+})
 
 const auth = useAuthStore()
 const ownerName = computed(() => `${auth.firstName ?? ''} ${auth.lastName ?? ''}`.trim())
@@ -336,12 +338,12 @@ async function lockIn() {
                 as your MVP for bonus points. Full rules will be added here.
               </p>
               <p>
-                Placeholder rules text. Scoring is based on in-game actions, weekly bounty picks, and
-                swap penalties. More detail coming soon.
+                Placeholder rules text. Scoring is based on in-game actions, weekly bounty picks,
+                and swap penalties. More detail coming soon.
               </p>
               <p>
-                Placeholder rules text. Rosters lock at the start of each episode — make your changes
-                before the deadline.
+                Placeholder rules text. Rosters lock at the start of each episode — make your
+                changes before the deadline.
               </p>
             </div>
 
@@ -382,14 +384,13 @@ async function lockIn() {
               size="lg"
               class="max-w-md"
               placeholder="e.g. The Fire Starters"
+              :maxlength="32"
               :error="errorMsg"
               @keyup.enter="nextStep"
             />
 
             <div class="mt-6">
-              <label class="mb-1.5 block text-sm font-medium text-text-default"
-                >Team Avatar</label
-              >
+              <label class="mb-1.5 block text-sm font-medium text-text-default">Team Avatar</label>
               <div class="mb-3 flex rounded-md border border-border-subtle p-0.5">
                 <button
                   type="button"
@@ -436,11 +437,7 @@ async function lockIn() {
         >
           <div class="mx-auto flex w-full max-w-5xl">
             <div class="ml-auto flex w-full gap-3 sm:w-auto">
-              <BaseButton
-                variant="secondary"
-                size="lg"
-                class="flex-1 sm:flex-none"
-                @click="step--"
+              <BaseButton variant="secondary" size="lg" class="flex-1 sm:flex-none" @click="step--"
                 >Back</BaseButton
               >
               <BaseButton
@@ -493,11 +490,7 @@ async function lockIn() {
             :team-name="teamName"
           >
             <div class="flex w-full gap-3 sm:w-auto">
-              <BaseButton
-                variant="secondary"
-                size="lg"
-                class="flex-1 sm:flex-none"
-                @click="step--"
+              <BaseButton variant="secondary" size="lg" class="flex-1 sm:flex-none" @click="step--"
                 >Back</BaseButton
               >
               <BaseButton
@@ -517,9 +510,7 @@ async function lockIn() {
       <template v-else-if="step === 5">
         <div class="mx-auto mb-8 w-full max-w-5xl">
           <h2 class="text-2xl font-bold text-text-default mb-1">Crown Your MVP</h2>
-          <p class="text-text-subtle text-base">
-            Your MVP earns 1.5× points each episode.
-          </p>
+          <p class="text-text-subtle text-base">Your MVP earns 1.5× points each episode.</p>
         </div>
 
         <div
@@ -551,14 +542,15 @@ async function lockIn() {
             :team-name="teamName"
           >
             <div class="flex w-full gap-3 sm:w-auto">
-              <BaseButton
-                variant="secondary"
-                size="lg"
-                class="flex-1 sm:flex-none"
-                @click="step--"
+              <BaseButton variant="secondary" size="lg" class="flex-1 sm:flex-none" @click="step--"
                 >Back</BaseButton
               >
-              <BaseButton size="lg" class="flex-1 sm:flex-none" :disabled="!mvpId" @click="nextStep">
+              <BaseButton
+                size="lg"
+                class="flex-1 sm:flex-none"
+                :disabled="!mvpId"
+                @click="nextStep"
+              >
                 {{ mvpId ? 'Continue' : 'Choose MVP' }}
               </BaseButton>
             </div>
@@ -606,11 +598,7 @@ async function lockIn() {
             :team-name="teamName"
           >
             <div class="flex w-full gap-3 sm:w-auto">
-              <BaseButton
-                variant="secondary"
-                size="lg"
-                class="flex-1 sm:flex-none"
-                @click="step--"
+              <BaseButton variant="secondary" size="lg" class="flex-1 sm:flex-none" @click="step--"
                 >Back</BaseButton
               >
               <BaseButton
@@ -681,7 +669,9 @@ async function lockIn() {
           </TeamRosterList>
 
           <!-- Bounty pick in its own card, mirroring the roster card style -->
-          <div class="mb-6 overflow-hidden rounded-lg border border-border-subtle bg-surface-default">
+          <div
+            class="mb-6 overflow-hidden rounded-lg border border-border-subtle bg-surface-default"
+          >
             <div
               class="flex items-center gap-3 border-b border-border-subtle bg-surface-subtle px-4 py-3"
             >

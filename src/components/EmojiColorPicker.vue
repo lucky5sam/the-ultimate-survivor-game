@@ -3,10 +3,16 @@
 // v-model:emoji / v-model:color. Pick from a curated grid, or type/paste any
 // emoji for something not listed. Pure input — the parent decides when to save.
 import { computed, onMounted } from 'vue'
-import { TEAM_AVATAR_COLORS as SWATCHES, TEAM_AVATAR_EMOJIS as BASE_EMOJIS } from '../utils/teamAvatar'
+import {
+  TEAM_AVATAR_COLORS as SWATCHES,
+  TEAM_AVATAR_EMOJIS as BASE_EMOJIS,
+} from '../utils/teamAvatar'
 
 const props = defineProps<{ emoji: string | null; color: string | null }>()
-const emit = defineEmits<{ 'update:emoji': [v: string | null]; 'update:color': [v: string | null] }>()
+const emit = defineEmits<{
+  'update:emoji': [v: string | null]
+  'update:color': [v: string | null]
+}>()
 
 const activeColor = computed(() => props.color || SWATCHES[0]!)
 
@@ -62,7 +68,11 @@ onMounted(() => {
             type="button"
             :aria-label="`Background ${c}`"
             class="h-7 w-7 rounded-full border transition-transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-accent"
-            :class="activeColor === c ? 'border-text-default ring-2 ring-border-accent' : 'border-border-subtle'"
+            :class="
+              activeColor === c
+                ? 'border-text-default ring-2 ring-border-accent'
+                : 'border-border-subtle'
+            "
             :style="{ backgroundColor: c }"
             @click="pickColor(c)"
           ></button>

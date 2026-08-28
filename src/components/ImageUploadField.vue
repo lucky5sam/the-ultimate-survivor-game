@@ -117,13 +117,7 @@ onUnmounted(revokeLocal)
         </button>
       </div>
 
-      <input
-        ref="inputEl"
-        type="file"
-        accept="image/*"
-        class="hidden"
-        @change="onFile"
-      />
+      <input ref="inputEl" type="file" accept="image/*" class="hidden" @change="onFile" />
     </div>
 
     <ImageCropModal

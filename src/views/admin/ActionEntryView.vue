@@ -91,9 +91,7 @@ const filteredByTribe = computed(() => {
   const q = contestantSearch.value.toLowerCase()
   const map: Record<string, Contestant[]> = {}
   for (const [tribe, members] of Object.entries(byTribe.value)) {
-    const filtered = q
-      ? members.filter((c) => displayName(c).toLowerCase().includes(q))
-      : members
+    const filtered = q ? members.filter((c) => displayName(c).toLowerCase().includes(q)) : members
     if (filtered.length) map[tribe] = filtered
   }
   return map

@@ -189,8 +189,10 @@ export async function computeLeaderboard(seasonId: string): Promise<LeaderboardR
       contestantPhotoMap[c.id] = c.photo_url ?? null
       // Match the roster view: use the starting (episode 1) tribe assignment.
       contestantTribeMap[c.id] =
-        ((c.contestant_tribe_assignments as { tribe: string; effective_from_episode: number }[]) ??
-          []).find((a) => a.effective_from_episode === 1)?.tribe ?? 'Unknown'
+        (
+          (c.contestant_tribe_assignments as { tribe: string; effective_from_episode: number }[]) ??
+          []
+        ).find((a) => a.effective_from_episode === 1)?.tribe ?? 'Unknown'
     }
   }
 

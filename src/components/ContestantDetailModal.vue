@@ -86,7 +86,9 @@ function fmtPts(n: number) {
 
 // The header shows the alt image when set, falling back to the main photo. It's
 // cropped to cover, anchored to the top so the contestant's face stays in frame.
-const headerImage = computed(() => props.contestant?.alt_image ?? props.contestant?.photo_url ?? null)
+const headerImage = computed(
+  () => props.contestant?.alt_image ?? props.contestant?.photo_url ?? null,
+)
 
 // Turn any common YouTube link (watch?v=, youtu.be/, /embed/, /shorts/) into a
 // privacy-friendly embed URL. Returns null for empty or unrecognized values so
@@ -221,34 +223,42 @@ const embedUrl = computed(() => {
             <template v-if="!showEventLog || activeTab === 'info'">
               <!-- Stats grid -->
               <div class="grid grid-cols-2 gap-2 mb-4">
-              <div class="bg-stone-800 rounded-lg p-3 text-left">
-                <p class="text-xs text-stone-500 mb-1 uppercase tracking-wide">Hometown</p>
-                <p class="font-semibold text-white text-sm leading-snug line-clamp-2">
-                  {{ contestant.hometown ?? 'TBD' }}
-                </p>
+                <div class="bg-stone-800 rounded-lg p-3 text-left">
+                  <p class="text-xs text-stone-500 mb-1 uppercase tracking-wide">Hometown</p>
+                  <p class="font-semibold text-white text-sm leading-snug line-clamp-2">
+                    {{ contestant.hometown ?? 'TBD' }}
+                  </p>
+                </div>
+                <div class="bg-stone-800 rounded-lg p-3 text-left">
+                  <p class="text-xs text-stone-500 mb-1 uppercase tracking-wide">Occupation</p>
+                  <p class="font-semibold text-white text-sm leading-snug line-clamp-2">
+                    {{ contestant.occupation ?? 'TBD' }}
+                  </p>
+                </div>
               </div>
-              <div class="bg-stone-800 rounded-lg p-3 text-left">
-                <p class="text-xs text-stone-500 mb-1 uppercase tracking-wide">Occupation</p>
-                <p class="font-semibold text-white text-sm leading-snug line-clamp-2">
-                  {{ contestant.occupation ?? 'TBD' }}
-                </p>
-              </div>
-            </div>
 
-            <!-- Video -->
-            <div v-if="embedUrl" class="mb-4">
-              <p class="text-xs text-stone-500 mb-2 uppercase tracking-wide">Video</p>
-              <div class="relative aspect-video overflow-hidden rounded-xl bg-stone-800">
-                <iframe
-                  :src="embedUrl"
-                  :title="`${displayName(contestant)} video`"
-                  class="absolute inset-0 h-full w-full"
-                  frameborder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  allowfullscreen
-                />
+              <!-- Video -->
+              <div v-if="embedUrl" class="mb-4">
+                <p class="text-xs text-stone-500 mb-2 uppercase tracking-wide">Video</p>
+                <div class="relative aspect-video overflow-hidden rounded-xl bg-stone-800">
+                  <iframe
+                    :src="embedUrl"
+                    :title="`${displayName(contestant)} video`"
+                    class="absolute inset-0 h-full w-full"
+                    frameborder="0"
+                    allow="
+                      accelerometer;
+                      autoplay;
+                      clipboard-write;
+                      encrypted-media;
+                      gyroscope;
+                      picture-in-picture;
+                      web-share;
+                    "
+                    allowfullscreen
+                  />
+                </div>
               </div>
-            </div>
 
               <!-- Bio -->
               <div class="bg-stone-800 rounded-xl p-4">

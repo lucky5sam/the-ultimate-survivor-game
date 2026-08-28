@@ -133,7 +133,7 @@ onUnmounted(() => {
         </div>
 
         <!-- League code + copy -->
-        <div class="mt-5 flex flex-col  items-start gap-3">
+        <div class="mt-5 flex flex-col items-start gap-3">
           <BaseButton variant="primary" @click="copyInviteLink">
             <svg
               class="h-4 w-4"
@@ -151,18 +151,18 @@ onUnmounted(() => {
             Copy Invite Link
           </BaseButton>
           <div class="w-full">
-          <button
-            v-if="leagueCode"
-            type="button"
-            @click="copyInviteLink"
-            class="rounded-md bg-surface-subtle px-3 py-2 text-left shadow-sm transition-colors hover:bg-surface-strong focus:outline-none focus-visible:ring-2 focus-visible:ring-border-accent"
-          >
-            <span class="flex items-center gap-2">
-              <span class="text-sm tracking-wide text-text-subtle">League Code:</span>
-              <span class="text-sm font-bold text-text-default">{{ leagueCode }}</span>
-            </span>
-          </button>
-        </div>
+            <button
+              v-if="leagueCode"
+              type="button"
+              @click="copyInviteLink"
+              class="rounded-md bg-surface-subtle px-3 py-2 text-left shadow-sm transition-colors hover:bg-surface-strong focus:outline-none focus-visible:ring-2 focus-visible:ring-border-accent"
+            >
+              <span class="flex items-center gap-2">
+                <span class="text-sm tracking-wide text-text-subtle">League Code:</span>
+                <span class="text-sm font-bold text-text-default">{{ leagueCode }}</span>
+              </span>
+            </button>
+          </div>
         </div>
       </div>
 

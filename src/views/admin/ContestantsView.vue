@@ -896,14 +896,14 @@ onMounted(loadSeasons)
           <p>
             Optional columns:
             <span class="font-mono font-semibold"
-              >contestant_id, last_name, preferred_name, tribe, photo_url, alt_image, video_url, age,
-              hometown, occupation, bio</span
+              >contestant_id, last_name, preferred_name, tribe, photo_url, alt_image, video_url,
+              age, hometown, occupation, bio</span
             >
           </p>
           <p class="text-xs text-gray-500">
-            Put a contestant's <span class="font-mono">contestant_id</span> (the # shown in the list) to
-            update them in place. Leave it blank to add a new contestant. Blank cells on an update
-            keep the existing value.
+            Put a contestant's <span class="font-mono">contestant_id</span> (the # shown in the
+            list) to update them in place. Leave it blank to add a new contestant. Blank cells on an
+            update keep the existing value.
           </p>
           <button
             @click="downloadTemplate"

@@ -133,9 +133,7 @@ async function confirm() {
       image.width * scale * ratio,
       image.height * scale * ratio,
     )
-    const blob = await new Promise<Blob | null>((resolve) =>
-      out.toBlob(resolve, 'image/webp', 0.9),
-    )
+    const blob = await new Promise<Blob | null>((resolve) => out.toBlob(resolve, 'image/webp', 0.9))
     if (!blob) throw new Error('Could not process the image.')
     emit('crop', new File([blob], 'crop.webp', { type: 'image/webp' }))
   } finally {

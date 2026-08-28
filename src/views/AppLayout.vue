@@ -178,10 +178,7 @@ async function handleSignOut() {
               Profile
             </RouterLink>
             <button
-              @click="
-                userMenuOpen = false,
-                seasonModalOpen = true
-              "
+              @click="((userMenuOpen = false), (seasonModalOpen = true))"
               class="block w-full px-3 py-2.5 text-left text-sm text-text-default hover:bg-surface-subtle"
             >
               View Previous Seasons
@@ -223,10 +220,7 @@ async function handleSignOut() {
     </nav>
 
     <!-- Primary tabs condensed into a dropdown (mobile) -->
-    <div
-      v-if="showTabs"
-      class="relative shrink-0 border-b border-border-subtle bg-surface-background px-4 py-4 sm:hidden"
-    >
+    <div v-if="showTabs" class="relative shrink-0 bg-surface-background px-4 pt-4 pb-2 sm:hidden">
       <button
         @click="menuOpen = !menuOpen"
         class="flex min-h-12 w-full items-center gap-2.5 rounded-md border border-interactive-input-border bg-interactive-input px-3 py-2 text-left text-base font-medium text-text-subtle transition-colors hover:border-border-strong focus:outline-none focus-visible:ring-2 focus-visible:ring-border-accent"
@@ -240,7 +234,7 @@ async function handleSignOut() {
         >
           <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
         </svg>
-        <span class="flex-1 truncate">{{ activeTab.label }}</span>
+        <span class="flex-1 truncate font-semibold">{{ activeTab.label }}</span>
         <svg
           class="h-4 w-4 shrink-0 text-icon-subtle transition-transform"
           :class="menuOpen ? 'rotate-180' : ''"

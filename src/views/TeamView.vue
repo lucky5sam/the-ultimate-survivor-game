@@ -264,12 +264,22 @@ const roleChangeCost = computed(() =>
 )
 
 const availableContestants = computed(() => {
-  // Anyone not currently on the roster is selectable — including contestants who
-  // were previously swapped out (they can be re-added; append-only scoring sums
-  // each separate stint they spent on the team).
+  // Anyone not currently on the roster and still in the game is selectable —
+  // including contestants who were previously swapped out (they can be re-added;
+  // append-only scoring sums each separate stint they spent on the team).
+  // Eliminated contestants are excluded — there's no reason to swap one in.
   const activeIds = new Set(activePlayers.value.map((p) => p.contestant_id))
-  return allContestants.value.filter((c) => !activeIds.has(c.id))
+  return allContestants.value.filter(
+    (c) => !activeIds.has(c.id) && !eliminatedEpisodeIdByContestant.value[c.id],
+  )
 })
+
+// Contestant ids that have been voted out — used to grayscale them in selectors.
+const eliminatedIds = computed(() =>
+  Object.entries(eliminatedEpisodeIdByContestant.value)
+    .filter(([, ep]) => !!ep)
+    .map(([id]) => id),
+)
 
 // The 4 active roster players as full contestant records (for the swap-out select).
 const activeRosterContestants = computed(() =>
@@ -546,10 +556,7 @@ async function saveTeamDetails() {
       }
     }
 
-    const { error } = await supabase
-      .from('teams')
-      .update(updates)
-      .eq('id', existingTeam.value.id)
+    const { error } = await supabase.from('teams').update(updates).eq('id', existingTeam.value.id)
     if (error) throw new Error(error.message)
 
     await loadMyTeam()
@@ -959,186 +966,189 @@ onUnmounted(() => {
     </div>
 
     <!-- Constrained team management view when team exists -->
-    <div v-else class="max-w-3xl mx-auto px-4 py-8 w-full sm:px-6">
+    <div v-else class="max-w-3xl mx-auto px-4 py-4 w-full sm:px-6 sm:py-6">
       <template v-if="seasons.length > 0">
-        <!-- Team header — team avatar beside the team name (primary identity) -->
-        <div class="mb-6 flex items-center gap-3">
-          <TeamAvatar
-            v-if="existingTeam?.team_image_url || existingTeam?.team_emoji"
-            :image-url="existingTeam.team_image_url"
-            :emoji="existingTeam.team_emoji"
-            :color="existingTeam.team_color"
-            :name="existingTeam.team_name || 'Team'"
-            :size="64"
-            class="rounded-2xl border border-border-default"
-          />
-          <div class="min-w-0">
-            <div class="flex items-center gap-2">
-              <h2 class="truncate text-2xl font-bold text-text-default">
-                {{ existingTeam?.team_name || 'My Team' }}
-              </h2>
-              <button
-                type="button"
-                aria-label="Edit team details"
-                class="shrink-0 rounded-md p-1.5 text-icon-subtle transition-colors hover:bg-surface-subtle hover:text-text-default focus:outline-none focus-visible:ring-2 focus-visible:ring-border-accent"
-                @click="openEditTeam"
-              >
-                <svg
-                  class="h-5 w-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  stroke-width="2"
+        <!-- Team, standing, roster, and bounty stacked with a single gap -->
+        <div class="flex flex-col gap-4">
+          <!-- Team header — team avatar beside the team name (primary identity) -->
+          <div class="flex items-center gap-3">
+            <TeamAvatar
+              v-if="existingTeam?.team_image_url || existingTeam?.team_emoji"
+              :image-url="existingTeam.team_image_url"
+              :emoji="existingTeam.team_emoji"
+              :color="existingTeam.team_color"
+              :name="existingTeam.team_name || 'Team'"
+              :size="64"
+              class="rounded-2xl border border-border-default"
+            />
+            <div class="min-w-0">
+              <div class="flex items-center gap-2">
+                <h2 class="truncate text-2xl font-bold text-text-default">
+                  {{ existingTeam?.team_name || 'My Team' }}
+                </h2>
+                <button
+                  type="button"
+                  aria-label="Edit team details"
+                  class="shrink-0 rounded-md p-1.5 text-icon-subtle transition-colors hover:bg-surface-subtle hover:text-text-default focus:outline-none focus-visible:ring-2 focus-visible:ring-border-accent"
+                  @click="openEditTeam"
                 >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                  />
-                </svg>
-              </button>
+                  <svg
+                    class="h-5 w-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                    />
+                  </svg>
+                </button>
+              </div>
+              <p v-if="ownerName" class="text-base text-text-subtle">{{ ownerName }}</p>
             </div>
-            <p v-if="ownerName" class="text-base text-text-subtle">{{ ownerName }}</p>
           </div>
-        </div>
 
-        <!-- My standing: rank + score. Each card is a link to its detail view. -->
-        <div v-if="myRank !== null" class="mb-6 flex flex-wrap gap-3">
-          <BaseCard
-            padding="sm"
-            role="button"
-            tabindex="0"
-            class="min-w-[7rem] flex-1 cursor-pointer text-center transition-colors hover:border-border-strong hover:bg-surface-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-border-accent"
-            @click="router.push('/leaderboard')"
-            @keydown.enter="router.push('/leaderboard')"
-            @keydown.space.prevent="router.push('/leaderboard')"
+          <!-- My standing: rank + score. Each card is a link to its detail view. -->
+          <div v-if="myRank !== null" class="flex flex-wrap gap-3">
+            <BaseCard
+              padding="sm"
+              role="button"
+              tabindex="0"
+              class="min-w-[7rem] flex-1 cursor-pointer text-center transition-colors hover:border-border-strong hover:bg-surface-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-border-accent"
+              @click="router.push('/leaderboard')"
+              @keydown.enter="router.push('/leaderboard')"
+              @keydown.space.prevent="router.push('/leaderboard')"
+            >
+              <p class="text-sm font-medium text-text-subtle">Place</p>
+              <p class="mt-0.5 text-2xl font-bold text-text-default">{{ ordinal(myRank ?? 0) }}</p>
+              <p class="text-xs text-text-muted">{{ totalTeams }} total teams</p>
+            </BaseCard>
+            <BaseCard
+              padding="sm"
+              role="button"
+              tabindex="0"
+              class="min-w-[7rem] flex-1 cursor-pointer text-center transition-colors hover:border-border-strong hover:bg-surface-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-border-accent"
+              @click="openBreakdown"
+              @keydown.enter="openBreakdown"
+              @keydown.space.prevent="openBreakdown"
+            >
+              <p class="text-sm font-medium text-text-subtle">Score</p>
+              <p class="mt-0.5 text-2xl font-bold text-text-default">{{ fmtPts(myScore ?? 0) }}</p>
+              <p class="text-xs text-text-muted">1st Place: {{ fmtPts(topScore) }} points</p>
+            </BaseCard>
+          </div>
+
+          <!-- Roster management -->
+          <TeamRosterList
+            v-if="existingTeam"
+            title="My Roster"
+            :players="activePlayers"
+            :contestants="allContestants"
+            :eliminated-episode-id-by-contestant="eliminatedEpisodeIdByContestant"
+            :episodes="allEpisodes"
+            :points-by-id="myPlayerPoints"
+            :chip-interactive="canManageRoster"
+            details-interactive
+            @chip-click="toggleMenu"
+            @open-details="openContestantDetails"
           >
-            <p class="text-sm font-medium text-text-subtle ">Place</p>
-            <p class="mt-0.5 text-2xl font-bold text-text-default">{{ ordinal(myRank ?? 0) }}</p>
-            <p class="text-xs text-text-muted">
-             {{ totalTeams }} total teams
-            </p>
-          </BaseCard>
-          <BaseCard
-            padding="sm"
-            role="button"
-            tabindex="0"
-            class="min-w-[7rem] flex-1 cursor-pointer text-center transition-colors hover:border-border-strong hover:bg-surface-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-border-accent"
-            @click="openBreakdown"
-            @keydown.enter="openBreakdown"
-            @keydown.space.prevent="openBreakdown"
+            <template #subtitle>
+              <p v-if="!nextUpcomingEpisode" class="mt-0.5 text-xs text-text-muted">
+                <template v-if="lockedAiringEpisode"
+                  >Roster locked — Episode {{ lockedAiringEpisode.number }} in progress</template
+                >
+                <template v-else>Locked — no upcoming episode scheduled</template>
+              </p>
+              <p v-else-if="atMaxSwaps" class="mt-0.5 text-xs text-text-muted">
+                Maximum swaps reached for this season
+              </p>
+              <p
+                v-else-if="nextUpcomingEpisode.locks_at"
+                class="mt-0.5 text-xs font-medium text-text-subtle"
+              >
+                Roster locks {{ fmtEt(nextUpcomingEpisode.locks_at) }}
+              </p>
+            </template>
+            <template #header-actions>
+              <BaseButton
+                v-if="canManageRoster"
+                variant="secondary"
+                size="sm"
+                @click="openEditRoster"
+                >Edit</BaseButton
+              >
+            </template>
+            <template #footer>
+              <div
+                v-if="nextUpcomingEpisode && !atMaxSwaps"
+                class="px-4 py-2 bg-surface-subtle border-t border-border-subtle"
+              >
+                <p class="text-xs text-text-subtle">
+                  <template v-if="isGracePeriod"
+                    >Free swap window active (through Episode
+                    {{ seasonConfig.grace_period_through_episode }})</template
+                  >
+                  <template v-else
+                    >Swap cost: −{{ fmtPts(seasonConfig.swap_penalty_player) }} pts (player) · −{{
+                      fmtPts(seasonConfig.swap_penalty_mvp)
+                    }}
+                    pts (MVP) · −{{ fmtPts(seasonConfig.swap_penalty_role_change) }} pts (role
+                    change)</template
+                  >
+                </p>
+              </div>
+            </template>
+          </TeamRosterList>
+
+          <!-- Bounty pick management -->
+          <BountyHistoryList
+            v-if="existingTeam"
+            :rows="bountyHistory"
+            :contestants="allContestants"
+            show-tribe
+            details-interactive
+            @open-details="openContestantDetails"
+            :empty-text="
+              nextUpcomingEpisode ? 'No bounty history yet' : 'Locked — no upcoming episodes'
+            "
           >
-            <p class="text-sm font-medium text-text-subtle">Score</p>
-            <p class="mt-0.5 text-2xl font-bold text-text-default">{{ fmtPts(myScore ?? 0) }}</p>
-            <p class="text-xs text-text-muted">1st Place: {{ fmtPts(topScore) }} points</p>
-          </BaseCard>
+            <template #subtitle>
+              <p v-if="!nextUpcomingEpisode" class="mt-0.5 text-xs text-text-muted">
+                <template v-if="lockedAiringEpisode"
+                  >Bounty locked — Episode {{ lockedAiringEpisode.number }} in progress</template
+                >
+                <template v-else>Locked — no upcoming episode scheduled</template>
+              </p>
+              <p
+                v-else-if="nextUpcomingEpisode.locks_at"
+                class="mt-0.5 text-xs font-medium text-text-subtle"
+              >
+                Bounty pick locks {{ fmtEt(nextUpcomingEpisode.locks_at) }}
+              </p>
+            </template>
+            <template #header-actions>
+              <BaseButton
+                v-if="nextUpcomingEpisode"
+                variant="secondary"
+                size="sm"
+                @click="openBountyModal"
+                >{{ currentBountyPick?.contestant_id ? 'Update' : 'Set pick' }}</BaseButton
+              >
+            </template>
+            <template #footer>
+              <div class="px-4 py-2 bg-surface-subtle border-t border-border-subtle">
+                <p class="text-xs text-text-subtle">
+                  Bounty value: +{{ fmtPts(currentBountyValue.points) }} pts ({{
+                    currentBountyValue.stage
+                  }})
+                </p>
+              </div>
+            </template>
+          </BountyHistoryList>
         </div>
-
-        <!-- Roster management -->
-        <TeamRosterList
-          v-if="existingTeam"
-          class="mb-6"
-          title="My Roster"
-          :players="activePlayers"
-          :contestants="allContestants"
-          :eliminated-episode-id-by-contestant="eliminatedEpisodeIdByContestant"
-          :episodes="allEpisodes"
-          :points-by-id="myPlayerPoints"
-          :chip-interactive="canManageRoster"
-          details-interactive
-          @chip-click="toggleMenu"
-          @open-details="openContestantDetails"
-        >
-          <template #subtitle>
-            <p v-if="!nextUpcomingEpisode" class="mt-0.5 text-xs text-text-muted">
-              <template v-if="lockedAiringEpisode"
-                >Roster locked — Episode {{ lockedAiringEpisode.number }} in progress</template
-              >
-              <template v-else>Locked — no upcoming episode scheduled</template>
-            </p>
-            <p v-else-if="atMaxSwaps" class="mt-0.5 text-xs text-text-muted">
-              Maximum swaps reached for this season
-            </p>
-            <p
-              v-else-if="nextUpcomingEpisode.locks_at"
-              class="mt-0.5 text-xs font-medium text-text-subtle"
-            >
-              Roster locks {{ fmtEt(nextUpcomingEpisode.locks_at) }}
-            </p>
-          </template>
-          <template #header-actions>
-            <BaseButton v-if="canManageRoster" variant="secondary" size="sm" @click="openEditRoster"
-              >Edit</BaseButton
-            >
-          </template>
-          <template #footer>
-            <div
-              v-if="nextUpcomingEpisode && !atMaxSwaps"
-              class="px-4 py-2 bg-surface-subtle border-t border-border-subtle"
-            >
-              <p class="text-xs text-text-subtle">
-                <template v-if="isGracePeriod"
-                  >Free swap window active (through Episode
-                  {{ seasonConfig.grace_period_through_episode }})</template
-                >
-                <template v-else
-                  >Swap cost: −{{ fmtPts(seasonConfig.swap_penalty_player) }} pts (player) · −{{
-                    fmtPts(seasonConfig.swap_penalty_mvp)
-                  }}
-                  pts (MVP) · −{{ fmtPts(seasonConfig.swap_penalty_role_change) }} pts (role
-                  change)</template
-                >
-              </p>
-            </div>
-          </template>
-        </TeamRosterList>
-
-        <!-- Bounty pick management -->
-        <BountyHistoryList
-          v-if="existingTeam"
-          class="mb-4"
-          :rows="bountyHistory"
-          :contestants="allContestants"
-          show-tribe
-          details-interactive
-          @open-details="openContestantDetails"
-          :empty-text="
-            nextUpcomingEpisode ? 'No bounty history yet' : 'Locked — no upcoming episodes'
-          "
-        >
-          <template #subtitle>
-            <p v-if="!nextUpcomingEpisode" class="mt-0.5 text-xs text-text-muted">
-              <template v-if="lockedAiringEpisode"
-                >Bounty locked — Episode {{ lockedAiringEpisode.number }} in progress</template
-              >
-              <template v-else>Locked — no upcoming episode scheduled</template>
-            </p>
-            <p
-              v-else-if="nextUpcomingEpisode.locks_at"
-              class="mt-0.5 text-xs font-medium text-text-subtle"
-            >
-              Bounty pick locks {{ fmtEt(nextUpcomingEpisode.locks_at) }}
-            </p>
-          </template>
-          <template #header-actions>
-            <BaseButton
-              v-if="nextUpcomingEpisode"
-              variant="secondary"
-              size="sm"
-              @click="openBountyModal"
-              >{{ currentBountyPick?.contestant_id ? 'Update' : 'Set pick' }}</BaseButton
-            >
-          </template>
-          <template #footer>
-            <div class="px-4 py-2 bg-surface-subtle border-t border-border-subtle">
-              <p class="text-xs text-text-subtle">
-                Bounty value: +{{ fmtPts(currentBountyValue.points) }} pts ({{
-                  currentBountyValue.stage
-                }})
-              </p>
-            </div>
-          </template>
-        </BountyHistoryList>
 
         <p v-if="existingTeam && errorMsg" class="text-status-error text-sm mt-4">{{ errorMsg }}</p>
         <InviteBanner />
@@ -1146,21 +1156,27 @@ onUnmounted(() => {
     </div>
 
     <!-- Edit team details modal -->
-    <BaseModal :show="editModalOpen" title="Edit Team Details" size="md" @close="editModalOpen = false">
+    <BaseModal
+      :show="editModalOpen"
+      title="Edit Team Details"
+      size="md"
+      @close="editModalOpen = false"
+    >
       <div class="space-y-5">
         <BaseInput
           v-model="editName"
-          label="Team name"
+          label="Team Name"
           placeholder="e.g. The Fire Starters"
+          :maxlength="32"
           @keyup.enter="saveTeamDetails"
         />
         <div>
-          <label class="mb-1.5 block text-sm font-medium text-text-default">Team avatar</label>
+          <label class="mb-1.5 block text-sm font-medium text-text-default">Team Avatar</label>
           <!-- Photo / Emoji mode toggle -->
-          <div class="mb-3 inline-flex rounded-md border border-border-subtle p-0.5">
+          <div class="mb-3 flex rounded-md border border-border-subtle p-0.5">
             <button
               type="button"
-              class="rounded px-3 py-1 text-sm font-medium transition-colors"
+              class="flex-1 rounded px-3 py-1 text-sm font-medium transition-colors"
               :class="
                 editAvatarMode === 'photo'
                   ? 'bg-surface-subtle text-text-default'
@@ -1172,7 +1188,7 @@ onUnmounted(() => {
             </button>
             <button
               type="button"
-              class="rounded px-3 py-1 text-sm font-medium transition-colors"
+              class="flex-1 rounded px-3 py-1 text-sm font-medium transition-colors"
               :class="
                 editAvatarMode === 'emoji'
                   ? 'bg-surface-subtle text-text-default'
@@ -1192,11 +1208,7 @@ onUnmounted(() => {
             @select="onEditImageSelect"
             @remove="onEditImageRemove"
           />
-          <EmojiColorPicker
-            v-else
-            v-model:emoji="editEmoji"
-            v-model:color="editColor"
-          />
+          <EmojiColorPicker v-else v-model:emoji="editEmoji" v-model:color="editColor" />
         </div>
         <p v-if="editError" class="text-sm text-status-error">{{ editError }}</p>
       </div>
@@ -1242,6 +1254,7 @@ onUnmounted(() => {
             <ContestantSelect
               v-model="swapOutId"
               :options="activeRosterContestants"
+              :eliminated-ids="eliminatedIds"
               placeholder="Select player"
             />
           </div>

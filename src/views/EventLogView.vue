@@ -6,7 +6,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { supabase } from '../lib/supabase'
 import { loadTribeColors } from '../utils/tribeColors'
-import { displayName } from '../utils/contestantName'
+import { shortName } from '../utils/contestantName'
 import { useSeasonStore } from '../stores/season'
 import BaseCard from '../components/base/BaseCard.vue'
 import BaseModal from '../components/base/BaseModal.vue'
@@ -172,7 +172,7 @@ async function loadEvents() {
       category: a.action_types?.category ?? '—',
       points: a.action_types?.points ?? 0,
       count: a.count ?? 1,
-      recipient: a.contestants ? displayName(a.contestants) : '?',
+      recipient: a.contestants ? shortName(a.contestants) : '?',
       tribe: tribeAt(a.contestant_id, epNumById[a.episode_id] ?? 0),
       note: a.note ?? null,
       createdAt: a.created_at ?? '',
@@ -195,7 +195,7 @@ onMounted(() => seasonStore.load())
 </script>
 
 <template>
-  <div class="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6">
+  <div class="mx-auto w-full max-w-3xl px-4 py-4 sm:px-6 sm:py-6">
     <h2 class="mb-6 text-2xl font-bold text-text-default">Event Log</h2>
 
     <p v-if="errorMsg" class="mb-4 text-sm text-status-error">{{ errorMsg }}</p>
@@ -233,15 +233,15 @@ onMounted(() => seasonStore.load())
         <div class="overflow-x-auto">
           <table class="w-full table-fixed border-collapse text-sm">
             <colgroup>
-              <col />
+              <col class="w-40" />
               <col class="w-28" />
-              <col />
+              <col class="w-40" />
               <col class="w-28" />
             </colgroup>
             <thead class="text-xs uppercase tracking-wide text-text-muted">
               <tr class="border-b border-border-subtle">
                 <th class="px-4 py-2 text-left font-medium">Category</th>
-                <th class="px-4 py-2 text-right font-medium">Points</th>
+                <th class="px-4 py-2 text-left font-medium">Points</th>
                 <th class="px-4 py-2 text-left font-medium">Recipient</th>
                 <th class="px-4 py-2 text-left font-medium">Note</th>
               </tr>
@@ -257,7 +257,7 @@ onMounted(() => seasonStore.load())
                   ><span v-if="row.count > 1" class="ml-1 text-text-muted">×{{ row.count }}</span>
                 </td>
                 <td
-                  class="whitespace-nowrap px-4 py-2.5 text-right align-top font-semibold tabular-nums"
+                  class="whitespace-nowrap px-4 py-2.5 text-left align-top font-semibold tabular-nums"
                   :class="row.points >= 0 ? 'text-status-success' : 'text-status-error'"
                 >
                   {{ pointsLabel(row.points)

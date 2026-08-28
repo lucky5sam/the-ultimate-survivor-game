@@ -12,7 +12,14 @@ const props = defineProps<{
   modelValue: string | null
   options: ContestantFull[]
   placeholder?: string
+  // Contestants to render as voted-out (grayscale avatar + subtle border).
+  eliminatedIds?: string[]
 }>()
+
+const eliminatedSet = computed(() => new Set(props.eliminatedIds ?? []))
+function isOut(id: string) {
+  return eliminatedSet.value.has(id)
+}
 
 const emit = defineEmits<{ 'update:modelValue': [value: string | null] }>()
 
@@ -23,9 +30,7 @@ const inputEl = ref<HTMLInputElement | null>(null)
 const selected = computed(() => props.options.find((c) => c.id === props.modelValue) ?? null)
 const filtered = computed(() => {
   const q = search.value.trim().toLowerCase()
-  return q
-    ? props.options.filter((c) => displayName(c).toLowerCase().includes(q))
-    : props.options
+  return q ? props.options.filter((c) => displayName(c).toLowerCase().includes(q)) : props.options
 })
 
 // What the input shows: the live search text while open, otherwise the pick.
@@ -71,6 +76,8 @@ function choose(id: string) {
         :photo-url="selected.photo_url"
         :name="displayName(selected)"
         :size="32"
+        :grayscale="isOut(selected.id)"
+        :border-color-override="isOut(selected.id) ? 'var(--color-border-subtle)' : null"
       />
       <input
         ref="inputEl"
@@ -108,7 +115,13 @@ function choose(id: string) {
           @click="choose(c.id)"
           class="flex w-full items-center gap-2.5 px-3 py-2 text-left hover:bg-surface-subtle"
         >
-          <ContestantAvatar :photo-url="c.photo_url" :name="displayName(c)" :size="28" />
+          <ContestantAvatar
+            :photo-url="c.photo_url"
+            :name="displayName(c)"
+            :size="28"
+            :grayscale="isOut(c.id)"
+            :border-color-override="isOut(c.id) ? 'var(--color-border-subtle)' : null"
+          />
           <span class="flex-1 truncate text-sm text-text-default">{{ displayName(c) }}</span>
           <span class="text-xs text-text-muted">{{ c.tribe }}</span>
         </button>

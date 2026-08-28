@@ -160,9 +160,7 @@ function playerStatus(id: string): { out: boolean; ep: number | null } {
           <div :class="{ 'opacity-60': playerStatus(player.contestant_id).out }">
             <div class="flex items-center gap-1">
               <p class="text-sm font-medium leading-tight">
-                <span class="text-text-default">{{
-                  contestantPrimary(player.contestant_id)
-                }}</span>
+                <span class="text-text-default">{{ contestantPrimary(player.contestant_id) }}</span>
                 <span
                   v-if="contestantSecondary(player.contestant_id)"
                   class="ml-1 text-text-subtle"

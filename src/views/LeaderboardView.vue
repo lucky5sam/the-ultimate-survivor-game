@@ -102,60 +102,60 @@ onMounted(() => seasonStore.load())
         </div>
         <div class="divide-y divide-border-subtle">
           <RouterLink
-          v-for="row in displayRows"
-          :key="row.teamId"
-          :to="`/team/${row.teamId}`"
-          class="flex items-center gap-2 pl-3 py-3 pr-5 transition-colors"
-          :class="isMyTeam(row.ownerId) ? 'bg-surface-highlight' : 'bg-surface-default'"
-        >
-          <span
-            class="min-w-7 shrink-0 text-center text-sm font-bold tabular-nums"
-            :class="row.rank === 1 ? 'text-survivor-sand' : 'text-text-subtle'"
-            >{{ row.rank }}</span
+            v-for="row in displayRows"
+            :key="row.teamId"
+            :to="`/team/${row.teamId}`"
+            class="flex items-center gap-2 pl-3 py-3 pr-5 transition-colors"
+            :class="isMyTeam(row.ownerId) ? 'bg-surface-highlight' : 'bg-surface-default'"
           >
-          <TeamAvatar
-            :image-url="row.teamImageUrl"
-            :emoji="row.teamEmoji"
-            :color="row.teamColor"
-            :name="row.teamName ?? 'Team'"
-            :size="40"
-            class="rounded-sm border border-border-subtle"
-          />
-          <div class="min-w-0 flex-1">
-            <p class="truncate text-sm font-bold text-text-default">
-              {{ row.teamName ?? '(no name)' }}
-            </p>
-            <p v-if="row.ownerName" class="truncate text-sm text-text-subtle">
-              {{ row.ownerName }}
-            </p>
-          </div>
-          <div class="flex shrink-0 -space-x-1.5">
-            <div
-              v-for="p in row.roster"
-              :key="p.contestantId"
-              class="rounded-full ring-2"
-              :class="isMyTeam(row.ownerId) ? 'ring-surface-highlight' : 'ring-surface-default'"
+            <span
+              class="min-w-7 shrink-0 text-center text-sm font-bold tabular-nums"
+              :class="row.rank === 1 ? 'text-survivor-sand' : 'text-text-subtle'"
+              >{{ row.rank }}</span
             >
-              <ContestantAvatar
-                :photo-url="p.photoUrl"
-                :name="p.name"
-                :tribe="p.tribe"
-                :grayscale="p.out"
-                :border-color-override="p.out ? 'var(--color-border-subtle)' : null"
-                :size="28"
-              />
+            <TeamAvatar
+              :image-url="row.teamImageUrl"
+              :emoji="row.teamEmoji"
+              :color="row.teamColor"
+              :name="row.teamName ?? 'Team'"
+              :size="40"
+              class="rounded-sm border border-border-subtle"
+            />
+            <div class="min-w-0 flex-1">
+              <p class="truncate text-sm font-bold text-text-default">
+                {{ row.teamName ?? '(no name)' }}
+              </p>
+              <p v-if="row.ownerName" class="truncate text-sm text-text-subtle">
+                {{ row.ownerName }}
+              </p>
             </div>
-          </div>
-          <div
-            class="ml-2 flex min-w-17 shrink-0 items-center justify-center rounded-lg border border-border-subtle bg-surface-subtle px-3 py-1.5 shadow-sm"
-          >
-            <p
-              class="text-sm font-bold tabular-nums"
-              :class="row.totalPoints >= 0 ? 'text-text-default' : 'text-status-error'"
+            <div class="flex shrink-0 -space-x-1.5">
+              <div
+                v-for="p in row.roster"
+                :key="p.contestantId"
+                class="rounded-full ring-2"
+                :class="isMyTeam(row.ownerId) ? 'ring-surface-highlight' : 'ring-surface-default'"
+              >
+                <ContestantAvatar
+                  :photo-url="p.photoUrl"
+                  :name="p.name"
+                  :tribe="p.tribe"
+                  :grayscale="p.out"
+                  :border-color-override="p.out ? 'var(--color-border-subtle)' : null"
+                  :size="28"
+                />
+              </div>
+            </div>
+            <div
+              class="ml-2 flex min-w-17 shrink-0 items-center justify-center rounded-lg border border-border-subtle bg-surface-subtle px-3 py-1.5 shadow-sm"
             >
-              {{ fmtPts(row.totalPoints) }}
-            </p>
-          </div>
+              <p
+                class="text-sm font-bold tabular-nums"
+                :class="row.totalPoints >= 0 ? 'text-text-default' : 'text-status-error'"
+              >
+                {{ fmtPts(row.totalPoints) }}
+              </p>
+            </div>
           </RouterLink>
         </div>
       </div>
@@ -166,137 +166,141 @@ onMounted(() => seasonStore.load())
              which lets the header cells stick to the top while scrolling. -->
         <div class="max-h-[calc(100vh-11rem)] overflow-auto">
           <table class="w-full border-collapse text-sm">
-          <thead class="text-xs uppercase tracking-wide text-text-muted">
-            <tr>
-              <th class="sticky left-0 top-0 z-30 w-52 bg-surface-subtle px-4 py-3 text-left">
-                <div class="flex items-center gap-3">
-                  <span>Pl</span>
-                  <span>Team</span>
-                </div>
-              </th>
-              <th class="sticky left-52 top-0 z-30 w-20 bg-surface-subtle px-4 py-3 text-right">
-                Total
-              </th>
-              <template v-for="n in maxPlayers" :key="n">
-                <th class="sticky top-0 z-20 min-w-[8rem] bg-surface-subtle px-4 py-3 text-left">
-                  Player {{ n }}
+            <thead class="text-xs uppercase tracking-wide text-text-muted">
+              <tr>
+                <th
+                  class="sticky left-0 top-0 z-30 w-60 min-w-60 bg-surface-subtle px-4 py-3 text-left"
+                >
+                  <div class="flex items-center gap-3">
+                    <span>Pl</span>
+                    <span>Team</span>
+                  </div>
                 </th>
-                <th class="sticky top-0 z-20 bg-surface-subtle px-4 py-3 text-right">Pts</th>
-              </template>
-              <th class="sticky top-0 z-20 min-w-[8rem] bg-surface-subtle px-4 py-3 text-left">
-                Bounty
-              </th>
-              <th class="sticky top-0 z-20 bg-surface-subtle px-4 py-3 text-right">Actions</th>
-              <th class="sticky top-0 z-20 whitespace-nowrap bg-surface-subtle px-4 py-3 text-right">
-                Bty Pts
-              </th>
-              <th class="sticky top-0 z-20 bg-surface-subtle px-4 py-3 text-right">Swaps</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="row in displayRows"
-              :key="row.teamId"
-              class="border-t border-border-subtle"
-              :class="{ 'bg-surface-highlight': isMyTeam(row.ownerId) }"
-            >
-              <!-- Team (sticky): rank + name + owner -->
-              <td
-                class="sticky left-0 z-10 w-52 px-4 py-3"
-                :class="isMyTeam(row.ownerId) ? 'bg-surface-highlight' : 'bg-surface-default'"
+                <th class="sticky left-60 top-0 z-30 w-20 bg-surface-subtle px-4 py-3 text-left">
+                  Total
+                </th>
+                <template v-for="n in maxPlayers" :key="n">
+                  <th class="sticky top-0 z-20 min-w-[8rem] bg-surface-subtle px-4 py-3 text-left">
+                    Player {{ n }}
+                  </th>
+                  <th class="sticky top-0 z-20 bg-surface-subtle px-4 py-3 text-left">Pts</th>
+                </template>
+                <th class="sticky top-0 z-20 min-w-[8rem] bg-surface-subtle px-4 py-3 text-left">
+                  Bounty
+                </th>
+                <th class="sticky top-0 z-20 bg-surface-subtle px-4 py-3 text-left">Actions</th>
+                <th
+                  class="sticky top-0 z-20 whitespace-nowrap bg-surface-subtle px-4 py-3 text-left"
+                >
+                  Bty Pts
+                </th>
+                <th class="sticky top-0 z-20 bg-surface-subtle px-4 py-3 text-left">Swaps</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="row in displayRows"
+                :key="row.teamId"
+                class="border-t border-border-subtle"
+                :class="{ 'bg-surface-highlight': isMyTeam(row.ownerId) }"
               >
-                <div class="flex items-center gap-3">
-                  <span
-                    class="w-5 shrink-0 text-center font-bold tabular-nums"
-                    :class="row.rank === 1 ? 'text-survivor-sand' : 'text-text-subtle'"
-                    >{{ row.rank }}</span
-                  >
-                  <TeamAvatar
-                    :image-url="row.teamImageUrl"
-                    :emoji="row.teamEmoji"
-                    :color="row.teamColor"
-                    :name="row.teamName ?? 'Team'"
-                    :size="32"
-                    class="rounded-sm border border-border-subtle"
-                  />
-                  <div class="min-w-0">
-                    <RouterLink
-                      :to="`/team/${row.teamId}`"
-                      class="block truncate font-semibold text-text-default hover:text-text-accent"
-                      >{{ row.teamName ?? '(no name)' }}</RouterLink
+                <!-- Team (sticky): rank + name + owner -->
+                <td
+                  class="sticky left-0 z-10 w-60 min-w-60 px-4 py-3"
+                  :class="isMyTeam(row.ownerId) ? 'bg-surface-highlight' : 'bg-surface-default'"
+                >
+                  <div class="flex items-center gap-3">
+                    <span
+                      class="w-5 shrink-0 text-center font-bold tabular-nums"
+                      :class="row.rank === 1 ? 'text-survivor-sand' : 'text-text-subtle'"
+                      >{{ row.rank }}</span
                     >
-                    <div v-if="row.ownerName" class="truncate text-xs text-text-subtle">
-                      {{ row.ownerName }}
+                    <TeamAvatar
+                      :image-url="row.teamImageUrl"
+                      :emoji="row.teamEmoji"
+                      :color="row.teamColor"
+                      :name="row.teamName ?? 'Team'"
+                      :size="32"
+                      class="rounded-sm border border-border-subtle"
+                    />
+                    <div class="min-w-0">
+                      <RouterLink
+                        :to="`/team/${row.teamId}`"
+                        class="block truncate font-semibold text-text-default hover:text-text-accent"
+                        >{{ row.teamName ?? '(no name)' }}</RouterLink
+                      >
+                      <div v-if="row.ownerName" class="truncate text-xs text-text-subtle">
+                        {{ row.ownerName }}
+                      </div>
                     </div>
                   </div>
-                </div>
-              </td>
-
-              <!-- Total (sticky, next to team) -->
-              <td
-                class="sticky left-52 z-10 w-20 px-4 py-3 text-right font-bold tabular-nums"
-                :class="[
-                  row.totalPoints >= 0 ? 'text-text-default' : 'text-status-error',
-                  isMyTeam(row.ownerId) ? 'bg-surface-highlight' : 'bg-surface-default',
-                ]"
-              >
-                {{ fmtPts(row.totalPoints) }}
-              </td>
-
-              <!-- Player columns: name and individual score in separate columns -->
-              <template v-for="n in maxPlayers" :key="n">
-                <td class="px-4 py-3 align-middle">
-                  <span v-if="row.roster[n - 1]" class="inline-flex items-center gap-2">
-                    <ContestantAvatar
-                      :photo-url="row.roster[n - 1]!.photoUrl"
-                      :name="row.roster[n - 1]!.name"
-                      :tribe="row.roster[n - 1]!.tribe"
-                      :show-crown="row.roster[n - 1]!.isMvp"
-                      :grayscale="row.roster[n - 1]!.out"
-                      :border-color-override="
-                        row.roster[n - 1]!.out ? 'var(--color-border-subtle)' : null
-                      "
-                      :size="28"
-                    />
-                    <span
-                      class="text-text-default"
-                      :class="{ 'opacity-60': row.roster[n - 1]!.out }"
-                      >{{ row.roster[n - 1]!.name }}</span
-                    >
-                    <span
-                      v-if="row.roster[n - 1]!.out"
-                      class="shrink-0 rounded-full bg-status-error-surface px-2 py-0.5 text-xs font-semibold text-status-error"
-                      >Out</span
-                    >
-                  </span>
-                  <span v-else class="text-text-subtle">—</span>
                 </td>
+
+                <!-- Total (sticky, next to team) -->
                 <td
-                  class="whitespace-nowrap px-4 py-3 text-right align-middle tabular-nums text-text-subtle"
+                  class="sticky left-60 z-10 w-20 px-4 py-3 text-left font-bold tabular-nums"
+                  :class="[
+                    row.totalPoints >= 0 ? 'text-text-default' : 'text-status-error',
+                    isMyTeam(row.ownerId) ? 'bg-surface-highlight' : 'bg-surface-default',
+                  ]"
                 >
-                  <template v-if="row.roster[n - 1]">{{
-                    fmtPts(row.roster[n - 1]!.points)
-                  }}</template>
-                  <span v-else class="text-text-subtle">—</span>
+                  {{ fmtPts(row.totalPoints) }}
                 </td>
-              </template>
 
-              <!-- Current bounty (blank until the pick locks in) -->
-              <td class="px-4 py-3 align-middle text-text-default">
-                <span v-if="row.currentBountyName">{{ row.currentBountyName }}</span>
-                <span v-else class="text-text-subtle">—</span>
-              </td>
+                <!-- Player columns: name and individual score in separate columns -->
+                <template v-for="n in maxPlayers" :key="n">
+                  <td class="px-4 py-3 align-middle">
+                    <span v-if="row.roster[n - 1]" class="inline-flex items-center gap-2">
+                      <ContestantAvatar
+                        :photo-url="row.roster[n - 1]!.photoUrl"
+                        :name="row.roster[n - 1]!.name"
+                        :tribe="row.roster[n - 1]!.tribe"
+                        :show-crown="row.roster[n - 1]!.isMvp"
+                        :grayscale="row.roster[n - 1]!.out"
+                        :border-color-override="
+                          row.roster[n - 1]!.out ? 'var(--color-border-subtle)' : null
+                        "
+                        :size="28"
+                      />
+                      <span
+                        class="text-text-default"
+                        :class="{ 'opacity-60': row.roster[n - 1]!.out }"
+                        >{{ row.roster[n - 1]!.name }}</span
+                      >
+                      <span
+                        v-if="row.roster[n - 1]!.out"
+                        class="shrink-0 rounded-full bg-status-error-surface px-2 py-0.5 text-xs font-semibold text-status-error"
+                        >Out</span
+                      >
+                    </span>
+                    <span v-else class="text-text-subtle">—</span>
+                  </td>
+                  <td
+                    class="whitespace-nowrap px-4 py-3 text-left align-middle tabular-nums text-text-subtle"
+                  >
+                    <template v-if="row.roster[n - 1]">{{
+                      fmtPts(row.roster[n - 1]!.points)
+                    }}</template>
+                    <span v-else class="text-text-subtle">—</span>
+                  </td>
+                </template>
 
-              <td class="whitespace-nowrap px-4 py-3 text-right tabular-nums text-text-default">
-                {{ fmtPts(row.actionPoints) }}
-              </td>
-              <td class="whitespace-nowrap px-4 py-3 text-right tabular-nums text-status-success">
-                {{ row.bountyPoints > 0 ? '+' + fmtPts(row.bountyPoints) : '—' }}
-              </td>
-              <td class="whitespace-nowrap px-4 py-3 text-right tabular-nums text-status-error">
-                {{ row.swapPenalty < 0 ? fmtPts(row.swapPenalty) : '—' }}
-              </td>
-            </tr>
+                <!-- Current bounty (blank until the pick locks in) -->
+                <td class="px-4 py-3 align-middle text-text-default">
+                  <span v-if="row.currentBountyName">{{ row.currentBountyName }}</span>
+                  <span v-else class="text-text-muted">Pending</span>
+                </td>
+
+                <td class="whitespace-nowrap px-4 py-3 text-left tabular-nums text-text-default">
+                  {{ fmtPts(row.actionPoints) }}
+                </td>
+                <td class="whitespace-nowrap px-4 py-3 text-left tabular-nums text-text-subtle">
+                  {{ row.bountyPoints > 0 ? '+' + fmtPts(row.bountyPoints) : fmtPts(0) }}
+                </td>
+                <td class="whitespace-nowrap px-4 py-3 text-left tabular-nums text-status-error">
+                  {{ row.swapPenalty < 0 ? fmtPts(row.swapPenalty) : fmtPts(0) }}
+                </td>
+              </tr>
             </tbody>
           </table>
         </div>

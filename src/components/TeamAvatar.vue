@@ -29,7 +29,10 @@ const props = withDefaults(
     <div
       v-else-if="emoji"
       class="flex h-full w-full items-center justify-center leading-none"
-      :style="{ backgroundColor: color || 'var(--color-surface-strong)', fontSize: `${Math.round(props.size * 0.55)}px` }"
+      :style="{
+        backgroundColor: color || 'var(--color-surface-strong)',
+        fontSize: `${Math.round(props.size * 0.55)}px`,
+      }"
     >
       <span>{{ emoji }}</span>
     </div>
