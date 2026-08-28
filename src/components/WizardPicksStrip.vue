@@ -66,8 +66,7 @@ defineProps<{
           </span>
         </div>
         <span
-          class="w-11 truncate text-center text-[10px] font-medium leading-tight"
-          :class="picks[i - 1]!.id === mvpId ? 'text-survivor-sand' : 'text-text-default'"
+          class="w-11 truncate text-center text-[10px] font-medium leading-tight text-text-default"
         >
           {{ shortName(picks[i - 1]!) }}
         </span>
@@ -110,7 +109,7 @@ defineProps<{
           </div>
         </div>
         <span
-          class="w-11 truncate text-center text-[10px] font-medium leading-tight text-survivor-bounty"
+          class="w-11 truncate text-center text-[10px] font-medium leading-tight text-text-default"
         >
           {{ shortName(bounty) }}
         </span>

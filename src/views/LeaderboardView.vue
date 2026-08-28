@@ -70,7 +70,7 @@ onMounted(() => seasonStore.load())
 </script>
 
 <template>
-  <div class="w-full px-4 py-6 sm:px-6">
+  <div class="w-full px-4 py-4 sm:px-6">
     <div class="flex-col mb-4 ml-1">
       <h2 class="text-2xl font-bold text-text-default">Leaderboard</h2>
       <p class="text-text-subtle text-base">{{ rows.length }} total teams</p>
@@ -87,17 +87,29 @@ onMounted(() => seasonStore.load())
     </div>
 
     <template v-else>
-      <!-- Mobile: condensed cards (rank · team · avatar group · score) -->
-      <div class="space-y-2 sm:hidden">
-        <RouterLink
+      <!-- Mobile: condensed rows (rank · team · avatar group · score). Full-bleed
+           past the page padding, flush together with dividers, to maximize space. -->
+      <div class="-mx-4 border-y border-border-subtle sm:hidden">
+        <!-- Column header, aligned to the row layout below. Sticks to the top of
+             the viewport once the page header scrolls away. -->
+        <div
+          class="sticky top-0 z-20 flex items-center gap-2 border-b border-border-subtle bg-surface-subtle pl-3 py-2 pr-5 text-xs font-semibold uppercase tracking-wide text-text-muted"
+        >
+          <span class="min-w-7 shrink-0 text-center">Pl</span>
+          <span class="flex-1">Team</span>
+          <span class="shrink-0">Players</span>
+          <span class="ml-2 min-w-17 shrink-0 text-center">Score</span>
+        </div>
+        <div class="divide-y divide-border-subtle">
+          <RouterLink
           v-for="row in displayRows"
           :key="row.teamId"
           :to="`/team/${row.teamId}`"
-          class="flex items-center gap-2 rounded-lg border border-border-subtle pl-4 py-3 pr-5 transition-colors hover:border-border-strong"
+          class="flex items-center gap-2 pl-3 py-3 pr-5 transition-colors"
           :class="isMyTeam(row.ownerId) ? 'bg-surface-highlight' : 'bg-surface-default'"
         >
           <span
-            class="w-5 shrink-0 text-center text-sm font-bold tabular-nums"
+            class="min-w-7 shrink-0 text-center text-sm font-bold tabular-nums"
             :class="row.rank === 1 ? 'text-survivor-sand' : 'text-text-subtle'"
             >{{ row.rank }}</span
           >
@@ -110,7 +122,7 @@ onMounted(() => seasonStore.load())
             class="rounded-sm border border-border-subtle"
           />
           <div class="min-w-0 flex-1">
-            <p class="truncate font-semibold text-text-default">
+            <p class="truncate text-sm font-bold text-text-default">
               {{ row.teamName ?? '(no name)' }}
             </p>
             <p v-if="row.ownerName" class="truncate text-sm text-text-subtle">
@@ -134,39 +146,51 @@ onMounted(() => seasonStore.load())
               />
             </div>
           </div>
-          <div class="shrink-0 text-right ml-2">
+          <div
+            class="ml-2 flex min-w-17 shrink-0 items-center justify-center rounded-lg border border-border-subtle bg-surface-subtle px-3 py-1.5 shadow-sm"
+          >
             <p
-              class="text-md font-bold tabular-nums"
+              class="text-sm font-bold tabular-nums"
               :class="row.totalPoints >= 0 ? 'text-text-default' : 'text-status-error'"
             >
               {{ fmtPts(row.totalPoints) }}
             </p>
-            
           </div>
-        </RouterLink>
+          </RouterLink>
+        </div>
       </div>
 
       <!-- Desktop: full table -->
       <BaseCard padding="none" class="hidden overflow-hidden sm:block">
-        <div class="overflow-x-auto">
+        <!-- Bounded height so vertical scrolling happens inside this container,
+             which lets the header cells stick to the top while scrolling. -->
+        <div class="max-h-[calc(100vh-11rem)] overflow-auto">
           <table class="w-full border-collapse text-sm">
-          <thead class="bg-surface-subtle text-xs uppercase tracking-wide text-text-muted">
+          <thead class="text-xs uppercase tracking-wide text-text-muted">
             <tr>
-              <th class="sticky left-0 z-10 w-52 bg-surface-subtle px-4 py-3 text-left">
+              <th class="sticky left-0 top-0 z-30 w-52 bg-surface-subtle px-4 py-3 text-left">
                 <div class="flex items-center gap-3">
                   <span>Pl</span>
                   <span>Team</span>
                 </div>
               </th>
-              <th class="sticky left-52 z-10 w-20 bg-surface-subtle px-4 py-3 text-right">Total</th>
+              <th class="sticky left-52 top-0 z-30 w-20 bg-surface-subtle px-4 py-3 text-right">
+                Total
+              </th>
               <template v-for="n in maxPlayers" :key="n">
-                <th class="min-w-[8rem] px-4 py-3 text-left">Player {{ n }}</th>
-                <th class="px-4 py-3 text-right">Pts</th>
+                <th class="sticky top-0 z-20 min-w-[8rem] bg-surface-subtle px-4 py-3 text-left">
+                  Player {{ n }}
+                </th>
+                <th class="sticky top-0 z-20 bg-surface-subtle px-4 py-3 text-right">Pts</th>
               </template>
-              <th class="min-w-[8rem] px-4 py-3 text-left">Bounty</th>
-              <th class="px-4 py-3 text-right">Actions</th>
-              <th class="whitespace-nowrap px-4 py-3 text-right">Bty Pts</th>
-              <th class="px-4 py-3 text-right">Swaps</th>
+              <th class="sticky top-0 z-20 min-w-[8rem] bg-surface-subtle px-4 py-3 text-left">
+                Bounty
+              </th>
+              <th class="sticky top-0 z-20 bg-surface-subtle px-4 py-3 text-right">Actions</th>
+              <th class="sticky top-0 z-20 whitespace-nowrap bg-surface-subtle px-4 py-3 text-right">
+                Bty Pts
+              </th>
+              <th class="sticky top-0 z-20 bg-surface-subtle px-4 py-3 text-right">Swaps</th>
             </tr>
           </thead>
           <tbody>

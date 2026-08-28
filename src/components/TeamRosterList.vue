@@ -31,6 +31,11 @@ const props = withDefaults(
     emptyText?: string
     showScores?: boolean
     detailsInteractive?: boolean
+    // Always show the last name (default only reveals it from sm+).
+    expandNames?: boolean
+    // Show the contestant's occupation as the row subtext instead of the
+    // episode range (used on the wizard's review step).
+    showOccupation?: boolean
   }>(),
   {
     title: 'Roster',
@@ -38,6 +43,8 @@ const props = withDefaults(
     emptyText: 'No roster set.',
     showScores: true,
     detailsInteractive: false,
+    expandNames: false,
+    showOccupation: false,
   },
 )
 
@@ -85,6 +92,9 @@ function contestantPrimary(id: string) {
 }
 function contestantSecondary(id: string) {
   return contestantById(id)?.last_name ?? ''
+}
+function contestantOccupation(id: string) {
+  return contestantById(id)?.occupation ?? ''
 }
 function playerStatus(id: string): { out: boolean; ep: number | null } {
   const epId = props.eliminatedEpisodeIdByContestant[id]
@@ -162,7 +172,8 @@ function playerStatus(id: string): { out: boolean; ep: number | null } {
                 }}</span>
                 <span
                   v-if="contestantSecondary(player.contestant_id)"
-                  class="ml-1 hidden text-text-subtle sm:inline"
+                  class="ml-1 text-text-subtle"
+                  :class="expandNames ? 'inline' : 'hidden sm:inline'"
                   >{{ contestantSecondary(player.contestant_id) }}</span
                 >
               </p>
@@ -173,18 +184,28 @@ function playerStatus(id: string): { out: boolean; ep: number | null } {
               >
             </div>
             <div class="mt-0.5 text-xs text-text-subtle">
-              E{{ player.effective_from_episode }}–<template
-                v-if="playerStatus(player.contestant_id).out && playerStatus(player.contestant_id).ep"
-                >E{{ playerStatus(player.contestant_id).ep }}</template
-              ><template v-else>now</template>
+              <template v-if="showOccupation">{{
+                contestantOccupation(player.contestant_id)
+              }}</template>
+              <template v-else
+                >E{{ player.effective_from_episode }}–<template
+                  v-if="
+                    playerStatus(player.contestant_id).out && playerStatus(player.contestant_id).ep
+                  "
+                  >E{{ playerStatus(player.contestant_id).ep }}</template
+                ><template v-else>now</template></template
+              >
             </div>
           </div>
         </component>
       </div>
-      <div v-if="showScores" class="text-right">
-        <p class="text-sm font-semibold tabular-nums text-text-default">
-          {{ fmtPts(pointsById[player.contestant_id] ?? 0) }}
-        </p>
+      <div class="flex items-center gap-2">
+        <div v-if="showScores" class="text-right">
+          <p class="text-sm font-semibold tabular-nums text-text-default">
+            {{ fmtPts(pointsById[player.contestant_id] ?? 0) }}
+          </p>
+        </div>
+        <slot name="row-action" :player="player" />
       </div>
     </div>
 

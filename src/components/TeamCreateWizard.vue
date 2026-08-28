@@ -3,8 +3,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../stores/auth'
 import type { ContestantFull } from '../types/contestant'
-import { getTribeColors } from '../utils/tribeColors'
-import { fullName, displayName } from '../utils/contestantName'
+import { fullName, displayName, shortName } from '../utils/contestantName'
 import ContestantCard from './ContestantCard.vue'
 import ContestantDetailModal from './ContestantDetailModal.vue'
 import ContestantAvatar from './ContestantAvatar.vue'
@@ -373,10 +372,11 @@ async function lockIn() {
       <template v-else-if="step === 3">
         <div class="mx-auto w-full max-w-5xl">
           <div class="rounded-lg border border-border-subtle bg-surface-default p-6 sm:p-8">
-            <h2 class="text-2xl font-bold text-text-default mb-1">Name Your Team</h2>
+            <h2 class="text-2xl font-bold text-text-default mb-1">Give Your Team an Identity</h2>
             <p class="text-text-subtle text-base mb-6">
               This is how you'll appear on the leaderboard.
             </p>
+            <label class="mb-2 block text-sm font-medium text-text-default">Team Name</label>
             <BaseInput
               v-model="teamName"
               size="lg"
@@ -388,12 +388,12 @@ async function lockIn() {
 
             <div class="mt-6">
               <label class="mb-1.5 block text-sm font-medium text-text-default"
-                >Team avatar (optional)</label
+                >Team Avatar</label
               >
-              <div class="mb-3 inline-flex rounded-md border border-border-subtle p-0.5">
+              <div class="mb-3 flex rounded-md border border-border-subtle p-0.5">
                 <button
                   type="button"
-                  class="rounded px-3 py-1 text-sm font-medium transition-colors"
+                  class="flex-1 rounded px-3 py-1 text-sm font-medium transition-colors"
                   :class="
                     avatarMode === 'photo'
                       ? 'bg-surface-subtle text-text-default'
@@ -405,7 +405,7 @@ async function lockIn() {
                 </button>
                 <button
                   type="button"
-                  class="rounded px-3 py-1 text-sm font-medium transition-colors"
+                  class="flex-1 rounded px-3 py-1 text-sm font-medium transition-colors"
                   :class="
                     avatarMode === 'emoji'
                       ? 'bg-surface-subtle text-text-default'
@@ -430,18 +430,12 @@ async function lockIn() {
           </div>
         </div>
 
-        <!-- Sticky footer: pick strip (empty here) with team name + actions -->
+        <!-- Sticky footer: actions only — the pick strip isn't relevant on this step -->
         <div
           class="sticky bottom-0 z-30 -mx-4 -mb-16 mt-auto border-t border-border-subtle bg-surface-page/95 px-4 py-3 backdrop-blur sm:-mx-12 sm:px-12 lg:-mx-20 lg:px-20"
         >
-          <WizardPicksStrip
-            class="mx-auto w-full max-w-5xl"
-            :picks="selectedContestants"
-            :mvp-id="mvpId"
-            :bounty="bountyContestant"
-            :team-name="teamName"
-          >
-            <div class="flex w-full gap-3 sm:w-auto">
+          <div class="mx-auto flex w-full max-w-5xl">
+            <div class="ml-auto flex w-full gap-3 sm:w-auto">
               <BaseButton
                 variant="secondary"
                 size="lg"
@@ -458,7 +452,7 @@ async function lockIn() {
                 Continue
               </BaseButton>
             </div>
-          </WizardPicksStrip>
+          </div>
         </div>
       </template>
 
@@ -470,10 +464,10 @@ async function lockIn() {
         </div>
 
         <!-- Reflowing grid, alphabetical. Tribe is shown on each card, so no grouping.
-             At least 2 columns on phones (120px min); on larger screens the min jumps
+             At least 2 columns on phones (150px min); on larger screens the min jumps
              to 240px for bigger cards. Capped by max-width so it doesn't sprawl. -->
         <div
-          class="mx-auto mb-8 grid w-full max-w-5xl grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-2 sm:grid-cols-[repeat(auto-fill,minmax(240px,1fr))] sm:gap-4"
+          class="mx-auto mb-8 grid w-full max-w-5xl grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2 sm:grid-cols-[repeat(auto-fill,minmax(240px,1fr))] sm:gap-4"
         >
           <ContestantCard
             v-for="c in sortedContestants"
@@ -529,7 +523,7 @@ async function lockIn() {
         </div>
 
         <div
-          class="mx-auto mb-8 grid w-full max-w-5xl grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-2 sm:grid-cols-[repeat(auto-fill,minmax(240px,1fr))] sm:gap-4"
+          class="mx-auto mb-8 grid w-full max-w-5xl grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2 sm:grid-cols-[repeat(auto-fill,minmax(240px,1fr))] sm:gap-4"
         >
           <ContestantCard
             v-for="c in selectedContestants"
@@ -584,7 +578,7 @@ async function lockIn() {
 
         <!-- Same reflowing grid as Pick Players, but a single target selection -->
         <div
-          class="mx-auto mb-8 grid w-full max-w-5xl grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-2 sm:grid-cols-[repeat(auto-fill,minmax(240px,1fr))] sm:gap-4"
+          class="mx-auto mb-8 grid w-full max-w-5xl grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2 sm:grid-cols-[repeat(auto-fill,minmax(240px,1fr))] sm:gap-4"
         >
           <ContestantCard
             v-for="c in sortedContestants"
@@ -653,13 +647,16 @@ async function lockIn() {
               :size="48"
               class="rounded-lg border border-border-default"
             />
-            <div class="min-w-0">
+            <div class="min-w-0 flex-1">
               <p class="font-bold text-text-default truncate">{{ teamName }}</p>
               <p v-if="ownerName" class="text-sm text-text-subtle truncate">{{ ownerName }}</p>
             </div>
+            <BaseButton variant="secondary" size="sm" class="shrink-0" @click="step = 3"
+              >Edit</BaseButton
+            >
           </div>
 
-          <!-- Roster + bounty, using the same layout as the live team page -->
+          <!-- Roster, using the same layout as the live team page -->
           <TeamRosterList
             title="Your Roster"
             :players="reviewPlayers"
@@ -668,46 +665,68 @@ async function lockIn() {
             :episodes="[]"
             :points-by-id="{}"
             :show-scores="false"
-            class="mb-6"
+            expand-names
+            show-occupation
+            class="mb-4"
           >
-            <template #footer>
-              <div
-                v-if="bountyContestant"
-                class="flex items-center border-t border-border-subtle bg-surface-subtle/40 px-4 py-3"
+            <template #row-action="{ player }">
+              <BaseButton
+                variant="secondary"
+                size="sm"
+                class="shrink-0"
+                @click="step = player.role === 'mvp' ? 5 : 4"
+                >Edit</BaseButton
               >
-                <div class="flex items-center gap-3">
-                  <span
-                    class="w-11 shrink-0 rounded-md bg-survivor-bounty/15 py-1 text-center text-[10px] font-bold uppercase tracking-wide text-survivor-bounty"
-                    >BTY</span
-                  >
-                  <ContestantAvatar
-                    :photo-url="bountyContestant.photo_url"
-                    :name="displayName(bountyContestant)"
-                    :tribe="bountyContestant.tribe"
-                    show-tribe
-                  />
-                  <div>
-                    <p class="text-sm font-medium leading-tight text-text-default">
-                      {{ displayName(bountyContestant) }}
-                    </p>
-                    <p
-                      class="mt-0.5 text-xs"
-                      :style="{ color: getTribeColors(bountyContestant.tribe).text }"
-                    >
-                      {{ bountyContestant.tribe }}
-                    </p>
-                  </div>
-                </div>
-              </div>
             </template>
           </TeamRosterList>
 
-          <p v-if="errorMsg" class="text-sm text-status-error mb-4">{{ errorMsg }}</p>
+          <!-- Bounty pick in its own card, mirroring the roster card style -->
+          <div class="mb-6 overflow-hidden rounded-lg border border-border-subtle bg-surface-default">
+            <div
+              class="flex items-center gap-3 border-b border-border-subtle bg-surface-subtle px-4 py-3"
+            >
+              <h3 class="text-sm font-semibold text-text-default">Bounty Pick</h3>
+            </div>
+            <div v-if="bountyContestant" class="flex items-center justify-between px-4 py-3">
+              <div class="flex items-center gap-3">
+                <span
+                  class="w-11 shrink-0 rounded-md bg-survivor-bounty/15 py-1 text-center text-[10px] font-bold uppercase tracking-wide text-survivor-bounty"
+                  >BTY</span
+                >
+                <ContestantAvatar
+                  :photo-url="bountyContestant.photo_url"
+                  :name="displayName(bountyContestant)"
+                  :tribe="bountyContestant.tribe"
+                  border-color-override="var(--color-survivor-bounty)"
+                />
+                <div>
+                  <p class="text-sm font-medium leading-tight">
+                    <span class="text-text-default">{{ shortName(bountyContestant) }}</span>
+                    <span v-if="bountyContestant.last_name" class="ml-1 text-text-subtle">{{
+                      bountyContestant.last_name
+                    }}</span>
+                  </p>
+                  <p class="mt-0.5 text-xs text-text-subtle">
+                    {{ bountyContestant.tribe }}
+                  </p>
+                </div>
+              </div>
+              <BaseButton variant="secondary" size="sm" class="shrink-0" @click="step = 6"
+                >Edit</BaseButton
+              >
+            </div>
+            <div v-else class="px-4 py-3 text-xs text-text-subtle">No bounty pick set.</div>
+          </div>
+        </div>
 
-          <div class="flex gap-3">
-            <BaseButton variant="secondary" size="lg" @click="step--">Back</BaseButton>
-            <BaseButton size="lg" class="flex-1" :loading="loading" @click="lockIn">
-              {{ loading ? 'Locking in…' : 'Lock In My Tribe 🔥' }}
+        <!-- Sticky footer: single full-width Submit -->
+        <div
+          class="sticky bottom-0 z-30 -mx-4 -mb-16 mt-auto border-t border-border-subtle bg-surface-page/95 px-4 py-3 backdrop-blur sm:-mx-12 sm:px-12 lg:-mx-20 lg:px-20"
+        >
+          <div class="mx-auto w-full max-w-md">
+            <p v-if="errorMsg" class="text-sm text-status-error mb-2">{{ errorMsg }}</p>
+            <BaseButton size="lg" block :loading="loading" @click="lockIn">
+              {{ loading ? 'Submitting…' : 'Submit' }}
             </BaseButton>
           </div>
         </div>
