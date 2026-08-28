@@ -28,7 +28,6 @@ const props = defineProps<{
 
 const emit = defineEmits<{ created: [] }>()
 
-const TOTAL_STEPS = 7
 const STEP_LABELS = [
   'League Code',
   'League Rules',
@@ -40,6 +39,14 @@ const STEP_LABELS = [
 ]
 
 const step = ref(1)
+
+// Step indicator (visual only): the League Code step is excluded from the
+// counter and the counter is hidden entirely while on it. Each entry keeps its
+// real step number so completion/active state still tracks `step` (1–7).
+const visibleSteps = computed(() =>
+  STEP_LABELS.slice(1).map((label, i) => ({ label, step: i + 2 })),
+)
+
 const leagueCode = ref('')
 // The league code is a 6-digit number: keep only digits (handles paste and a
 // pre-filled code from the invite link) and cap the length.
@@ -254,43 +261,45 @@ async function lockIn() {
     <ThemeAtmosphere />
     <div class="relative z-10 flex flex-1 flex-col px-4 sm:px-12 lg:px-20 pt-8 pb-16">
       <!-- Step indicator: equal-width columns, each with a number and its name
-           centered below. A connector line links each number to the next. -->
-      <div class="mx-auto mb-10 flex w-full max-w-5xl">
+           centered below. A connector line links each number to the next. The
+           League Code step is omitted here and the whole bar is hidden while on
+           it — purely visual; the wizard still runs on steps 1–7. -->
+      <div v-if="step > 1" class="mx-auto mb-10 flex w-full max-w-5xl">
         <div
-          v-for="(label, i) in STEP_LABELS"
-          :key="i"
+          v-for="(s, i) in visibleSteps"
+          :key="s.step"
           class="relative flex flex-1 flex-col items-center"
         >
           <!-- Connector to the next step, sitting behind the circles -->
           <div
-            v-if="i < TOTAL_STEPS - 1"
+            v-if="i < visibleSteps.length - 1"
             class="absolute left-1/2 top-4 h-0.5 w-full -translate-y-1/2 transition-colors duration-300"
-            :class="step > i + 1 ? 'bg-interactive-accent' : 'bg-surface-strong'"
+            :class="step > s.step ? 'bg-interactive-accent' : 'bg-surface-strong'"
           />
           <div
             class="relative z-10 flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all duration-300"
             :class="[
-              step > i + 1
+              step > s.step
                 ? 'bg-interactive-accent text-text-on-accent'
-                : step === i + 1
+                : step === s.step
                   ? 'bg-interactive-accent text-text-on-accent ring-4 ring-interactive-accent/20'
                   : 'bg-surface-subtle text-text-muted border border-border-subtle',
             ]"
           >
-            <span v-if="step > i + 1">✓</span>
+            <span v-if="step > s.step">✓</span>
             <span v-else>{{ i + 1 }}</span>
           </div>
           <p
             class="mt-2 hidden text-center text-xs leading-tight transition-colors duration-200 sm:block"
             :class="[
-              step === i + 1
+              step === s.step
                 ? 'font-semibold text-text-default'
-                : step > i + 1
+                : step > s.step
                   ? 'text-text-subtle'
                   : 'text-text-muted',
             ]"
           >
-            {{ label }}
+            {{ s.label }}
           </p>
         </div>
       </div>
