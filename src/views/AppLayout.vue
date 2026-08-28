@@ -248,7 +248,10 @@ async function handleSignOut() {
     </nav>
 
     <!-- Primary tabs condensed into a dropdown (mobile) -->
-    <div v-if="showTabs" class="relative shrink-0 bg-surface-background px-4 pt-4 pb-2 sm:hidden">
+    <div
+      v-if="showTabs && !route.meta.hideMobileTabs"
+      class="relative shrink-0 bg-surface-background px-4 pt-4 pb-2 sm:hidden"
+    >
       <button
         @click="menuOpen = !menuOpen"
         class="flex min-h-12 w-full items-center gap-2.5 rounded-md border border-interactive-input-border bg-interactive-input px-3 py-2 text-left text-base font-medium text-text-default transition-colors hover:border-border-strong focus:outline-none focus-visible:ring-2 focus-visible:ring-border-accent"

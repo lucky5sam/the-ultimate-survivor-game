@@ -18,6 +18,9 @@ import TeamAvatar from '../components/TeamAvatar.vue'
 import TeamRosterList from '../components/TeamRosterList.vue'
 import BountyHistoryList from '../components/BountyHistoryList.vue'
 import ScoreBreakdownModal from '../components/ScoreBreakdownModal.vue'
+import ContestantDetailModal, {
+  type ContestantEventItem,
+} from '../components/ContestantDetailModal.vue'
 import {
   computeLeaderboard,
   computeTeamBreakdown,
@@ -86,6 +89,17 @@ const playerPoints = ref<Record<string, number>>({})
 const breakdownModalOpen = ref(false)
 const breakdown = ref<TeamBreakdown | null>(null)
 const breakdownLoading = ref(false)
+
+// Breadcrumb: once the team header scrolls out of view, surface the team name
+// beside the sticky "Leaderboard" back link (e.g. "‹ Leaderboard / My Team").
+const teamNameEl = ref<HTMLElement | null>(null)
+const showBreadcrumb = ref(false)
+let headerObserver: IntersectionObserver | undefined
+
+const seasonName = ref<string | null>(null)
+const detailContestant = ref<Contestant | null>(null)
+const detailEvents = ref<ContestantEventItem[]>([])
+const detailEventsLoading = ref(false)
 
 // Ticking clock so date-based locks flip automatically without a reload.
 const now = ref(Date.now())
@@ -167,6 +181,37 @@ function pickForEpisode(n: number): BountyPick | null {
   return eligible.reduce((a, b) => (b.effective_from_episode > a.effective_from_episode ? b : a))
 }
 
+// Open the contestant detail modal for a roster player and load their scored
+// actions across this season's episodes (the Event Log tab). Read-only; failure
+// just leaves an empty log.
+async function openContestantDetails(contestantId: string) {
+  const c = allContestants.value.find((x) => x.id === contestantId) ?? null
+  if (!c) return
+  detailContestant.value = c
+  detailEvents.value = []
+  detailEventsLoading.value = true
+  try {
+    const epNumById = Object.fromEntries(allEpisodes.value.map((e) => [e.id, e.number]))
+    const episodeIds = allEpisodes.value.map((e) => e.id)
+    if (episodeIds.length === 0) return
+    const { data } = await supabase
+      .from('contestant_actions')
+      .select('episode_id, count, action_types(category, points)')
+      .eq('contestant_id', contestantId)
+      .in('episode_id', episodeIds)
+    detailEvents.value = (data ?? []).map((a: any) => ({
+      episodeNumber: epNumById[a.episode_id] ?? 0,
+      label: (a.action_types as { category: string } | null)?.category ?? 'Action',
+      points: (a.action_types as { points: number } | null)?.points ?? 0,
+      count: a.count ?? 1,
+    }))
+  } catch {
+    detailEvents.value = []
+  } finally {
+    detailEventsLoading.value = false
+  }
+}
+
 async function openBreakdown() {
   breakdownModalOpen.value = true
   if (breakdown.value) return
@@ -236,6 +281,7 @@ async function load() {
     ])
 
     if (season) {
+      seasonName.value = season.name
       currentEpisodeId.value = season.current_episode_id
       seasonConfig.value = {
         bounty_points_pre_merge: season.bounty_points_pre_merge,
@@ -324,6 +370,23 @@ async function load() {
 }
 
 watch(teamId, load)
+
+// Watch the team-name header (it only exists once loaded) and toggle the
+// breadcrumb when it scrolls up behind the sticky back bar. The negative top
+// margin accounts for that bar's height so the reveal lines up with it.
+watch(teamNameEl, (el) => {
+  headerObserver?.disconnect()
+  showBreadcrumb.value = false
+  if (!el) return
+  headerObserver = new IntersectionObserver(
+    ([entry]) => {
+      showBreadcrumb.value = !entry!.isIntersecting
+    },
+    { rootMargin: '-56px 0px 0px 0px', threshold: 0 },
+  )
+  headerObserver.observe(el)
+})
+
 onMounted(() => {
   nowTimer = setInterval(() => {
     now.value = Date.now()
@@ -332,22 +395,48 @@ onMounted(() => {
 })
 onUnmounted(() => {
   if (nowTimer) clearInterval(nowTimer)
+  headerObserver?.disconnect()
 })
 </script>
 
 <template>
   <div class="flex flex-1 flex-col">
-    <!-- Back bar -->
-    <div class="border-b border-border-subtle bg-surface-subtle px-6 py-2">
+    <!-- Back bar (sticky; reveals the team name as a breadcrumb on scroll) -->
+    <div
+      class="sticky top-0 z-20 flex min-w-0 items-center border-b border-border-subtle bg-surface-subtle px-4 py-3"
+    >
       <button
         @click="router.back()"
-        class="flex items-center gap-1.5 text-sm font-medium text-text-accent hover:text-interactive-accent-hover"
+        class="flex shrink-0 cursor-pointer items-center gap-1.5 text-sm font-medium text-text-default hover:underline"
       >
         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
         </svg>
-        Back
+        Leaderboard
       </button>
+      <Transition
+        enter-active-class="transition-opacity duration-200"
+        enter-from-class="opacity-0"
+        leave-active-class="transition-opacity duration-200"
+        leave-to-class="opacity-0"
+      >
+        <span
+          v-if="showBreadcrumb && teamName"
+          class="ml-1.5 flex min-w-0 items-center gap-1.5 text-sm font-medium text-text-subtle"
+        >
+          <span class="shrink-0">/</span>
+          <TeamAvatar
+            v-if="teamImageUrl || teamEmoji"
+            :image-url="teamImageUrl"
+            :emoji="teamEmoji"
+            :color="teamColor"
+            :name="teamName"
+            :size="20"
+            class="shrink-0 rounded-xs border border-border-default"
+          />
+          <span class="min-w-0 truncate">{{ teamName }}</span>
+        </span>
+      </Transition>
     </div>
 
     <div v-if="loading" class="mx-auto max-w-3xl px-4 py-8 text-sm text-text-muted sm:px-6">
@@ -376,7 +465,7 @@ onUnmounted(() => {
             class="rounded-2xl border border-border-default"
           />
           <div class="min-w-0">
-            <h2 class="truncate text-2xl font-bold text-text-default">
+            <h2 ref="teamNameEl" class="truncate text-2xl font-bold text-text-default">
               {{ teamName || '(no name)' }}
             </h2>
             <p v-if="ownerName" class="text-base text-text-subtle">{{ ownerName }}</p>
@@ -413,13 +502,15 @@ onUnmounted(() => {
           </BaseCard>
         </div>
 
-        <!-- Roster (read-only) -->
+        <!-- Roster (read-only; rows open the contestant profile modal) -->
         <TeamRosterList
           :players="activePlayers"
           :contestants="allContestants"
           :eliminated-episode-id-by-contestant="eliminatedEpisodeIdByContestant"
           :episodes="allEpisodes"
           :points-by-id="playerPoints"
+          details-interactive
+          @open-details="openContestantDetails"
         />
 
         <!-- Bounty history (read-only; unlocked upcoming pick hidden) -->
@@ -447,6 +538,17 @@ onUnmounted(() => {
       :loading="breakdownLoading"
       :breakdown="breakdown"
       @close="breakdownModalOpen = false"
+    />
+
+    <!-- Contestant profile modal (opened from a roster row) -->
+    <ContestantDetailModal
+      :contestant="detailContestant"
+      :show="!!detailContestant"
+      :season-name="seasonName ?? undefined"
+      show-event-log
+      :events="detailEvents"
+      :events-loading="detailEventsLoading"
+      @close="detailContestant = null"
     />
   </div>
 </template>

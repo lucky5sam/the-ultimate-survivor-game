@@ -60,6 +60,14 @@ export const useAuthStore = defineStore('auth', () => {
         if (ln) updates.last_name = ln
       }
 
+      // Google sign-in puts the account photo in metadata (`avatar_url`/`picture`).
+      // Adopt it as the profile avatar only when the user hasn't set one, so a
+      // custom upload is never overwritten. Stores Google's hosted URL directly.
+      if (!profile?.avatar_url) {
+        const picture = metadata?.avatar_url ?? metadata?.picture
+        if (picture) updates.avatar_url = picture
+      }
+
       // Email signup stashes payment info in metadata; write it through on first load.
       if (!profile?.payment_method && metadata?.payment_method) {
         updates.payment_method = metadata.payment_method

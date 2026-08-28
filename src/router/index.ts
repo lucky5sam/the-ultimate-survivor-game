@@ -18,7 +18,13 @@ const router = createRouter({
         { path: 'leaderboard', component: () => import('../views/LeaderboardView.vue') },
         { path: 'event-log', component: () => import('../views/EventLogView.vue') },
         { path: 'my-team', component: () => import('../views/TeamView.vue') },
-        { path: 'team/:teamId', component: () => import('../views/PublicTeamView.vue') },
+        {
+          path: 'team/:teamId',
+          component: () => import('../views/PublicTeamView.vue'),
+          // Public team view has its own Back button; hide the mobile tab
+          // selector so Back is the only navigation on small screens.
+          meta: { hideMobileTabs: true },
+        },
         { path: 'profile', component: () => import('../views/ProfileView.vue') },
       ],
     },
