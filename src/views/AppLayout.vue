@@ -229,7 +229,7 @@ async function handleSignOut() {
     >
       <button
         @click="menuOpen = !menuOpen"
-        class="flex min-h-12 w-full items-center gap-2.5 rounded-md border border-interactive-input-border bg-interactive-input px-3 py-2 text-left text-sm font-medium text-text-default transition-colors hover:border-border-strong focus:outline-none focus-visible:ring-2 focus-visible:ring-border-accent"
+        class="flex min-h-12 w-full items-center gap-2.5 rounded-md border border-interactive-input-border bg-interactive-input px-3 py-2 text-left text-base font-medium text-text-subtle transition-colors hover:border-border-strong focus:outline-none focus-visible:ring-2 focus-visible:ring-border-accent"
       >
         <svg
           class="h-5 w-5 shrink-0 text-icon-subtle"
@@ -261,7 +261,7 @@ async function handleSignOut() {
           v-for="t in tabs"
           :key="t.to"
           @click="goTo(t.to)"
-          class="block w-full px-3 py-2.5 text-left text-sm hover:bg-surface-subtle"
+          class="block w-full px-3 py-2 text-left text-base hover:bg-surface-subtle"
           :class="route.path === t.to ? 'font-medium text-text-accent' : 'text-text-default'"
         >
           {{ t.label }}
