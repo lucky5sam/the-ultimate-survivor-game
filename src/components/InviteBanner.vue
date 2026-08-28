@@ -170,7 +170,7 @@ onUnmounted(() => {
       <img
         :src="survivorLogoUrl"
         alt="Survivor 51"
-        class="pointer-events-none h-20 w-auto shrink-0 select-none sm:h-40"
+        class="pointer-events-none h-16 w-auto shrink-0 select-none sm:h-40"
       />
     </div>
   </div>

@@ -981,33 +981,33 @@ onUnmounted(() => {
               :size="64"
               class="rounded-2xl border border-border-default"
             />
-            <div class="min-w-0">
-              <div class="flex items-center gap-2">
-                <h2 class="truncate text-2xl font-bold text-text-default">
+            <div class="flex min-w-0 items-start gap-2">
+              <div class="flex min-w-0 flex-col">
+                <h2 class="line-clamp-2 text-lg font-bold text-text-default sm:text-2xl">
                   {{ existingTeam?.team_name || 'My Team' }}
                 </h2>
-                <button
-                  type="button"
-                  aria-label="Edit team details"
-                  class="shrink-0 rounded-md p-1.5 text-icon-subtle transition-colors hover:bg-surface-subtle hover:text-text-default focus:outline-none focus-visible:ring-2 focus-visible:ring-border-accent"
-                  @click="openEditTeam"
-                >
-                  <svg
-                    class="h-5 w-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                    />
-                  </svg>
-                </button>
+                <p v-if="ownerName" class="text-base text-text-subtle">{{ ownerName }}</p>
               </div>
-              <p v-if="ownerName" class="text-base text-text-subtle">{{ ownerName }}</p>
+              <button
+                type="button"
+                aria-label="Edit team details"
+                class="shrink-0 rounded-md p-1.5 text-icon-subtle transition-colors hover:bg-surface-subtle hover:text-text-default focus:outline-none focus-visible:ring-2 focus-visible:ring-border-accent"
+                @click="openEditTeam"
+              >
+                <svg
+                  class="h-5 w-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                  />
+                </svg>
+              </button>
             </div>
           </div>
 
