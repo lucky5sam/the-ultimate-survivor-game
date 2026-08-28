@@ -53,10 +53,11 @@ watchEffect(() => {
 })
 
 const tabs = [
-  { label: 'Dashboard', to: '/dashboard' },
+  { label: 'My Team', to: '/my-team' },
   { label: 'Leaderboard', to: '/leaderboard' },
   { label: 'Event Log', to: '/event-log' },
-  { label: 'My Team', to: '/my-team' },
+  // Dashboard hidden for now:
+  // { label: 'Dashboard', to: '/dashboard' },
 ]
 
 const activeTab = computed(() => tabs.find((t) => t.to === route.path) ?? tabs[0]!)
@@ -131,17 +132,10 @@ async function handleSignOut() {
     </RouterLink>
 
     <header
-      class="bg-surface-page border-b border-border-subtle px-6 py-4 flex items-center justify-between shrink-0"
+      class="bg-surface-page border-b border-border-subtle px-4 sm:px-6 py-4 flex items-center justify-between shrink-0"
     >
       <h1 class="text-xl font-bold text-text-default">The Ultimate Survivor Game</h1>
       <div class="flex items-center gap-4 text-sm">
-        <RouterLink
-          v-if="auth.isAdmin"
-          to="/admin"
-          class="text-text-accent hover:text-interactive-accent-hover"
-          >Admin</RouterLink
-        >
-
         <!-- Account avatar + menu -->
         <div class="relative">
           <button
@@ -166,10 +160,18 @@ async function handleSignOut() {
               <p class="truncate text-sm font-medium text-text-default">
                 {{ ownerName || 'Account' }}
               </p>
-              <p v-if="auth.user?.email" class="truncate text-xs text-text-muted">
+              <p v-if="auth.user?.email" class="truncate text-xs text-text-subtle">
                 {{ auth.user.email }}
               </p>
             </div>
+            <RouterLink
+              v-if="auth.isAdmin"
+              to="/admin"
+              @click="userMenuOpen = false"
+              class="block px-3 py-2.5 text-sm text-text-default hover:bg-surface-subtle"
+            >
+              Admin
+            </RouterLink>
             <RouterLink
               to="/profile"
               @click="userMenuOpen = false"
@@ -206,9 +208,9 @@ async function handleSignOut() {
         v-for="t in tabs"
         :key="t.to"
         :to="t.to"
-        class="relative mr-4 py-3 text-sm font-medium transition-colors"
+        class="relative mr-4 py-3 text-sm font-semibold transition-colors"
         :class="
-          route.path === t.to ? 'text-text-accent' : 'text-text-muted hover:text-text-default'
+          route.path === t.to ? 'text-text-default' : 'text-text-subtle hover:text-text-default'
         "
       >
         {{ t.label }}
@@ -223,7 +225,7 @@ async function handleSignOut() {
     <div v-if="showTabs" class="relative shrink-0 bg-surface-background px-4 pt-4 pb-2 sm:hidden">
       <button
         @click="menuOpen = !menuOpen"
-        class="flex min-h-12 w-full items-center gap-2.5 rounded-md border border-interactive-input-border bg-interactive-input px-3 py-2 text-left text-base font-medium text-text-subtle transition-colors hover:border-border-strong focus:outline-none focus-visible:ring-2 focus-visible:ring-border-accent"
+        class="flex min-h-12 w-full items-center gap-2.5 rounded-md border border-interactive-input-border bg-interactive-input px-3 py-2 text-left text-base font-medium text-text-default transition-colors hover:border-border-strong focus:outline-none focus-visible:ring-2 focus-visible:ring-border-accent"
       >
         <svg
           class="h-5 w-5 shrink-0 text-icon-subtle"
@@ -236,7 +238,7 @@ async function handleSignOut() {
         </svg>
         <span class="flex-1 truncate font-semibold">{{ activeTab.label }}</span>
         <svg
-          class="h-4 w-4 shrink-0 text-icon-subtle transition-transform"
+          class="h-4 w-4 shrink-0 text-icon-default transition-transform"
           :class="menuOpen ? 'rotate-180' : ''"
           fill="none"
           viewBox="0 0 24 24"

@@ -41,6 +41,12 @@ const STEP_LABELS = [
 
 const step = ref(1)
 const leagueCode = ref('')
+// The league code is a 6-digit number: keep only digits (handles paste and a
+// pre-filled code from the invite link) and cap the length.
+watch(leagueCode, (v) => {
+  const digits = v.replace(/\D/g, '').slice(0, 6)
+  if (digits !== v) leagueCode.value = digits
+})
 const rulesAcknowledged = ref(false)
 const teamName = ref('')
 // Team avatar is optional: either an uploaded photo (uploaded on lock-in, since
@@ -138,8 +144,8 @@ async function nextStep() {
   errorMsg.value = ''
 
   if (step.value === 1) {
-    if (!leagueCode.value.trim()) {
-      errorMsg.value = 'Enter the league code'
+    if (leagueCode.value.length !== 6) {
+      errorMsg.value = 'Enter the 6-digit league code'
       return
     }
     loading.value = true
@@ -278,7 +284,7 @@ async function lockIn() {
             class="mt-2 hidden text-center text-xs leading-tight transition-colors duration-200 sm:block"
             :class="[
               step === i + 1
-                ? 'font-semibold text-text-accent'
+                ? 'font-semibold text-text-default'
                 : step > i + 1
                   ? 'text-text-subtle'
                   : 'text-text-muted',
@@ -306,7 +312,9 @@ async function lockIn() {
               v-model="leagueCode"
               size="lg"
               class="max-w-md"
-              placeholder="Enter code…"
+              placeholder="6-digit code"
+              inputmode="numeric"
+              :maxlength="6"
               :error="errorMsg"
               @keyup.enter="nextStep"
             />
@@ -314,7 +322,7 @@ async function lockIn() {
               size="lg"
               class="mt-4"
               :loading="loading"
-              :disabled="!leagueCode.trim()"
+              :disabled="leagueCode.length !== 6"
               @click="nextStep"
             >
               Get Started
@@ -617,10 +625,10 @@ async function lockIn() {
 
       <!-- ── Step 7: Review ── -->
       <template v-else-if="step === 7">
-        <div class="mx-auto w-full max-w-md">
-          <h2 class="text-2xl font-bold text-text-default mb-1">Review Your Tribe</h2>
+        <div class="mx-auto w-full max-w-5xl">
+          <h2 class="text-2xl font-bold text-text-default mb-1">Review Your Team</h2>
           <p class="text-text-subtle text-base mb-6">
-            Once locked in, you can swap players between episodes.
+            You will still be able to make changes to your team after submission.
           </p>
 
           <!-- Team identity: avatar + team name + owner -->
@@ -709,15 +717,23 @@ async function lockIn() {
           </div>
         </div>
 
-        <!-- Sticky footer: single full-width Submit -->
+        <!-- Sticky footer: Submit, hugging its contents and right-aligned like the
+             other steps' actions -->
         <div
           class="sticky bottom-0 z-30 -mx-4 -mb-16 mt-auto border-t border-border-subtle bg-surface-page/95 px-4 py-3 backdrop-blur sm:-mx-12 sm:px-12 lg:-mx-20 lg:px-20"
         >
-          <div class="mx-auto w-full max-w-md">
+          <div class="mx-auto w-full max-w-5xl">
             <p v-if="errorMsg" class="text-sm text-status-error mb-2">{{ errorMsg }}</p>
-            <BaseButton size="lg" block :loading="loading" @click="lockIn">
-              {{ loading ? 'Submitting…' : 'Submit' }}
-            </BaseButton>
+            <div class="flex">
+              <BaseButton
+                size="lg"
+                class="w-full sm:ml-auto sm:w-auto"
+                :loading="loading"
+                @click="lockIn"
+              >
+                {{ loading ? 'Submitting…' : 'Submit' }}
+              </BaseButton>
+            </div>
           </div>
         </div>
       </template>

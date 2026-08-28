@@ -13,7 +13,7 @@ const router = createRouter({
       component: () => import('../views/AppLayout.vue'),
       meta: { requiresAuth: true },
       children: [
-        { path: '', redirect: '/dashboard' },
+        { path: '', redirect: '/my-team' },
         { path: 'dashboard', component: () => import('../views/DashboardView.vue') },
         { path: 'leaderboard', component: () => import('../views/LeaderboardView.vue') },
         { path: 'event-log', component: () => import('../views/EventLogView.vue') },

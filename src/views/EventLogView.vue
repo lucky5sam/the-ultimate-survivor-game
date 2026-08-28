@@ -234,7 +234,7 @@ onMounted(() => seasonStore.load())
           <table class="w-full table-fixed border-collapse text-sm">
             <colgroup>
               <col class="w-40" />
-              <col class="w-28" />
+              <col class="w-16" />
               <col class="w-40" />
               <col class="w-28" />
             </colgroup>

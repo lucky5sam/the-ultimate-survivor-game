@@ -97,7 +97,6 @@ onMounted(() => seasonStore.load())
         >
           <span class="min-w-7 shrink-0 text-center">Pl</span>
           <span class="flex-1">Team</span>
-          <span class="shrink-0">Players</span>
           <span class="ml-2 min-w-17 shrink-0 text-center">Score</span>
         </div>
         <div class="divide-y divide-border-subtle">
@@ -105,7 +104,7 @@ onMounted(() => seasonStore.load())
             v-for="row in displayRows"
             :key="row.teamId"
             :to="`/team/${row.teamId}`"
-            class="flex items-center gap-2 pl-3 py-3 pr-5 transition-colors"
+            class="flex items-center gap-2 pl-3 py-3 pr-4 transition-colors"
             :class="isMyTeam(row.ownerId) ? 'bg-surface-highlight' : 'bg-surface-default'"
           >
             <span
@@ -142,12 +141,12 @@ onMounted(() => seasonStore.load())
                   :tribe="p.tribe"
                   :grayscale="p.out"
                   :border-color-override="p.out ? 'var(--color-border-subtle)' : null"
-                  :size="28"
+                  :size="24"
                 />
               </div>
             </div>
             <div
-              class="ml-2 flex min-w-17 shrink-0 items-center justify-center rounded-lg border border-border-subtle bg-surface-subtle px-3 py-1.5 shadow-sm"
+              class="ml-1 flex min-w-17 shrink-0 items-center justify-center rounded-lg border border-border-subtle bg-surface-subtle px-3 py-1.5 shadow-sm"
             >
               <p
                 class="text-sm font-bold tabular-nums"

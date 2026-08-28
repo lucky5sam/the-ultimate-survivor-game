@@ -1,9 +1,14 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { supabase } from '../../lib/supabase'
 
 const registrationCode = ref('')
 const newCode = ref('')
+// The registration code is a 6-digit number — keep only digits and cap length.
+watch(newCode, (v) => {
+  const digits = v.replace(/\D/g, '').slice(0, 6)
+  if (digits !== v) newCode.value = digits
+})
 const loading = ref(true)
 const saving = ref(false)
 const errorMsg = ref('')
@@ -31,7 +36,10 @@ async function fetchCode() {
 }
 
 async function saveCode() {
-  if (!newCode.value.trim()) return
+  if (newCode.value.length !== 6) {
+    errorMsg.value = 'Enter a 6-digit code'
+    return
+  }
   saving.value = true
   errorMsg.value = ''
   successMsg.value = ''
@@ -93,12 +101,14 @@ onMounted(fetchCode)
             <input
               v-model="newCode"
               type="text"
-              placeholder="New code"
+              inputmode="numeric"
+              maxlength="6"
+              placeholder="6-digit code"
               class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             <button
               @click="saveCode"
-              :disabled="saving || newCode === registrationCode"
+              :disabled="saving || newCode.length !== 6 || newCode === registrationCode"
               class="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-medium rounded-lg px-4 py-2"
             >
               {{ saving ? 'Saving…' : 'Update' }}

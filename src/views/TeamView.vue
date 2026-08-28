@@ -675,12 +675,12 @@ async function openContestantDetails(contestantId: string) {
     if (episodeIds.length === 0) return
     const { data } = await supabase
       .from('contestant_actions')
-      .select('episode_id, count, action_types(type, points)')
+      .select('episode_id, count, action_types(category, points)')
       .eq('contestant_id', contestantId)
       .in('episode_id', episodeIds)
     detailEvents.value = (data ?? []).map((a: any) => ({
       episodeNumber: epNumById[a.episode_id] ?? 0,
-      label: (a.action_types as { type: string } | null)?.type ?? 'Action',
+      label: (a.action_types as { category: string } | null)?.category ?? 'Action',
       points: (a.action_types as { points: number } | null)?.points ?? 0,
       count: a.count ?? 1,
     }))

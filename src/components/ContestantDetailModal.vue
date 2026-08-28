@@ -174,7 +174,7 @@ const embedUrl = computed(() => {
                   <span class="text-sm font-semibold" :style="{ color: colors?.text }">{{
                     contestant.tribe
                   }}</span>
-                  <span v-if="seasonName" class="text-stone-500 text-sm">· {{ seasonName }}</span>
+                  <span v-if="seasonName" class="text-text-subtle text-sm">{{ seasonName }}</span>
                 </div>
               </div>
               <!-- Close button in the header — appears once the bar is stuck -->
@@ -284,24 +284,16 @@ const embedUrl = computed(() => {
               </div>
               <div v-else class="space-y-4">
                 <div v-for="group in eventsByEpisode" :key="group.episodeNumber">
-                  <div class="mb-2 flex items-center justify-between">
-                    <p class="text-xs font-semibold uppercase tracking-wide text-stone-500">
-                      Episode {{ group.episodeNumber }}
-                    </p>
-                    <p
-                      class="text-xs font-semibold tabular-nums"
-                      :class="group.subtotal >= 0 ? 'text-emerald-400' : 'text-red-400'"
-                    >
-                      {{ fmtPts(group.subtotal) }}
-                    </p>
-                  </div>
-                  <div class="overflow-hidden rounded-xl bg-stone-800">
+                  <p class="text-xs font-semibold uppercase tracking-wide text-stone-500">
+                    Episode {{ group.episodeNumber }}
+                  </p>
+                  <div class="overflow-hidden">
                     <div
                       v-for="(item, i) in group.items"
                       :key="i"
-                      class="flex items-center justify-between border-b border-stone-700/60 px-3 py-2 last:border-0"
+                      class="flex items-center justify-between border-b border-stone-700/60 py-2 last:border-0"
                     >
-                      <p class="text-sm text-stone-200">
+                      <p class="text-sm font-medium text-stone-200">
                         {{ item.label }}
                         <span v-if="item.count > 1" class="text-stone-500">×{{ item.count }}</span>
                       </p>
@@ -312,6 +304,16 @@ const embedUrl = computed(() => {
                         {{ fmtPts(item.points * item.count) }}
                       </p>
                     </div>
+                  </div>
+                  <!-- Episode total, summing the events above it -->
+                  <div class="flex items-center justify-between border-t border-stone-600 py-2">
+                    <p class="text-sm font-medium text-stone-200">Total</p>
+                    <p
+                      class="text-sm font-semibold tabular-nums"
+                      :class="group.subtotal >= 0 ? 'text-emerald-400' : 'text-red-400'"
+                    >
+                      {{ fmtPts(group.subtotal) }}
+                    </p>
                   </div>
                 </div>
               </div>

@@ -10,6 +10,7 @@ withDefaults(
     required?: boolean
     autocomplete?: string
     maxlength?: number
+    inputmode?: 'text' | 'numeric' | 'decimal' | 'tel' | 'email' | 'url' | 'search'
     size?: 'sm' | 'md' | 'lg'
   }>(),
   { size: 'md' },
@@ -36,6 +37,7 @@ const sizes: Record<string, string> = {
       :required="required"
       :autocomplete="autocomplete"
       :maxlength="maxlength"
+      :inputmode="inputmode"
       @input="$emit('update:modelValue', ($event.target as HTMLInputElement).value)"
       :class="[
         'w-full rounded-md transition-colors',
