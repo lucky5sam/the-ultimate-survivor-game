@@ -90,7 +90,7 @@
   /* status — semantic feedback */
   --color-status-success: #16a34a;
   --color-status-warning: #d97706;
-  --color-status-error: #dc2626;
+  --color-status-error: #b91c1c; /* red-700: more contrast on the light error surface */
   --color-status-info: #2563eb;
   --color-status-success-surface: #f0fdf4;
   --color-status-warning-surface: #fffbeb;
@@ -254,7 +254,7 @@
     /* status */
     --color-status-success: #4ade80;
     --color-status-warning: #fbbf24;
-    --color-status-error: #f87171;
+    --color-status-error: #fca5a5; /* red-300: more contrast on the dark error surface */
     --color-status-info: #60a5fa;
     --color-status-success-surface: #052e16;
     --color-status-warning-surface: #451a03;

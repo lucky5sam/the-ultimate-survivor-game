@@ -1,8 +1,9 @@
 <script setup lang="ts">
 // Shared roster card used by both the editable Team page and the read-only
 // public team view. Renders the roster rows (position chip, avatar, name, tribe
-// badge, individual score, in-game/voted-out status). The card header's right
-// side and the footer are slots so each page supplies its own controls.
+// badge, an "Out" chip for eliminated players, and individual score). The card
+// header's right side and the footer are slots so each page supplies its own
+// controls.
 //
 // Editable mode: set `chipInteractive` — the position chip becomes a button that
 // emits `chip-click` (the parent opens its action menu). Read-only mode leaves
@@ -95,9 +96,12 @@ function playerStatus(id: string): { out: boolean; ep: number | null } {
 <template>
   <div class="overflow-hidden rounded-lg border border-border-subtle bg-surface-default">
     <div
-      class="flex items-center justify-between border-b border-border-subtle bg-surface-subtle px-4 py-3"
+      class="flex items-center justify-between gap-3 border-b border-border-subtle bg-surface-subtle px-4 py-3"
     >
-      <h3 class="text-sm font-semibold text-text-default">{{ title }}</h3>
+      <div class="min-w-0">
+        <h3 class="text-sm font-semibold text-text-default">{{ title }}</h3>
+        <slot name="subtitle" />
+      </div>
       <slot name="header-actions" />
     </div>
 
@@ -151,16 +155,28 @@ function playerStatus(id: string): { out: boolean; ep: number | null } {
             "
           />
           <div :class="{ 'opacity-60': playerStatus(player.contestant_id).out }">
-            <p class="text-sm font-medium leading-tight">
-              <span class="text-text-default">{{ contestantPrimary(player.contestant_id) }}</span>
+            <div class="flex items-center gap-1">
+              <p class="text-sm font-medium leading-tight">
+                <span class="text-text-default">{{
+                  contestantPrimary(player.contestant_id)
+                }}</span>
+                <span
+                  v-if="contestantSecondary(player.contestant_id)"
+                  class="ml-1 hidden text-text-subtle sm:inline"
+                  >{{ contestantSecondary(player.contestant_id) }}</span
+                >
+              </p>
               <span
-                v-if="contestantSecondary(player.contestant_id)"
-                class="ml-1 hidden text-text-subtle sm:inline"
-                >{{ contestantSecondary(player.contestant_id) }}</span
+                v-if="playerStatus(player.contestant_id).out"
+                class="shrink-0 rounded-full bg-status-error-surface px-2 py-0.5 text-xs font-semibold text-status-error"
+                >Out</span
               >
-            </p>
+            </div>
             <div class="mt-0.5 text-xs text-text-subtle">
-              E{{ player.effective_from_episode }}–now
+              E{{ player.effective_from_episode }}–<template
+                v-if="playerStatus(player.contestant_id).out && playerStatus(player.contestant_id).ep"
+                >E{{ playerStatus(player.contestant_id).ep }}</template
+              ><template v-else>now</template>
             </div>
           </div>
         </component>
@@ -169,20 +185,10 @@ function playerStatus(id: string): { out: boolean; ep: number | null } {
         <p class="text-sm font-semibold tabular-nums text-text-default">
           {{ fmtPts(pointsById[player.contestant_id] ?? 0) }}
         </p>
-        <p
-          class="mt-0.5 text-xs"
-          :class="playerStatus(player.contestant_id).out ? 'text-status-error' : 'text-text-muted'"
-        >
-          {{
-            playerStatus(player.contestant_id).out
-              ? `Voted Out E${playerStatus(player.contestant_id).ep}`
-              : 'In the Game'
-          }}
-        </p>
       </div>
     </div>
 
-    <div v-if="rosterSorted.length === 0" class="px-4 py-3 text-xs text-text-muted">
+    <div v-if="rosterSorted.length === 0" class="px-4 py-3 text-xs text-text-subtle">
       {{ emptyText }}
     </div>
 

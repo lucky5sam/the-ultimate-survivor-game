@@ -1,8 +1,8 @@
 <script setup lang="ts">
 // Shared bounty-history card used by the editable Team page and the read-only
-// public team view. Renders per-episode rows (pick avatar + hit/missed/locked
-// badge). Row-level edit controls come from the `row-action` slot, so the
-// public view simply omits them.
+// public team view. Renders per-episode rows (pick avatar + hit/missed/locked/
+// pending badge). Row-level edit controls come from the `row-action` slot, so
+// the public view simply omits them.
 import ContestantAvatar from './ContestantAvatar.vue'
 import { displayName, shortName } from '../utils/contestantName'
 import type { ContestantFull } from '../types/contestant'
@@ -42,9 +42,12 @@ function contestantPhoto(id: string) {
 <template>
   <div class="overflow-hidden rounded-lg border border-border-subtle bg-surface-default">
     <div
-      class="flex items-center justify-between border-b border-border-subtle bg-surface-subtle px-4 py-3"
+      class="flex items-center justify-between gap-3 border-b border-border-subtle bg-surface-subtle px-4 py-3"
     >
-      <h3 class="text-sm font-semibold text-text-default">{{ title }}</h3>
+      <div class="min-w-0">
+        <h3 class="text-sm font-semibold text-text-default">{{ title }}</h3>
+        <slot name="subtitle" />
+      </div>
       <slot name="header-actions" />
     </div>
     <div class="px-4 py-3">
@@ -87,6 +90,11 @@ function contestantPhoto(id: string) {
               >Missed</span
             >
             <span
+              v-else-if="row.state.kind === 'upcoming'"
+              class="rounded-full bg-status-warning-surface px-2 py-0.5 text-xs font-semibold text-status-warning"
+              >Pending</span
+            >
+            <span
               v-else-if="row.state.kind === 'locked'"
               class="inline-flex items-center gap-1 rounded-full bg-surface-subtle px-2 py-0.5 text-xs font-semibold text-text-muted"
             >
@@ -111,5 +119,6 @@ function contestantPhoto(id: string) {
       </div>
       <p v-else class="text-sm text-text-muted">{{ emptyText }}</p>
     </div>
+    <slot name="footer" />
   </div>
 </template>
