@@ -524,7 +524,7 @@ async function lockIn() {
         <div class="mx-auto mb-8 w-full max-w-5xl">
           <h2 class="text-2xl font-bold text-text-default mb-1">Crown Your MVP</h2>
           <p class="text-text-subtle text-base">
-            Your MVP earns 1.5× points each episode. Choose wisely.
+            Your MVP earns 1.5× points each episode.
           </p>
         </div>
 
