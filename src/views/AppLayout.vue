@@ -37,6 +37,31 @@ async function loadMembership() {
 }
 watch(() => seasonStore.selectedSeasonId, loadMembership, { immediate: true })
 
+// Whether the user has submitted a team for the *current* season (regardless of
+// which season is being viewed). Gates the "complete your profile" banner so it
+// only nags players who've actually joined this season.
+const hasTeamCurrentSeason = ref(false)
+async function loadCurrentSeasonMembership() {
+  const uid = auth.user?.id
+  const seasonId = seasonStore.currentSeasonId
+  if (!uid || !seasonId) {
+    hasTeamCurrentSeason.value = false
+    return
+  }
+  const { data } = await supabase
+    .from('teams')
+    .select('id')
+    .eq('season_id', seasonId)
+    .eq('user_id', uid)
+    .maybeSingle()
+  hasTeamCurrentSeason.value = !!data
+}
+watch(
+  [() => seasonStore.currentSeasonId, () => auth.user?.id],
+  loadCurrentSeasonMembership,
+  { immediate: true },
+)
+
 // Team-less players get no tabs, so keep them off the tabbed pages (Profile
 // stays reachable via the avatar menu). Admins are exempt — they manage the
 // league and may not have a team.
@@ -122,9 +147,10 @@ async function handleSignOut() {
       </button>
     </div>
 
-    <!-- Incomplete-profile banner: shown until payment info is filled in -->
+    <!-- Incomplete-profile banner: shown until payment info is filled in, but
+         only once the player has a team in the current season -->
     <RouterLink
-      v-if="!auth.isProfileComplete"
+      v-if="!auth.isProfileComplete && hasTeamCurrentSeason"
       to="/profile"
       class="block shrink-0 bg-status-warning-surface px-6 py-2 text-center text-sm font-medium text-status-warning hover:opacity-90"
     >
