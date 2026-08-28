@@ -12,12 +12,24 @@ const emit = defineEmits<{
   'update:note': [v: string]
 }>()
 
-const handleLabel = computed(() =>
-  props.method === 'venmo' ? 'Venmo username' : 'Zelle email or phone',
-)
-const handlePlaceholder = computed(() =>
-  props.method === 'venmo' ? '@username' : 'email or phone',
-)
+// Venmo usernames are alphanumeric plus underscore/hyphen — strip anything else
+// (including a leading "@", which the field shows as a fixed prefix instead).
+function sanitizeVenmo(v: string): string {
+  return v.replace(/[^A-Za-z0-9_-]/g, '')
+}
+
+// The "@" is a visual prefix, so the input shows the bare username. Cleans any
+// legacy "@"/special chars out of previously saved handles on display too.
+const venmoValue = computed(() => sanitizeVenmo(props.handle))
+
+function onVenmoInput(e: Event) {
+  const el = e.target as HTMLInputElement
+  const clean = sanitizeVenmo(el.value)
+  // Reject the keystroke in the DOM too: if the emit doesn't change the bound
+  // value, Vue won't re-render and the disallowed char would linger.
+  if (el.value !== clean) el.value = clean
+  emit('update:handle', clean)
+}
 </script>
 
 <template>
@@ -38,12 +50,32 @@ const handlePlaceholder = computed(() =>
       </select>
     </div>
 
+    <div v-if="method === 'venmo'">
+      <label class="mb-1 block text-sm font-medium text-text-default">Venmo username</label>
+      <div
+        class="flex w-full items-center rounded-md border border-interactive-input-border bg-interactive-input transition-colors focus-within:border-interactive-input-border-focus focus-within:ring-2 focus-within:ring-border-accent"
+      >
+        <span class="select-none pl-3 pr-0.5 text-sm text-text-subtle">@</span>
+        <input
+          :value="venmoValue"
+          @input="onVenmoInput"
+          placeholder="username"
+          inputmode="text"
+          autocapitalize="none"
+          autocorrect="off"
+          spellcheck="false"
+          maxlength="30"
+          class="w-full rounded-md bg-transparent py-2 pl-0 pr-3 text-sm text-text-default placeholder:text-text-muted focus:outline-none"
+        />
+      </div>
+    </div>
+
     <BaseInput
-      v-if="method === 'venmo' || method === 'zelle'"
+      v-else-if="method === 'zelle'"
       :model-value="handle"
       @update:model-value="emit('update:handle', $event)"
-      :label="handleLabel"
-      :placeholder="handlePlaceholder"
+      label="Zelle email or phone"
+      placeholder="email or phone"
     />
 
     <div v-else-if="method === 'other'">
