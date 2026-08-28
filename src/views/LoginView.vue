@@ -161,7 +161,7 @@ function handleSubmit() {
         >
           🔥
         </div>
-        <h1 class="text-2xl font-bold text-text-default">Survivor Fantasy</h1>
+        <h1 class="text-2xl font-bold text-text-default">The Ultimate Survivor Game</h1>
         <p class="mt-1 text-sm text-text-subtle">Outdraft. Outscore. Outlast.</p>
       </div>
 
