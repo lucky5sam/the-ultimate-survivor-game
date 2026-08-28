@@ -4,7 +4,7 @@
 // badge). Row-level edit controls come from the `row-action` slot, so the
 // public view simply omits them.
 import ContestantAvatar from './ContestantAvatar.vue'
-import { displayName } from '../utils/contestantName'
+import { displayName, shortName } from '../utils/contestantName'
 import type { ContestantFull } from '../types/contestant'
 import type { BountyHistoryRow } from '../types/bounty'
 
@@ -24,6 +24,15 @@ function fmtPts(n: number) {
 function contestantName(id: string) {
   const c = props.contestants.find((c) => c.id === id)
   return c ? displayName(c) : '?'
+}
+// Primary (bold) label leads with the preferred name; secondary (muted, sm+)
+// is the last name — mirrors the roster list.
+function contestantPrimary(id: string) {
+  const c = props.contestants.find((c) => c.id === id)
+  return c ? shortName(c) : '?'
+}
+function contestantSecondary(id: string) {
+  return props.contestants.find((c) => c.id === id)?.last_name ?? ''
 }
 function contestantPhoto(id: string) {
   return props.contestants.find((c) => c.id === id)?.photo_url ?? null
@@ -46,7 +55,7 @@ function contestantPhoto(id: string) {
           class="flex items-center gap-3 py-2 first:pt-0 last:pb-0"
           :class="{ 'opacity-60': row.state.kind === 'missed' }"
         >
-          <span class="w-10 shrink-0 text-sm font-semibold text-text-subtle"
+          <span class="w-11 shrink-0 text-center text-sm font-semibold text-text-subtle"
             >E{{ row.number }}</span
           >
           <template v-if="row.contestantId">
@@ -55,9 +64,14 @@ function contestantPhoto(id: string) {
               :name="contestantName(row.contestantId)"
               border-color-override="var(--color-survivor-bounty)"
             />
-            <span class="flex-1 truncate text-sm text-text-default">{{
-              contestantName(row.contestantId)
-            }}</span>
+            <p class="flex-1 truncate text-sm font-medium leading-tight">
+              <span class="text-text-default">{{ contestantPrimary(row.contestantId) }}</span>
+              <span
+                v-if="contestantSecondary(row.contestantId)"
+                class="ml-1 hidden text-text-subtle sm:inline"
+                >{{ contestantSecondary(row.contestantId) }}</span
+              >
+            </p>
           </template>
           <span v-else class="flex-1 text-sm text-text-muted">No pick set</span>
 
