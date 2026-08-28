@@ -14,9 +14,20 @@ const props = withDefaults(
     contestants: ContestantFull[]
     title?: string
     emptyText?: string
+    // Show the pick's tribe name as a subtext under their name.
+    showTribe?: boolean
+    // Make each row clickable to open the contestant detail modal.
+    detailsInteractive?: boolean
   }>(),
-  { title: 'Bounty Pick', emptyText: 'No bounty history yet' },
+  {
+    title: 'Bounty Pick',
+    emptyText: 'No bounty history yet',
+    showTribe: false,
+    detailsInteractive: false,
+  },
 )
+
+const emit = defineEmits<{ 'open-details': [contestantId: string] }>()
 
 function fmtPts(n: number) {
   return n.toFixed(1)
@@ -34,6 +45,9 @@ function contestantPrimary(id: string) {
 function contestantSecondary(id: string) {
   return props.contestants.find((c) => c.id === id)?.last_name ?? ''
 }
+function contestantTribe(id: string) {
+  return props.contestants.find((c) => c.id === id)?.tribe ?? ''
+}
 function contestantPhoto(id: string) {
   return props.contestants.find((c) => c.id === id)?.photo_url ?? null
 }
@@ -50,13 +64,19 @@ function contestantPhoto(id: string) {
       </div>
       <slot name="header-actions" />
     </div>
-    <div class="px-4 py-3">
+    <div class="px-4">
       <div v-if="rows.length > 0" class="divide-y divide-border-subtle">
         <div
           v-for="row in rows"
           :key="row.episodeId"
-          class="flex items-center gap-3 py-2 first:pt-0 last:pb-0"
-          :class="{ 'opacity-60': row.state.kind === 'missed' }"
+          class="flex items-center gap-3 py-3"
+          :class="[
+            { 'opacity-60': row.state.kind === 'missed' },
+            detailsInteractive && row.contestantId
+              ? '-mx-4 cursor-pointer px-4 transition-colors hover:bg-surface-subtle'
+              : '',
+          ]"
+          @click="detailsInteractive && row.contestantId && emit('open-details', row.contestantId)"
         >
           <span class="w-11 shrink-0 text-center text-sm font-semibold text-text-subtle"
             >E{{ row.number }}</span
@@ -67,14 +87,22 @@ function contestantPhoto(id: string) {
               :name="contestantName(row.contestantId)"
               border-color-override="var(--color-survivor-bounty)"
             />
-            <p class="flex-1 truncate text-sm font-medium leading-tight">
-              <span class="text-text-default">{{ contestantPrimary(row.contestantId) }}</span>
-              <span
-                v-if="contestantSecondary(row.contestantId)"
-                class="ml-1 hidden text-text-subtle sm:inline"
-                >{{ contestantSecondary(row.contestantId) }}</span
+            <div class="min-w-0 flex-1">
+              <p class="truncate text-sm font-medium leading-tight">
+                <span class="text-text-default">{{ contestantPrimary(row.contestantId) }}</span>
+                <span
+                  v-if="contestantSecondary(row.contestantId)"
+                  class="ml-1 hidden text-text-subtle sm:inline"
+                  >{{ contestantSecondary(row.contestantId) }}</span
+                >
+              </p>
+              <p
+                v-if="showTribe && contestantTribe(row.contestantId)"
+                class="mt-0.5 truncate text-xs text-text-subtle"
               >
-            </p>
+                {{ contestantTribe(row.contestantId) }}
+              </p>
+            </div>
           </template>
           <span v-else class="flex-1 text-sm text-text-muted">No pick set</span>
 
@@ -113,11 +141,11 @@ function contestantPhoto(id: string) {
               </svg>
               Locked
             </span>
-            <slot name="row-action" :row="row" />
+            <span @click.stop><slot name="row-action" :row="row" /></span>
           </div>
         </div>
       </div>
-      <p v-else class="text-sm text-text-muted">{{ emptyText }}</p>
+      <p v-else class="py-3 text-sm text-text-muted">{{ emptyText }}</p>
     </div>
     <slot name="footer" />
   </div>

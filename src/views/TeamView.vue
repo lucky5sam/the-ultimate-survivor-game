@@ -962,7 +962,7 @@ onUnmounted(() => {
     <div v-else class="max-w-3xl mx-auto px-4 py-8 w-full sm:px-6">
       <template v-if="seasons.length > 0">
         <!-- Team header — team avatar beside the team name (primary identity) -->
-        <div class="mb-6 flex items-center gap-4">
+        <div class="mb-6 flex items-center gap-3">
           <TeamAvatar
             v-if="existingTeam?.team_image_url || existingTeam?.team_emoji"
             :image-url="existingTeam.team_image_url"
@@ -1008,7 +1008,7 @@ onUnmounted(() => {
             padding="sm"
             role="button"
             tabindex="0"
-            class="min-w-[7rem] flex-1 cursor-pointer text-center transition-colors hover:border-border-accent hover:bg-surface-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-border-accent"
+            class="min-w-[7rem] flex-1 cursor-pointer text-center transition-colors hover:border-border-strong hover:bg-surface-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-border-accent"
             @click="router.push('/leaderboard')"
             @keydown.enter="router.push('/leaderboard')"
             @keydown.space.prevent="router.push('/leaderboard')"
@@ -1023,7 +1023,7 @@ onUnmounted(() => {
             padding="sm"
             role="button"
             tabindex="0"
-            class="min-w-[7rem] flex-1 cursor-pointer text-center transition-colors hover:border-border-accent hover:bg-surface-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-border-accent"
+            class="min-w-[7rem] flex-1 cursor-pointer text-center transition-colors hover:border-border-strong hover:bg-surface-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-border-accent"
             @click="openBreakdown"
             @keydown.enter="openBreakdown"
             @keydown.space.prevent="openBreakdown"
@@ -1099,6 +1099,9 @@ onUnmounted(() => {
           class="mb-4"
           :rows="bountyHistory"
           :contestants="allContestants"
+          show-tribe
+          details-interactive
+          @open-details="openContestantDetails"
           :empty-text="
             nextUpcomingEpisode ? 'No bounty history yet' : 'Locked — no upcoming episodes'
           "

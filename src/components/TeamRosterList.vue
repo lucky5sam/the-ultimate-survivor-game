@@ -119,11 +119,13 @@ function playerStatus(id: string): { out: boolean; ep: number | null } {
       v-for="player in rosterSorted"
       :key="player.contestant_id"
       class="flex items-center justify-between border-b border-border-subtle px-4 py-3 last:border-0"
+      :class="detailsInteractive ? 'cursor-pointer transition-colors hover:bg-surface-subtle' : ''"
+      @click="detailsInteractive && emit('open-details', player.contestant_id)"
     >
       <div class="flex items-center gap-3">
         <button
           v-if="chipInteractive"
-          @click="emit('chip-click', player, $event)"
+          @click.stop="emit('chip-click', player, $event)"
           :class="[
             'w-11 shrink-0 cursor-pointer rounded-md py-1 text-center text-[10px] font-bold uppercase tracking-wide transition-colors hover:opacity-80',
             player.role === 'mvp'
@@ -144,16 +146,7 @@ function playerStatus(id: string): { out: boolean; ep: number | null } {
           >{{ positionLabel[player.contestant_id] }}</span
         >
 
-        <component
-          :is="detailsInteractive ? 'button' : 'div'"
-          :class="[
-            'flex items-center gap-3 text-left',
-            detailsInteractive
-              ? '-mx-1 cursor-pointer rounded-md px-1 py-0.5 transition-colors hover:bg-surface-subtle'
-              : '',
-          ]"
-          @click="detailsInteractive && emit('open-details', player.contestant_id)"
-        >
+        <div class="flex items-center gap-3 text-left">
           <ContestantAvatar
             :photo-url="contestantPhoto(player.contestant_id)"
             :name="contestantName(player.contestant_id)"
@@ -197,7 +190,7 @@ function playerStatus(id: string): { out: boolean; ep: number | null } {
               >
             </div>
           </div>
-        </component>
+        </div>
       </div>
       <div class="flex items-center gap-2">
         <div v-if="showScores" class="text-right">
@@ -205,7 +198,9 @@ function playerStatus(id: string): { out: boolean; ep: number | null } {
             {{ fmtPts(pointsById[player.contestant_id] ?? 0) }}
           </p>
         </div>
-        <slot name="row-action" :player="player" />
+        <!-- Row actions (e.g. wizard Edit) are their own controls; don't let a
+             click on them bubble up to the row's open-details handler. -->
+        <span @click.stop><slot name="row-action" :player="player" /></span>
       </div>
     </div>
 
