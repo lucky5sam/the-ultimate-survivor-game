@@ -390,7 +390,7 @@ async function lockIn() {
       <!-- ── Step 3: Team Name ── -->
       <template v-else-if="step === 3">
         <div class="mx-auto w-full max-w-5xl">
-          <div class="rounded-lg border border-border-subtle bg-surface-default p-6 sm:p-8">
+          <div class="mb-6 rounded-lg border border-border-subtle bg-surface-default p-6 sm:p-8">
             <h2 class="text-2xl font-bold text-text-default mb-1">Give Your Team an Identity</h2>
             <p class="text-text-subtle text-base mb-6">
               This is how you'll appear on the leaderboard.
