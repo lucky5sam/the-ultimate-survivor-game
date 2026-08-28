@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { supabase } from '../lib/supabase'
+import { useAuthStore } from '../stores/auth'
 import type { ContestantFull } from '../types/contestant'
 import { getTribeColors } from '../utils/tribeColors'
 import { fullName, displayName } from '../utils/contestantName'
 import ContestantCard from './ContestantCard.vue'
 import ContestantDetailModal from './ContestantDetailModal.vue'
 import ContestantAvatar from './ContestantAvatar.vue'
+import TeamAvatar from './TeamAvatar.vue'
 import TeamRosterList from './TeamRosterList.vue'
 import WizardPicksStrip from './WizardPicksStrip.vue'
 import BaseButton from './base/BaseButton.vue'
@@ -15,6 +17,7 @@ import ImageUploadField from './ImageUploadField.vue'
 import EmojiColorPicker from './EmojiColorPicker.vue'
 import ThemeAtmosphere from './decor/ThemeAtmosphere.vue'
 import { uploadImage } from '../lib/uploadImage'
+import { randomTeamAvatar } from '../utils/teamAvatar'
 import survivorLogoUrl from '../assets/survivor_51_logo.png'
 
 const props = defineProps<{
@@ -47,6 +50,36 @@ const avatarMode = ref<'photo' | 'emoji'>('photo')
 const teamImageFile = ref<File | null>(null)
 const teamEmoji = ref<string | null>(null)
 const teamColor = ref<string | null>(null)
+
+// Live preview URL for an uploaded (not-yet-saved) team photo.
+const teamImagePreviewUrl = ref<string | null>(null)
+watch(teamImageFile, (file) => {
+  if (teamImagePreviewUrl.value) URL.revokeObjectURL(teamImagePreviewUrl.value)
+  teamImagePreviewUrl.value = file ? URL.createObjectURL(file) : null
+})
+onUnmounted(() => {
+  if (teamImagePreviewUrl.value) URL.revokeObjectURL(teamImagePreviewUrl.value)
+})
+
+// Random emoji tile assigned when the player picks no photo/emoji. Generated
+// once so the review step and the saved team show the same thing.
+const fallbackAvatar = randomTeamAvatar()
+
+// What the review step (and the saved team) will display.
+const displayAvatar = computed<{ imageUrl: string | null; emoji: string | null; color: string | null }>(
+  () => {
+    if (avatarMode.value === 'photo' && teamImageFile.value) {
+      return { imageUrl: teamImagePreviewUrl.value, emoji: null, color: null }
+    }
+    if (avatarMode.value === 'emoji' && teamEmoji.value) {
+      return { imageUrl: null, emoji: teamEmoji.value, color: teamColor.value }
+    }
+    return { imageUrl: null, emoji: fallbackAvatar.emoji, color: fallbackAvatar.color }
+  },
+)
+
+const auth = useAuthStore()
+const ownerName = computed(() => `${auth.firstName ?? ''} ${auth.lastName ?? ''}`.trim())
 const selectedIds = ref<string[]>([])
 const mvpId = ref<string | null>(null)
 const bountyId = ref<string | null>(null)
@@ -164,6 +197,13 @@ async function lockIn() {
     } else if (avatarMode.value === 'photo' && teamImageFile.value) {
       const url = await uploadImage(teamImageFile.value, 'teams')
       await supabase.from('teams').update({ team_image_url: url }).eq('id', team.id)
+    } else {
+      // A team identity is required — save the random emoji tile shown on the
+      // review step when the player picked no photo or emoji.
+      await supabase
+        .from('teams')
+        .update({ team_emoji: fallbackAvatar.emoji, team_color: fallbackAvatar.color })
+        .eq('id', team.id)
     }
   } catch {
     // Non-fatal: the team is created; the avatar can be added later from My Team.
@@ -601,12 +641,22 @@ async function lockIn() {
             Once locked in, you can swap players between episodes.
           </p>
 
-          <!-- Team name -->
+          <!-- Team identity: avatar + team name + owner -->
           <div
-            class="surface-card bg-surface-subtle rounded-md border border-border-subtle px-4 py-3 mb-4"
+            class="surface-card bg-surface-subtle rounded-md border border-border-subtle px-4 py-3 mb-4 flex items-center gap-3"
           >
-            <p class="text-xs text-text-muted uppercase tracking-wide mb-0.5">Tribe Name</p>
-            <p class="font-bold text-text-default">{{ teamName }}</p>
+            <TeamAvatar
+              :image-url="displayAvatar.imageUrl"
+              :emoji="displayAvatar.emoji"
+              :color="displayAvatar.color"
+              :name="teamName || 'Team'"
+              :size="48"
+              class="rounded-lg border border-border-default"
+            />
+            <div class="min-w-0">
+              <p class="font-bold text-text-default truncate">{{ teamName }}</p>
+              <p v-if="ownerName" class="text-sm text-text-subtle truncate">{{ ownerName }}</p>
+            </div>
           </div>
 
           <!-- Roster + bounty, using the same layout as the live team page -->
