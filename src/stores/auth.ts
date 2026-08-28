@@ -8,6 +8,7 @@ export const useAuthStore = defineStore('auth', () => {
   const isAdmin = ref(false)
   const firstName = ref('')
   const lastName = ref('')
+  const avatarUrl = ref('')
   // Account-level payment preference (for prize payouts).
   const paymentMethod = ref('') // '' | 'venmo' | 'zelle' | 'other'
   const paymentHandle = ref('') // username/identifier for venmo/zelle
@@ -25,12 +26,15 @@ export const useAuthStore = defineStore('auth', () => {
   async function fetchProfile(userId: string) {
     const { data } = await supabase
       .from('profiles')
-      .select('is_admin, first_name, last_name, payment_method, payment_handle, payment_note')
+      .select(
+        'is_admin, first_name, last_name, avatar_url, payment_method, payment_handle, payment_note',
+      )
       .eq('id', userId)
       .single()
     isAdmin.value = data?.is_admin ?? false
     firstName.value = data?.first_name ?? ''
     lastName.value = data?.last_name ?? ''
+    avatarUrl.value = data?.avatar_url ?? ''
     paymentMethod.value = data?.payment_method ?? ''
     paymentHandle.value = data?.payment_handle ?? ''
     paymentNote.value = data?.payment_note ?? ''
@@ -78,6 +82,7 @@ export const useAuthStore = defineStore('auth', () => {
     isAdmin.value = false
     firstName.value = ''
     lastName.value = ''
+    avatarUrl.value = ''
     paymentMethod.value = ''
     paymentHandle.value = ''
     paymentNote.value = ''
@@ -128,6 +133,7 @@ export const useAuthStore = defineStore('auth', () => {
     isAdmin,
     firstName,
     lastName,
+    avatarUrl,
     paymentMethod,
     paymentHandle,
     paymentNote,

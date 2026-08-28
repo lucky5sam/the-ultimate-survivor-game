@@ -8,6 +8,8 @@ import { useSeasonStore } from '../stores/season'
 
 const store = useSeasonStore()
 
+const emit = defineEmits<{ change: [id: string] }>()
+
 const open = ref(false)
 const search = ref('')
 const inputEl = ref<HTMLInputElement | null>(null)
@@ -54,6 +56,7 @@ function choose(id: string) {
   store.selectedSeasonId = id
   closeDropdown()
   inputEl.value?.blur()
+  emit('change', id)
 }
 </script>
 

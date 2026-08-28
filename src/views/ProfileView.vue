@@ -10,6 +10,8 @@ import BaseInput from '../components/base/BaseInput.vue'
 import BaseButton from '../components/base/BaseButton.vue'
 import BaseCard from '../components/base/BaseCard.vue'
 import PaymentFields from '../components/PaymentFields.vue'
+import ImageUploadField from '../components/ImageUploadField.vue'
+import { uploadImage } from '../lib/uploadImage'
 
 const auth = useAuthStore()
 const toast = useToast()
@@ -18,6 +20,53 @@ const firstName = ref('')
 const lastName = ref('')
 const savingName = ref(false)
 const nameError = ref('')
+
+// Profile photo: the picker hands us a File to upload on save, or a remove
+// signal (avatarFile stays null, avatarRemoved flips true).
+const avatarFile = ref<File | null>(null)
+const avatarRemoved = ref(false)
+const savingAvatar = ref(false)
+const avatarError = ref('')
+
+function onAvatarSelect(file: File) {
+  avatarFile.value = file
+  avatarRemoved.value = false
+}
+function onAvatarRemove() {
+  avatarFile.value = null
+  avatarRemoved.value = true
+}
+
+async function saveAvatar() {
+  if (!auth.user) return
+  avatarError.value = ''
+  savingAvatar.value = true
+  try {
+    let url: string | null = auth.avatarUrl || null
+    if (avatarFile.value) {
+      url = await uploadImage(avatarFile.value, 'avatars')
+    } else if (avatarRemoved.value) {
+      url = null
+    }
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({ avatar_url: url })
+      .eq('id', auth.user.id)
+    if (error) throw new Error(error.message)
+    // Mirror to auth metadata, matching how name/payment are kept in sync.
+    await supabase.auth.updateUser({ data: { avatar_url: url } })
+
+    auth.avatarUrl = url ?? ''
+    avatarFile.value = null
+    avatarRemoved.value = false
+    toast.success('Profile photo updated')
+  } catch (e) {
+    avatarError.value = e instanceof Error ? e.message : 'Failed to update photo'
+  } finally {
+    savingAvatar.value = false
+  }
+}
 
 const paymentMethod = ref('')
 const paymentHandle = ref('')
@@ -139,6 +188,27 @@ async function changePassword() {
 <template>
   <div class="mx-auto w-full max-w-lg px-6 py-8">
     <h2 class="mb-6 text-2xl font-bold text-text-default">Account</h2>
+
+    <!-- Profile photo -->
+    <BaseCard class="mb-6">
+      <h3 class="mb-4 text-sm font-semibold text-text-default">Profile photo</h3>
+      <ImageUploadField
+        :model-value="avatarRemoved ? null : auth.avatarUrl || null"
+        shape="circle"
+        :size="96"
+        @select="onAvatarSelect"
+        @remove="onAvatarRemove"
+      />
+      <p v-if="avatarError" class="mt-3 text-sm text-status-error">{{ avatarError }}</p>
+      <div class="mt-4 flex justify-end">
+        <BaseButton
+          :loading="savingAvatar"
+          :disabled="!avatarFile && !avatarRemoved"
+          @click="saveAvatar"
+          >Save photo</BaseButton
+        >
+      </div>
+    </BaseCard>
 
     <!-- Profile details -->
     <BaseCard class="mb-6">

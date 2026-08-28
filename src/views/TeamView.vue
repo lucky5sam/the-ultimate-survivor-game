@@ -19,6 +19,9 @@ import ContestantDetailModal, {
 import BaseButton from '../components/base/BaseButton.vue'
 import BaseCard from '../components/base/BaseCard.vue'
 import BaseModal from '../components/base/BaseModal.vue'
+import BaseInput from '../components/base/BaseInput.vue'
+import ImageUploadField from '../components/ImageUploadField.vue'
+import { uploadImage } from '../lib/uploadImage'
 import { useToast } from '../composables/useToast'
 import {
   computeLeaderboard,
@@ -91,7 +94,11 @@ const breakdownModalOpen = ref(false)
 const allContestants = ref<Contestant[]>([])
 const eliminatedEpisodeIdByContestant = ref<Record<string, string | null>>({})
 const allEpisodes = ref<EpisodeInfo[]>([])
-const existingTeam = ref<{ id: string; team_name: string | null } | null>(null)
+const existingTeam = ref<{
+  id: string
+  team_name: string | null
+  team_image_url: string | null
+} | null>(null)
 const activePlayers = ref<ActivePlayer[]>([])
 const loading = ref(true)
 const saving = ref(false)
@@ -179,6 +186,15 @@ const seasonConfig = ref<SeasonConfig>({
   bounty_points_finale: 20,
 })
 const swapsUsed = ref(0)
+
+// Edit team details (name + photo) modal.
+const editModalOpen = ref(false)
+const editName = ref('')
+const editImageFile = ref<File | null>(null)
+const editImageRemoved = ref(false)
+const savingTeam = ref(false)
+const editError = ref('')
+
 const swapModalOpen = ref(false)
 const swappingPlayer = ref<ActivePlayer | null>(null)
 const selectedReplacementId = ref<string | null>(null)
@@ -423,14 +439,18 @@ async function loadMyTeam() {
   const { data } = await supabase
     .from('teams')
     .select(
-      'id, team_name, team_players(contestant_id, role, effective_from_episode, effective_to_episode)',
+      'id, team_name, team_image_url, team_players(contestant_id, role, effective_from_episode, effective_to_episode)',
     )
     .eq('season_id', selectedSeasonId.value)
     .eq('user_id', auth.user.id)
     .maybeSingle()
 
   if (data) {
-    existingTeam.value = { id: data.id, team_name: data.team_name }
+    existingTeam.value = {
+      id: data.id,
+      team_name: data.team_name,
+      team_image_url: data.team_image_url,
+    }
     const allTp = data.team_players as TeamPlayer[]
     const currentTp = allTp.filter((p) => p.effective_to_episode === null)
     activePlayers.value = currentTp.map((p) => ({
@@ -444,6 +464,57 @@ async function loadMyTeam() {
   }
   // Keep the global membership flag (tabs + invite banner gating) in sync.
   uiStore.hasTeam = existingTeam.value !== null
+}
+
+function openEditTeam() {
+  if (!existingTeam.value) return
+  editName.value = existingTeam.value.team_name ?? ''
+  editImageFile.value = null
+  editImageRemoved.value = false
+  editError.value = ''
+  editModalOpen.value = true
+}
+
+function onEditImageSelect(file: File) {
+  editImageFile.value = file
+  editImageRemoved.value = false
+}
+function onEditImageRemove() {
+  editImageFile.value = null
+  editImageRemoved.value = true
+}
+
+async function saveTeamDetails() {
+  if (!existingTeam.value) return
+  const name = editName.value.trim()
+  if (!name) {
+    editError.value = 'Enter a team name'
+    return
+  }
+  editError.value = ''
+  savingTeam.value = true
+  try {
+    let imageUrl: string | null = existingTeam.value.team_image_url
+    if (editImageFile.value) {
+      imageUrl = await uploadImage(editImageFile.value, 'teams')
+    } else if (editImageRemoved.value) {
+      imageUrl = null
+    }
+
+    const { error } = await supabase
+      .from('teams')
+      .update({ team_name: name, team_image_url: imageUrl })
+      .eq('id', existingTeam.value.id)
+    if (error) throw new Error(error.message)
+
+    await loadMyTeam()
+    editModalOpen.value = false
+    toast.success('Team details updated')
+  } catch (e) {
+    editError.value = e instanceof Error ? e.message : 'Failed to update team'
+  } finally {
+    savingTeam.value = false
+  }
 }
 
 async function loadEpisodesAndBounty() {
@@ -793,7 +864,7 @@ onUnmounted(() => {
     <div v-if="loading" class="max-w-3xl mx-auto px-6 py-8 text-text-muted text-sm">Loading…</div>
 
     <template v-else-if="seasons.length === 0">
-      <div class="max-w-3xl mx-auto px-6 py-8 text-text-subtle text-sm">
+      <div class="max-w-3xl mx-auto px-4 py-6 text-text-subtle text-sm">
         No active seasons right now. Check back soon!
       </div>
     </template>
@@ -843,12 +914,42 @@ onUnmounted(() => {
     <!-- Constrained team management view when team exists -->
     <div v-else class="max-w-3xl mx-auto px-6 py-8 w-full">
       <template v-if="seasons.length > 0">
-        <!-- Team header — team name is the primary identity -->
-        <div class="mb-6">
-          <h2 class="text-2xl font-bold text-text-default">
-            {{ existingTeam?.team_name || 'My Team' }}
-          </h2>
-          <p v-if="ownerName" class="text-sm text-text-muted">{{ ownerName }}</p>
+        <!-- Team header — team photo beside the team name (primary identity) -->
+        <div class="mb-6 flex items-center gap-4">
+          <img
+            v-if="existingTeam?.team_image_url"
+            :src="existingTeam.team_image_url"
+            :alt="existingTeam.team_name || 'Team photo'"
+            class="h-16 w-16 shrink-0 rounded-2xl border border-border-default object-cover"
+          />
+          <div class="min-w-0">
+            <div class="flex items-center gap-2">
+              <h2 class="truncate text-2xl font-bold text-text-default">
+                {{ existingTeam?.team_name || 'My Team' }}
+              </h2>
+              <button
+                type="button"
+                aria-label="Edit team details"
+                class="shrink-0 rounded-md p-1.5 text-icon-subtle transition-colors hover:bg-surface-subtle hover:text-text-default focus:outline-none focus-visible:ring-2 focus-visible:ring-border-accent"
+                @click="openEditTeam"
+              >
+                <svg
+                  class="h-5 w-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                  />
+                </svg>
+              </button>
+            </div>
+            <p v-if="ownerName" class="text-base text-text-subtle">{{ ownerName }}</p>
+          </div>
         </div>
 
         <!-- My standing: rank + score. Each card is a link to its detail view. -->
@@ -862,7 +963,7 @@ onUnmounted(() => {
             @keydown.enter="router.push('/leaderboard')"
             @keydown.space.prevent="router.push('/leaderboard')"
           >
-            <p class="text-xs font-medium text-text-subtle">Place</p>
+            <p class="text-sm font-medium text-text-subtle ">Place</p>
             <p class="mt-0.5 text-2xl font-bold text-text-default">{{ ordinal(myRank ?? 0) }}</p>
             <p class="text-xs text-text-muted">
              {{ totalTeams }} total teams
@@ -877,7 +978,7 @@ onUnmounted(() => {
             @keydown.enter="openBreakdown"
             @keydown.space.prevent="openBreakdown"
           >
-            <p class="text-xs font-medium text-text-subtle">Score</p>
+            <p class="text-sm font-medium text-text-subtle">Score</p>
             <p class="mt-0.5 text-2xl font-bold text-text-default">{{ fmtPts(myScore ?? 0) }}</p>
             <p class="text-xs text-text-muted">1st Place: {{ fmtPts(topScore) }} points</p>
           </BaseCard>
@@ -962,6 +1063,36 @@ onUnmounted(() => {
         <InviteBanner />
       </template>
     </div>
+
+    <!-- Edit team details modal -->
+    <BaseModal :show="editModalOpen" title="Edit Team Details" size="md" @close="editModalOpen = false">
+      <div class="space-y-5">
+        <BaseInput
+          v-model="editName"
+          label="Team name"
+          placeholder="e.g. The Fire Starters"
+          @keyup.enter="saveTeamDetails"
+        />
+        <ImageUploadField
+          :model-value="editImageRemoved ? null : (existingTeam?.team_image_url ?? null)"
+          label="Team photo"
+          shape="square"
+          :size="120"
+          @select="onEditImageSelect"
+          @remove="onEditImageRemove"
+        />
+        <p v-if="editError" class="text-sm text-status-error">{{ editError }}</p>
+      </div>
+      <template #footer>
+        <button
+          @click="editModalOpen = false"
+          class="text-sm text-text-subtle hover:text-text-default px-4 py-2"
+        >
+          Cancel
+        </button>
+        <BaseButton :loading="savingTeam" @click="saveTeamDetails">Save changes</BaseButton>
+      </template>
+    </BaseModal>
 
     <!-- Score breakdown modal -->
     <ScoreBreakdownModal

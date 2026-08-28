@@ -11,7 +11,9 @@ import TeamRosterList from './TeamRosterList.vue'
 import WizardPicksStrip from './WizardPicksStrip.vue'
 import BaseButton from './base/BaseButton.vue'
 import BaseInput from './base/BaseInput.vue'
+import ImageUploadField from './ImageUploadField.vue'
 import ThemeAtmosphere from './decor/ThemeAtmosphere.vue'
+import { uploadImage } from '../lib/uploadImage'
 import survivorLogoUrl from '../assets/survivor_51_logo.png'
 
 const props = defineProps<{
@@ -38,6 +40,9 @@ const step = ref(1)
 const leagueCode = ref('')
 const rulesAcknowledged = ref(false)
 const teamName = ref('')
+// Team photo is optional; the file is uploaded on lock-in (the team id doesn't
+// exist until then).
+const teamImageFile = ref<File | null>(null)
 const selectedIds = ref<string[]>([])
 const mvpId = ref<string | null>(null)
 const bountyId = ref<string | null>(null)
@@ -142,6 +147,17 @@ async function lockIn() {
     errorMsg.value = e1.message
     loading.value = false
     return
+  }
+
+  // Upload the optional team photo now that we have the team id. A failed
+  // upload shouldn't block team creation, so it's best-effort.
+  if (teamImageFile.value) {
+    try {
+      const url = await uploadImage(teamImageFile.value, 'teams')
+      await supabase.from('teams').update({ team_image_url: url }).eq('id', team.id)
+    } catch {
+      // Non-fatal: the team is created; the photo can be added later from My Team.
+    }
   }
 
   const { error: e2 } = await supabase.from('team_players').insert(
@@ -320,6 +336,17 @@ async function lockIn() {
               :error="errorMsg"
               @keyup.enter="nextStep"
             />
+
+            <div class="mt-6">
+              <ImageUploadField
+                :model-value="null"
+                label="Team photo (optional)"
+                shape="square"
+                :size="120"
+                @select="teamImageFile = $event"
+                @remove="teamImageFile = null"
+              />
+            </div>
           </div>
         </div>
 

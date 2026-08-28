@@ -7,7 +7,7 @@ import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../stores/auth'
 import { useSeasonStore } from '../stores/season'
 import { useUiStore } from '../stores/ui'
-import SeasonSelect from '../components/SeasonSelect.vue'
+import SeasonSelectModal from '../components/SeasonSelectModal.vue'
 
 const auth = useAuthStore()
 const route = useRoute()
@@ -62,6 +62,22 @@ const tabs = [
 const activeTab = computed(() => tabs.find((t) => t.to === route.path) ?? tabs[0]!)
 const menuOpen = ref(false)
 const userMenuOpen = ref(false)
+const seasonModalOpen = ref(false)
+
+// True when the user is browsing a season other than the league's current one —
+// drives the "return to current season" banner above the app.
+const viewingPastSeason = computed(
+  () =>
+    !!seasonStore.currentSeasonId &&
+    !!seasonStore.selectedSeasonId &&
+    seasonStore.selectedSeasonId !== seasonStore.currentSeasonId,
+)
+const currentSeasonName = computed(
+  () => seasonStore.seasons.find((s) => s.id === seasonStore.currentSeasonId)?.name ?? '',
+)
+function returnToCurrentSeason() {
+  seasonStore.selectedSeasonId = seasonStore.currentSeasonId
+}
 
 const ownerName = computed(() =>
   auth.firstName || auth.lastName
@@ -90,6 +106,21 @@ async function handleSignOut() {
 
 <template>
   <div class="min-h-screen bg-surface-page flex flex-col">
+    <!-- Past-season banner: shown while viewing a season other than the current -->
+    <div
+      v-if="viewingPastSeason"
+      class="flex shrink-0 flex-wrap items-center justify-center gap-x-2 gap-y-1 bg-surface-strong px-6 py-2 text-center text-sm text-text-subtle"
+    >
+      <span>You're viewing a past season.</span>
+      <button
+        type="button"
+        @click="returnToCurrentSeason"
+        class="font-medium text-text-accent hover:text-interactive-accent-hover"
+      >
+        Back to {{ currentSeasonName || 'current season' }} →
+      </button>
+    </div>
+
     <!-- Incomplete-profile banner: shown until payment info is filled in -->
     <RouterLink
       v-if="!auth.isProfileComplete"
@@ -116,9 +147,15 @@ async function handleSignOut() {
           <button
             @click="userMenuOpen = !userMenuOpen"
             :aria-label="ownerName || 'Account'"
-            class="flex h-9 w-9 items-center justify-center rounded-full bg-surface-subtle text-sm font-semibold text-text-subtle transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-accent"
+            class="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-surface-subtle text-sm font-semibold text-text-subtle transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-accent"
           >
-            {{ userInitials }}
+            <img
+              v-if="auth.avatarUrl"
+              :src="auth.avatarUrl"
+              :alt="ownerName || 'Account'"
+              class="h-full w-full object-cover object-top"
+            />
+            <template v-else>{{ userInitials }}</template>
           </button>
 
           <div
@@ -140,6 +177,15 @@ async function handleSignOut() {
             >
               Profile
             </RouterLink>
+            <button
+              @click="
+                userMenuOpen = false,
+                seasonModalOpen = true
+              "
+              class="block w-full px-3 py-2.5 text-left text-sm text-text-default hover:bg-surface-subtle"
+            >
+              View Previous Seasons
+            </button>
             <button
               @click="handleSignOut"
               class="block w-full px-3 py-2.5 text-left text-sm text-status-error hover:bg-surface-subtle"
@@ -179,7 +225,7 @@ async function handleSignOut() {
     <!-- Primary tabs condensed into a dropdown (mobile) -->
     <div
       v-if="showTabs"
-      class="relative shrink-0 border-b border-border-subtle bg-surface-default px-4 py-2 sm:hidden"
+      class="relative shrink-0 border-b border-border-subtle bg-surface-background px-4 py-4 sm:hidden"
     >
       <button
         @click="menuOpen = !menuOpen"
@@ -226,14 +272,10 @@ async function handleSignOut() {
     </div>
 
     <main class="flex flex-1 flex-col">
-      <!-- League season selector — drives every page's data. Hidden during the
-           team-creation wizard, which owns the whole viewport. -->
-      <div v-if="!ui.wizardActive" class="mx-auto w-full max-w-3xl px-4 pt-4 sm:px-6">
-        <div class="w-full sm:max-w-xs">
-          <SeasonSelect />
-        </div>
-      </div>
       <RouterView />
     </main>
+
+    <!-- Season picker modal, launched from the profile menu -->
+    <SeasonSelectModal :show="seasonModalOpen" @close="seasonModalOpen = false" />
   </div>
 </template>
