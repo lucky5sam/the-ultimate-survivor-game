@@ -25,7 +25,13 @@ const router = createRouter({
           // selector so Back is the only navigation on small screens.
           meta: { hideMobileTabs: true },
         },
-        { path: 'profile', component: () => import('../views/ProfileView.vue') },
+        {
+          path: 'profile',
+          component: () => import('../views/ProfileView.vue'),
+          // Profile has its own "My Team" back bar; drop the redundant mobile
+          // tab selector, matching the public team view.
+          meta: { hideMobileTabs: true },
+        },
       ],
     },
     {

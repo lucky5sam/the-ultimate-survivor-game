@@ -2,7 +2,8 @@
 // Account-level settings — not tied to any season or team. Edit your name and
 // password. Name is written to both the profile row and auth metadata so the two
 // stay in sync (the metadata is the source used to backfill a fresh profile).
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../stores/auth'
 import { useToast } from '../composables/useToast'
@@ -14,7 +15,29 @@ import ImageUploadField from '../components/ImageUploadField.vue'
 import { uploadImage } from '../lib/uploadImage'
 
 const auth = useAuthStore()
+const router = useRouter()
 const toast = useToast()
+
+// Breadcrumb: once the "Account" header scrolls out of view, surface it beside
+// the sticky "My Team" back link (mirrors the public team page's back bar).
+const headerEl = ref<HTMLElement | null>(null)
+const showBreadcrumb = ref(false)
+let headerObserver: IntersectionObserver | undefined
+
+watch(headerEl, (el) => {
+  headerObserver?.disconnect()
+  showBreadcrumb.value = false
+  if (!el) return
+  headerObserver = new IntersectionObserver(
+    ([entry]) => {
+      showBreadcrumb.value = !entry!.isIntersecting
+    },
+    { rootMargin: '-56px 0px 0px 0px', threshold: 0 },
+  )
+  headerObserver.observe(el)
+})
+
+onUnmounted(() => headerObserver?.disconnect())
 
 const firstName = ref('')
 const lastName = ref('')
@@ -186,110 +209,141 @@ async function changePassword() {
 </script>
 
 <template>
-  <div class="mx-auto w-full max-w-lg px-4 py-4 sm:px-6 sm:py-6">
-    <h2 class="mb-6 text-2xl font-bold text-text-default">Account</h2>
-
-    <!-- Profile photo -->
-    <BaseCard class="mb-6">
-      <h3 class="mb-4 text-sm font-semibold text-text-default">Profile photo</h3>
-      <ImageUploadField
-        :model-value="avatarRemoved ? null : auth.avatarUrl || null"
-        shape="circle"
-        :size="96"
-        @select="onAvatarSelect"
-        @remove="onAvatarRemove"
-      />
-      <p v-if="avatarError" class="mt-3 text-sm text-status-error">{{ avatarError }}</p>
-      <div class="mt-4 flex justify-end">
-        <BaseButton
-          :loading="savingAvatar"
-          :disabled="!avatarFile && !avatarRemoved"
-          @click="saveAvatar"
-          >Save photo</BaseButton
+  <div class="flex flex-1 flex-col">
+    <!-- Back bar (sticky; reveals "Account" as a breadcrumb on scroll) -->
+    <div
+      class="sticky top-0 z-20 flex min-w-0 items-center border-b border-border-subtle bg-surface-subtle px-4 py-3"
+    >
+      <button
+        @click="router.push('/my-team')"
+        class="flex shrink-0 cursor-pointer items-center gap-1.5 text-sm font-medium text-text-default hover:underline"
+      >
+        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+        </svg>
+        My Team
+      </button>
+      <Transition
+        enter-active-class="transition-opacity duration-200"
+        enter-from-class="opacity-0"
+        leave-active-class="transition-opacity duration-200"
+        leave-to-class="opacity-0"
+      >
+        <span
+          v-if="showBreadcrumb"
+          class="ml-1.5 flex min-w-0 items-center gap-1.5 text-sm font-medium text-text-subtle"
         >
-      </div>
-    </BaseCard>
+          <span class="shrink-0">/</span>
+          <span class="min-w-0 truncate">Account</span>
+        </span>
+      </Transition>
+    </div>
 
-    <!-- Profile details -->
-    <BaseCard class="mb-6">
-      <h3 class="mb-4 text-sm font-semibold text-text-default">Profile</h3>
+    <div class="mx-auto w-full max-w-lg px-4 py-4 sm:px-6 sm:py-6">
+      <h2 ref="headerEl" class="mb-6 text-2xl font-bold text-text-default">Account</h2>
 
-      <div class="mb-4">
-        <label class="mb-1 block text-sm font-medium text-text-default">Email</label>
-        <p
-          class="rounded-md border border-dashed border-border-subtle bg-surface-page px-3 py-2 text-sm text-text-subtle"
-        >
-          {{ auth.user?.email }}
-        </p>
-      </div>
-
-      <form class="space-y-4" @submit.prevent="saveProfile">
-        <BaseInput
-          v-model="firstName"
-          label="First name"
-          autocomplete="given-name"
-          placeholder="First name"
+      <!-- Profile photo -->
+      <BaseCard class="mb-6">
+        <h3 class="mb-4 text-sm font-semibold text-text-default">Profile photo</h3>
+        <ImageUploadField
+          :model-value="avatarRemoved ? null : auth.avatarUrl || null"
+          shape="circle"
+          :size="96"
+          @select="onAvatarSelect"
+          @remove="onAvatarRemove"
         />
-        <BaseInput
-          v-model="lastName"
-          label="Last name"
-          autocomplete="family-name"
-          placeholder="Last name"
-        />
-        <p v-if="nameError" class="text-sm text-status-error">{{ nameError }}</p>
-        <div class="flex justify-end">
-          <BaseButton type="submit" :loading="savingName">Save changes</BaseButton>
-        </div>
-      </form>
-    </BaseCard>
-
-    <!-- Payment -->
-    <BaseCard class="mb-6">
-      <h3 class="mb-1 text-sm font-semibold text-text-default">Payment</h3>
-      <p class="mb-4 text-xs text-text-muted">
-        How you'd like to receive prize payouts. Required to be eligible for prizes.
-      </p>
-      <form class="space-y-4" @submit.prevent="savePayment">
-        <PaymentFields
-          v-model:method="paymentMethod"
-          v-model:handle="paymentHandle"
-          v-model:note="paymentNote"
-        />
-        <p v-if="paymentError" class="text-sm text-status-error">{{ paymentError }}</p>
-        <div class="flex justify-end">
-          <BaseButton type="submit" :loading="savingPayment">Save payment info</BaseButton>
-        </div>
-      </form>
-    </BaseCard>
-
-    <!-- Change password -->
-    <BaseCard>
-      <h3 class="mb-4 text-sm font-semibold text-text-default">Change password</h3>
-      <form class="space-y-4" @submit.prevent="changePassword">
-        <BaseInput
-          v-model="newPassword"
-          type="password"
-          label="New password"
-          autocomplete="new-password"
-          placeholder="••••••••"
-        />
-        <BaseInput
-          v-model="confirmPassword"
-          type="password"
-          label="Confirm new password"
-          autocomplete="new-password"
-          placeholder="••••••••"
-        />
-        <p v-if="passwordError" class="text-sm text-status-error">{{ passwordError }}</p>
-        <div class="flex justify-end">
+        <p v-if="avatarError" class="mt-3 text-sm text-status-error">{{ avatarError }}</p>
+        <div class="mt-4 flex justify-end">
           <BaseButton
-            type="submit"
-            :loading="savingPassword"
-            :disabled="!newPassword && !confirmPassword"
-            >Update password</BaseButton
+            :loading="savingAvatar"
+            :disabled="!avatarFile && !avatarRemoved"
+            @click="saveAvatar"
+            >Save photo</BaseButton
           >
         </div>
-      </form>
-    </BaseCard>
+      </BaseCard>
+
+      <!-- Profile details -->
+      <BaseCard class="mb-6">
+        <h3 class="mb-4 text-sm font-semibold text-text-default">Profile</h3>
+
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-text-default">Email</label>
+          <p
+            class="rounded-md border border-dashed border-border-subtle bg-surface-page px-3 py-2 text-sm text-text-subtle"
+          >
+            {{ auth.user?.email }}
+          </p>
+        </div>
+
+        <form class="space-y-4" @submit.prevent="saveProfile">
+          <BaseInput
+            v-model="firstName"
+            label="First name"
+            autocomplete="given-name"
+            placeholder="First name"
+          />
+          <BaseInput
+            v-model="lastName"
+            label="Last name"
+            autocomplete="family-name"
+            placeholder="Last name"
+          />
+          <p v-if="nameError" class="text-sm text-status-error">{{ nameError }}</p>
+          <div class="flex justify-end">
+            <BaseButton type="submit" :loading="savingName">Save changes</BaseButton>
+          </div>
+        </form>
+      </BaseCard>
+
+      <!-- Payment -->
+      <BaseCard class="mb-6">
+        <h3 class="mb-1 text-sm font-semibold text-text-default">Payment</h3>
+        <p class="mb-4 text-xs text-text-muted">
+          How you'd like to receive prize payouts. Required to be eligible for prizes.
+        </p>
+        <form class="space-y-4" @submit.prevent="savePayment">
+          <PaymentFields
+            v-model:method="paymentMethod"
+            v-model:handle="paymentHandle"
+            v-model:note="paymentNote"
+          />
+          <p v-if="paymentError" class="text-sm text-status-error">{{ paymentError }}</p>
+          <div class="flex justify-end">
+            <BaseButton type="submit" :loading="savingPayment">Save payment info</BaseButton>
+          </div>
+        </form>
+      </BaseCard>
+
+      <!-- Change password -->
+      <BaseCard>
+        <h3 class="mb-4 text-sm font-semibold text-text-default">Change password</h3>
+        <form class="space-y-4" @submit.prevent="changePassword">
+          <BaseInput
+            v-model="newPassword"
+            type="password"
+            label="New password"
+            autocomplete="new-password"
+            placeholder="••••••••"
+          />
+          <BaseInput
+            v-model="confirmPassword"
+            type="password"
+            label="Confirm new password"
+            autocomplete="new-password"
+            placeholder="••••••••"
+          />
+          <p v-if="passwordError" class="text-sm text-status-error">{{ passwordError }}</p>
+          <div class="flex justify-end">
+            <BaseButton
+              type="submit"
+              :loading="savingPassword"
+              :disabled="!newPassword && !confirmPassword"
+              >Update password</BaseButton
+            >
+          </div>
+        </form>
+      </BaseCard>
+    </div>
   </div>
 </template>
