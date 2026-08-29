@@ -7,6 +7,7 @@ import BaseInput from '../components/base/BaseInput.vue'
 import BaseCard from '../components/base/BaseCard.vue'
 import PaymentFields from '../components/PaymentFields.vue'
 import ThemeAtmosphere from '../components/decor/ThemeAtmosphere.vue'
+import FireGlow from '../components/FireGlow.vue'
 
 type Mode = 'signin' | 'signup' | 'forgot'
 
@@ -153,6 +154,9 @@ function handleSubmit() {
   >
     <!-- Ambient theme decor. Invisible until data-skin="raw"; costs nothing in flat mode. -->
     <ThemeAtmosphere />
+
+    <!-- Ambient Survivor fire glow along the bottom edge (decorative, non-interactive). -->
+    <FireGlow position="absolute" />
 
     <div class="relative z-10 w-full max-w-sm">
       <div class="mb-6 text-center">

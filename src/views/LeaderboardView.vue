@@ -130,10 +130,10 @@ onMounted(() => seasonStore.load())
             </div>
             <div class="flex shrink-0 -space-x-1.5">
               <div
-                v-for="p in row.roster"
+                v-for="(p, i) in row.roster"
                 :key="p.contestantId"
-                class="rounded-full ring-2"
-                :class="isMyTeam(row.ownerId) ? 'ring-surface-highlight' : 'ring-surface-default'"
+                class="relative rounded-full"
+                :style="{ zIndex: row.roster.length - i }"
               >
                 <ContestantAvatar
                   :photo-url="p.photoUrl"
