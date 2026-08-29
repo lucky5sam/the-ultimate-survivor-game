@@ -22,6 +22,17 @@
   }
 }
 
+/* Tailwind v4's Preflight dropped the v3 default of `cursor: pointer` on
+   buttons (native default is `default`). Restore it for enabled buttons and
+   role="button" elements. In @layer base so any `cursor-*` utility still wins,
+   and scoped to :not(:disabled) so disabled buttons keep their own cursor. */
+@layer base {
+  button:not(:disabled),
+  [role='button']:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
 /* ─────────────────────────────────────────────────────────────
    Color Tokens — light theme (default)
    Naming convention: {role}-{variant}-{context?}-{state?}
@@ -83,6 +94,10 @@
   --color-interactive-accent-hover: #c2410c;
   --color-interactive-accent-active: #9a3412;
   --color-interactive-accent-disabled: #fed7aa;
+  /* Primary-button gradient stops (top → bottom); flat accent above stays the
+     single-color source for text/border/icon/ring accents. */
+  --color-interactive-accent-from: #e37c15;
+  --color-interactive-accent-to: #d25317;
   --color-interactive-neutral: #f5f5f4;
   --color-interactive-neutral-hover: #e7e5e4;
   --color-interactive-input: #ffffff;
@@ -256,6 +271,9 @@
     --color-interactive-accent-hover: #fb923c;
     --color-interactive-accent-active: #ea580c;
     --color-interactive-accent-disabled: #431407;
+    /* Primary-button gradient stops (dark mode). */
+    --color-interactive-accent-from: #d4710e;
+    --color-interactive-accent-to: #c84508;
     --color-interactive-neutral: #292524;
     --color-interactive-neutral-hover: #44403c;
     --color-interactive-input: #292524;

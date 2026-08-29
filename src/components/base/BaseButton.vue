@@ -17,7 +17,7 @@ withDefaults(
 // Survivor-forward: fire-orange primary drives the eye; everything else recedes.
 const variants: Record<string, string> = {
   primary:
-    'bg-interactive-accent text-text-on-accent hover:bg-interactive-accent-hover active:bg-interactive-accent-active disabled:bg-interactive-accent-disabled',
+    'bg-gradient-to-b from-interactive-accent-from to-interactive-accent-to text-text-on-accent hover:brightness-95 active:brightness-90 disabled:from-interactive-accent-disabled disabled:to-interactive-accent-disabled disabled:brightness-100',
   secondary:
     'bg-interactive-neutral text-text-default border border-border-default hover:bg-interactive-neutral-hover',
   ghost: 'bg-transparent text-text-accent hover:bg-surface-accent',
@@ -36,7 +36,7 @@ const sizes: Record<string, string> = {
     :type="type"
     :disabled="disabled || loading"
     :class="[
-      'inline-flex items-center justify-center gap-2 rounded-md font-semibold transition-colors',
+      'inline-flex items-center justify-center gap-2 rounded-md font-semibold transition',
       'focus:outline-none focus-visible:ring-2 focus-visible:ring-border-accent focus-visible:ring-offset-2',
       'disabled:cursor-not-allowed',
       variants[variant],

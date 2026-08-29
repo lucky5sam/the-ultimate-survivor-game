@@ -166,7 +166,7 @@ function handleSubmit() {
           🔥
         </div>
         <h1 class="text-2xl font-bold text-text-default">The Ultimate Survivor Game</h1>
-        <p class="mt-1 text-sm text-text-subtle">Outdraft. Outscore. Outlast.</p>
+        <p class="mt-1 text-base text-text-subtle">Outdraft. Outscore. Outlast.</p>
       </div>
 
       <BaseCard padding="lg">
@@ -288,7 +288,7 @@ function handleSubmit() {
               <button
                 type="button"
                 @click="switchMode('forgot')"
-                class="text-xs text-text-muted hover:text-text-subtle"
+                class="text-sm text-text-muted hover:text-text-subtle hover:cursor-pointer"
               >
                 Forgot password?
               </button>
