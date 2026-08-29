@@ -88,17 +88,17 @@ function contestantPhoto(id: string) {
               border-color-override="var(--color-survivor-bounty)"
             />
             <div class="min-w-0 flex-1">
-              <p class="truncate text-sm font-medium leading-tight">
+              <p class="truncate text-sm font-semibold leading-tight">
                 <span class="text-text-default">{{ contestantPrimary(row.contestantId) }}</span>
                 <span
                   v-if="contestantSecondary(row.contestantId)"
-                  class="ml-1 hidden text-text-subtle sm:inline"
+                  class="ml-1 hidden text-text-default sm:inline"
                   >{{ contestantSecondary(row.contestantId) }}</span
                 >
               </p>
               <p
                 v-if="showTribe && contestantTribe(row.contestantId)"
-                class="mt-0.5 truncate text-xs text-text-subtle"
+                class="mt-0.5 truncate text-xs text-text-muted"
               >
                 {{ contestantTribe(row.contestantId) }}
               </p>

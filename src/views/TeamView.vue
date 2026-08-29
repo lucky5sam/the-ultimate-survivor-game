@@ -306,19 +306,6 @@ const inGameContestants = computed(() =>
 
 const mergeEpNumber = computed(() => allEpisodes.value.find((e) => e.is_merge)?.number ?? Infinity)
 
-// The bounty value in force for the currently editable episode (or the latest
-// one), reflecting its stage: finale > post-merge > pre-merge.
-const currentBountyValue = computed<{ points: number; stage: string }>(() => {
-  const epNums = allEpisodes.value.map((e) => e.number)
-  const targetEpNum =
-    nextUpcomingEpisode.value?.number ?? (epNums.length > 0 ? Math.max(...epNums) : 1)
-  const ep = allEpisodes.value.find((e) => e.number === targetEpNum) ?? null
-  if (ep?.is_finale) return { points: seasonConfig.value.bounty_points_finale, stage: 'finale' }
-  if (targetEpNum >= mergeEpNumber.value)
-    return { points: seasonConfig.value.bounty_points_post_merge, stage: 'post-merge' }
-  return { points: seasonConfig.value.bounty_points_pre_merge, stage: 'pre-merge' }
-})
-
 // Episodes that have at least one recorded elimination (bounty is resolved).
 const episodesWithEliminations = computed(
   () => new Set(Object.values(eliminatedEpisodeIdByContestant.value).filter(Boolean) as string[]),
@@ -1052,23 +1039,6 @@ onUnmounted(() => {
             @chip-click="toggleMenu"
             @open-details="openContestantDetails"
           >
-            <template #subtitle>
-              <p v-if="!nextUpcomingEpisode" class="mt-0.5 text-xs text-text-muted">
-                <template v-if="lockedAiringEpisode"
-                  >Roster locked — Episode {{ lockedAiringEpisode.number }} in progress</template
-                >
-                <template v-else>Locked — no upcoming episode scheduled</template>
-              </p>
-              <p v-else-if="atMaxSwaps" class="mt-0.5 text-xs text-text-muted">
-                Maximum swaps reached for this season
-              </p>
-              <p
-                v-else-if="nextUpcomingEpisode.locks_at"
-                class="mt-0.5 text-xs font-medium text-text-subtle"
-              >
-                Roster locks {{ fmtEt(nextUpcomingEpisode.locks_at) }}
-              </p>
-            </template>
             <template #header-actions>
               <BaseButton
                 v-if="canManageRoster"
@@ -1079,22 +1049,22 @@ onUnmounted(() => {
               >
             </template>
             <template #footer>
-              <div
-                v-if="nextUpcomingEpisode && !atMaxSwaps"
-                class="px-4 py-2 bg-surface-subtle border-t border-border-subtle"
-              >
-                <p class="text-xs text-text-subtle">
-                  <template v-if="isGracePeriod"
-                    >Free swap window active (through Episode
-                    {{ seasonConfig.grace_period_through_episode }})</template
+              <div class="space-y-0.5 border-t border-border-subtle bg-surface-subtle px-4 py-2">
+                <!-- Lock status (moved here from the header subtext). -->
+                <p v-if="!nextUpcomingEpisode" class="text-xs text-text-muted">
+                  <template v-if="lockedAiringEpisode"
+                    >Roster locked — Episode {{ lockedAiringEpisode.number }} in progress</template
                   >
-                  <template v-else
-                    >Swap cost: −{{ fmtPts(seasonConfig.swap_penalty_player) }} pts (player) · −{{
-                      fmtPts(seasonConfig.swap_penalty_mvp)
-                    }}
-                    pts (MVP) · −{{ fmtPts(seasonConfig.swap_penalty_role_change) }} pts (role
-                    change)</template
-                  >
+                  <template v-else>Locked — no upcoming episode scheduled</template>
+                </p>
+                <p v-else-if="atMaxSwaps" class="text-xs text-text-muted">
+                  Maximum swaps reached for this season
+                </p>
+                <p
+                  v-else-if="nextUpcomingEpisode.locks_at"
+                  class="text-xs font-medium text-text-subtle"
+                >
+                  Roster locks {{ fmtEt(nextUpcomingEpisode.locks_at) }}
                 </p>
               </div>
             </template>
@@ -1112,20 +1082,6 @@ onUnmounted(() => {
               nextUpcomingEpisode ? 'No bounty history yet' : 'Locked — no upcoming episodes'
             "
           >
-            <template #subtitle>
-              <p v-if="!nextUpcomingEpisode" class="mt-0.5 text-xs text-text-muted">
-                <template v-if="lockedAiringEpisode"
-                  >Bounty locked — Episode {{ lockedAiringEpisode.number }} in progress</template
-                >
-                <template v-else>Locked — no upcoming episode scheduled</template>
-              </p>
-              <p
-                v-else-if="nextUpcomingEpisode.locks_at"
-                class="mt-0.5 text-xs font-medium text-text-subtle"
-              >
-                Bounty pick locks {{ fmtEt(nextUpcomingEpisode.locks_at) }}
-              </p>
-            </template>
             <template #header-actions>
               <BaseButton
                 v-if="nextUpcomingEpisode"
@@ -1134,15 +1090,6 @@ onUnmounted(() => {
                 @click="openBountyModal"
                 >{{ currentBountyPick?.contestant_id ? 'Update' : 'Set pick' }}</BaseButton
               >
-            </template>
-            <template #footer>
-              <div class="px-4 py-2 bg-surface-subtle border-t border-border-subtle">
-                <p class="text-xs text-text-subtle">
-                  Bounty value: +{{ fmtPts(currentBountyValue.points) }} pts ({{
-                    currentBountyValue.stage
-                  }})
-                </p>
-              </div>
             </template>
           </BountyHistoryList>
         </div>

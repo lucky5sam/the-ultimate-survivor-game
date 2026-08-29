@@ -157,13 +157,13 @@ function playerStatus(id: string): { out: boolean; ep: number | null } {
               playerStatus(player.contestant_id).out ? 'var(--color-border-subtle)' : null
             "
           />
-          <div :class="{ 'opacity-60': playerStatus(player.contestant_id).out }">
+          <div>
             <div class="flex items-center gap-1">
-              <p class="text-sm font-medium leading-tight">
+              <p class="text-sm font-semibold leading-tight">
                 <span class="text-text-default">{{ contestantPrimary(player.contestant_id) }}</span>
                 <span
                   v-if="contestantSecondary(player.contestant_id)"
-                  class="ml-1 text-text-subtle"
+                  class="ml-1 text-text-default"
                   :class="expandNames ? 'inline' : 'hidden sm:inline'"
                   >{{ contestantSecondary(player.contestant_id) }}</span
                 >
@@ -174,16 +174,16 @@ function playerStatus(id: string): { out: boolean; ep: number | null } {
                 >Out</span
               >
             </div>
-            <div class="mt-0.5 text-xs text-text-subtle">
+            <div class="mt-0.5 text-xs text-text-muted">
               <template v-if="showOccupation">{{
                 contestantOccupation(player.contestant_id)
               }}</template>
               <template v-else
-                >E{{ player.effective_from_episode }}–<template
+                >Ep {{ player.effective_from_episode }} – <template
                   v-if="
                     playerStatus(player.contestant_id).out && playerStatus(player.contestant_id).ep
                   "
-                  >E{{ playerStatus(player.contestant_id).ep }}</template
+                  >Ep {{ playerStatus(player.contestant_id).ep }}</template
                 ><template v-else>now</template></template
               >
             </div>

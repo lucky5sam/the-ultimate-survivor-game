@@ -9,6 +9,7 @@ import { fmtEt } from '../lib/time'
 import { useToast } from '../composables/useToast'
 import { useUiStore } from '../stores/ui'
 import BaseButton from './base/BaseButton.vue'
+import FireGlow from './FireGlow.vue'
 import survivorLogoUrl from '../assets/survivor_51_logo.png'
 
 type Season = { id: string; name: string; status: string; starts_at: string | null }
@@ -80,6 +81,17 @@ async function copyInviteLink() {
   }
 }
 
+async function copyLeagueCode() {
+  try {
+    const code = leagueCode.value || (await supabase.rpc('get_registration_code')).data
+    if (!code) return
+    await navigator.clipboard.writeText(code)
+    toast.success('League code copied to clipboard')
+  } catch {
+    toast.error('Could not copy the league code')
+  }
+}
+
 onMounted(() => {
   nowTimer = setInterval(() => {
     now.value = Date.now()
@@ -99,10 +111,13 @@ onUnmounted(() => {
     class="mx-auto w-full max-w-5xl pt-6"
   >
     <div
-      class="flex flex-col-reverse items-start gap-6 overflow-hidden rounded-lg border border-border-subtle bg-surface-default p-6 sm:flex-row sm:justify-between"
+      class="relative flex flex-col-reverse items-start gap-6 overflow-hidden rounded-lg border border-border-subtle bg-surface-default p-6 sm:flex-row sm:justify-between"
     >
+      <!-- Ambient fire glow flush to the bottom edge (decorative, non-interactive). -->
+      <FireGlow position="absolute" :z-index="0" :height="90" :ember-count="8" />
+
       <!-- Left content -->
-      <div class="min-w-0 flex-1">
+      <div class="relative z-10 min-w-0 flex-1">
         <h3 class="text-xl font-bold text-text-default">
           Invite your friends to play The Ultimate Survivor Game
         </h3>
@@ -133,7 +148,7 @@ onUnmounted(() => {
         </div>
 
         <!-- League code + copy -->
-        <div class="mt-5 flex flex-col items-start gap-3">
+        <div class="mt-5 flex flex-wrap items-center gap-3">
           <BaseButton variant="primary" @click="copyInviteLink">
             <svg
               class="h-4 w-4"
@@ -150,19 +165,17 @@ onUnmounted(() => {
             </svg>
             Copy Invite Link
           </BaseButton>
-          <div class="w-full">
-            <button
-              v-if="leagueCode"
-              type="button"
-              @click="copyInviteLink"
-              class="rounded-md bg-surface-subtle px-3 py-2 text-left shadow-sm transition-colors hover:bg-surface-strong focus:outline-none focus-visible:ring-2 focus-visible:ring-border-accent"
-            >
-              <span class="flex items-center gap-2">
-                <span class="text-sm tracking-wide text-text-subtle">League Code:</span>
-                <span class="text-sm font-bold text-text-default">{{ leagueCode }}</span>
-              </span>
-            </button>
-          </div>
+          <button
+            v-if="leagueCode"
+            type="button"
+            @click="copyLeagueCode"
+            class="rounded-md bg-surface-subtle px-3 py-2 text-left shadow-sm transition-colors hover:bg-surface-strong focus:outline-none focus-visible:ring-2 focus-visible:ring-border-accent"
+          >
+            <span class="flex items-center gap-2">
+              <span class="text-sm tracking-wide text-text-subtle">League Code:</span>
+              <span class="text-sm font-bold text-text-default">{{ leagueCode }}</span>
+            </span>
+          </button>
         </div>
       </div>
 
@@ -170,7 +183,7 @@ onUnmounted(() => {
       <img
         :src="survivorLogoUrl"
         alt="Survivor 51"
-        class="pointer-events-none h-16 w-auto shrink-0 select-none sm:h-40"
+        class="pointer-events-none relative z-10 h-16 w-auto shrink-0 select-none sm:h-40"
       />
     </div>
   </div>
