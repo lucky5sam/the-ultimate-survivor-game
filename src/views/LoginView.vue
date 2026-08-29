@@ -8,6 +8,7 @@ import BaseCard from '../components/base/BaseCard.vue'
 import PaymentFields from '../components/PaymentFields.vue'
 import ThemeAtmosphere from '../components/decor/ThemeAtmosphere.vue'
 import FireGlow from '../components/FireGlow.vue'
+import palmFrondsUrl from '../assets/survivor_decor_palm_fronds.svg'
 
 type Mode = 'signin' | 'signup' | 'forgot'
 
@@ -155,8 +156,16 @@ function handleSubmit() {
     <!-- Ambient theme decor. Invisible until data-skin="raw"; costs nothing in flat mode. -->
     <ThemeAtmosphere />
 
+    <!-- Palm-frond decor in the top-left corner (decorative, non-interactive). -->
+    <img
+      :src="palmFrondsUrl"
+      alt=""
+      aria-hidden="true"
+      class="pointer-events-none absolute left-0 top-0 w-64 select-none opacity-25 sm:w-80"
+    />
+
     <!-- Ambient Survivor fire glow along the bottom edge (decorative, non-interactive). -->
-    <FireGlow position="absolute" />
+    <FireGlow position="absolute" :max-width="600" />
 
     <div class="relative z-10 w-full max-w-sm">
       <div class="mb-6 text-center">

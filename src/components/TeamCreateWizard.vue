@@ -15,6 +15,7 @@ import BaseInput from './base/BaseInput.vue'
 import ImageUploadField from './ImageUploadField.vue'
 import EmojiColorPicker from './EmojiColorPicker.vue'
 import ThemeAtmosphere from './decor/ThemeAtmosphere.vue'
+import FireGlow from './FireGlow.vue'
 import { uploadImage } from '../lib/uploadImage'
 import { randomTeamAvatar } from '../utils/teamAvatar'
 import survivorLogoUrl from '../assets/survivor_51_logo.png'
@@ -259,6 +260,8 @@ async function lockIn() {
        creating a scroll container, so the sticky action bar below still works. -->
   <div class="relative flex flex-1 flex-col overflow-x-clip bg-surface-page">
     <ThemeAtmosphere />
+    <!-- Ambient fire glow behind the wizard content (decorative, non-interactive). -->
+    <FireGlow position="absolute" :z-index="0" />
     <div class="relative z-10 flex flex-1 flex-col px-4 sm:px-12 lg:px-20 pt-8 pb-16">
       <!-- Step indicator: equal-width columns, each with a number and its name
            centered below. A connector line links each number to the next. The

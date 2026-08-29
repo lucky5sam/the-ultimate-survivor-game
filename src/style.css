@@ -74,25 +74,25 @@
   --color-border-default: #d6d3d1;
   --color-border-subtle: #e7e5e4;
   --color-border-strong: #a8a29e;
-  --color-border-accent: #f97316;
+  --color-border-accent: #c84508;
 
   /* text — typography */
   --color-text-default: #1c1917;
   --color-text-subtle: #78716c;
   --color-text-muted: #a8a29e;
   --color-text-inverse: #fafaf9;
-  --color-text-accent: #ea580c;
+  --color-text-accent: #c84508;
   --color-text-on-accent: #ffffff;
 
   /* icon — iconography */
   --color-icon-default: #44403c;
   --color-icon-subtle: #a8a29e;
-  --color-icon-accent: #ea580c;
+  --color-icon-accent: #c84508;
 
   /* interactive — buttons, inputs, and form controls */
-  --color-interactive-accent: #ea580c;
-  --color-interactive-accent-hover: #c2410c;
-  --color-interactive-accent-active: #9a3412;
+  --color-interactive-accent: #c84508;
+  --color-interactive-accent-hover: #b23d06;
+  --color-interactive-accent-active: #9c3505;
   --color-interactive-accent-disabled: #fed7aa;
   /* Primary-button gradient stops (top → bottom); flat accent above stays the
      single-color source for text/border/icon/ring accents. */
@@ -102,7 +102,7 @@
   --color-interactive-neutral-hover: #e7e5e4;
   --color-interactive-input: #ffffff;
   --color-interactive-input-border: #d6d3d1;
-  --color-interactive-input-border-focus: #ea580c;
+  --color-interactive-input-border-focus: #c84508;
 
   /* radius — proportional rounding: larger elements use larger values */
   --radius-xs: 4px; /* tags, badges, small indicators        */
@@ -251,25 +251,25 @@
     --color-border-default: #57534e;
     --color-border-subtle: #44403c;
     --color-border-strong: #78716c;
-    --color-border-accent: #f97316;
+    --color-border-accent: #c84508;
 
     /* text */
     --color-text-default: #fafaf9;
     --color-text-subtle: #a8a29e;
     --color-text-muted: #57534e;
     --color-text-inverse: #1c1917;
-    --color-text-accent: #f97316;
+    --color-text-accent: #c84508;
     --color-text-on-accent: #ffffff;
 
     /* icon */
     --color-icon-default: #d6d3d1;
     --color-icon-subtle: #78716c;
-    --color-icon-accent: #f97316;
+    --color-icon-accent: #c84508;
 
     /* interactive */
-    --color-interactive-accent: #f97316;
-    --color-interactive-accent-hover: #fb923c;
-    --color-interactive-accent-active: #ea580c;
+    --color-interactive-accent: #c84508;
+    --color-interactive-accent-hover: #b23d06;
+    --color-interactive-accent-active: #9c3505;
     --color-interactive-accent-disabled: #431407;
     /* Primary-button gradient stops (dark mode). */
     --color-interactive-accent-from: #d4710e;
@@ -278,7 +278,7 @@
     --color-interactive-neutral-hover: #44403c;
     --color-interactive-input: #292524;
     --color-interactive-input-border: #57534e;
-    --color-interactive-input-border-focus: #f97316;
+    --color-interactive-input-border-focus: #c84508;
 
     /* status */
     --color-status-success: #4ade80;

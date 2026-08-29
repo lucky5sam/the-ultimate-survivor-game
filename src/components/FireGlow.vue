@@ -17,6 +17,7 @@ import { computed } from 'vue'
 const props = withDefaults(
   defineProps<{
     height?: number // height of the glow band, px
+    maxWidth?: number // cap the glow width (px) and center it; omit for full width
     position?: 'fixed' | 'absolute'
     zIndex?: number
     embers?: boolean // rising ember particles
@@ -52,7 +53,13 @@ const embers = computed(() => {
   <div
     aria-hidden="true"
     class="fire-glow-root pointer-events-none select-none"
-    :style="{ position, zIndex, height: `${height}px` }"
+    :style="{
+      position,
+      zIndex,
+      height: `${height}px`,
+      maxWidth: maxWidth ? `${maxWidth}px` : undefined,
+      marginInline: maxWidth ? 'auto' : undefined,
+    }"
   >
     <!-- Blurred glow band. Embers must NOT live inside it or the blur eats them. -->
     <div class="fire-glow" />
