@@ -1062,7 +1062,7 @@ onUnmounted(() => {
                 </p>
                 <p
                   v-else-if="nextUpcomingEpisode.locks_at"
-                  class="text-xs font-medium text-text-subtle"
+                  class="text-xs font-medium text-text-muted"
                 >
                   Roster locks {{ fmtEt(nextUpcomingEpisode.locks_at) }}
                 </p>
@@ -1077,7 +1077,9 @@ onUnmounted(() => {
             :contestants="allContestants"
             show-tribe
             details-interactive
+            :pick-interactive="!!nextUpcomingEpisode"
             @open-details="openContestantDetails"
+            @update-pick="openBountyModal"
             :empty-text="
               nextUpcomingEpisode ? 'No bounty history yet' : 'Locked — no upcoming episodes'
             "

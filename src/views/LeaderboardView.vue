@@ -6,6 +6,7 @@ import { useAuthStore } from '../stores/auth'
 import BaseCard from '../components/base/BaseCard.vue'
 import ContestantAvatar from '../components/ContestantAvatar.vue'
 import TeamAvatar from '../components/TeamAvatar.vue'
+import FireGlow from '../components/FireGlow.vue'
 import { loadTribeColors } from '../utils/tribeColors'
 
 const seasonStore = useSeasonStore()
@@ -71,6 +72,10 @@ onMounted(() => seasonStore.load())
 
 <template>
   <div class="w-full px-4 py-4 sm:px-6">
+    <!-- Ambient fire glow at the bottom of the page, above content (decorative,
+         non-interactive). -->
+    <FireGlow position="fixed" :z-index="20" />
+    <div class="relative z-10">
     <div class="flex-col mb-4 ml-1">
       <h2 class="text-2xl font-bold text-text-default">Leaderboard</h2>
       <p class="text-text-subtle text-base">{{ rows.length }} total teams</p>
@@ -93,7 +98,7 @@ onMounted(() => seasonStore.load())
         <!-- Column header, aligned to the row layout below. Sticks to the top of
              the viewport once the page header scrolls away. -->
         <div
-          class="sticky top-0 z-20 flex items-center gap-2 border-b border-border-subtle bg-surface-subtle pl-3 py-2 pr-5 text-xs font-semibold uppercase tracking-wide text-text-muted"
+          class="sticky top-0 z-20 flex items-center gap-2 border-b border-border-subtle bg-surface-subtle pl-2 py-2 pr-5 text-xs font-semibold uppercase tracking-wide text-text-muted"
         >
           <span class="min-w-7 shrink-0 text-center">Pl</span>
           <span class="flex-1">Team</span>
@@ -104,7 +109,7 @@ onMounted(() => seasonStore.load())
             v-for="row in displayRows"
             :key="row.teamId"
             :to="`/team/${row.teamId}`"
-            class="flex items-center gap-2 pl-3 py-3 pr-4 transition-colors"
+            class="group flex items-center gap-2 pl-2 py-3 pr-4 transition-colors"
             :class="isMyTeam(row.ownerId) ? 'bg-surface-highlight' : 'bg-surface-default'"
           >
             <span
@@ -121,7 +126,7 @@ onMounted(() => seasonStore.load())
               class="rounded-sm border border-border-subtle"
             />
             <div class="min-w-0 flex-1">
-              <p class="truncate text-sm font-bold text-text-default">
+              <p class="truncate text-sm font-bold text-text-default group-hover:underline">
                 {{ row.teamName ?? '(no name)' }}
               </p>
               <p v-if="row.ownerName" class="truncate text-sm text-text-subtle">
@@ -180,7 +185,7 @@ onMounted(() => seasonStore.load())
                 </th>
                 <template v-for="n in maxPlayers" :key="n">
                   <th class="sticky top-0 z-20 min-w-[8rem] bg-surface-subtle px-4 py-3 text-left">
-                    Player {{ n }}
+                    {{ n === 1 ? 'MVP' : `Player ${n}` }}
                   </th>
                   <th class="sticky top-0 z-20 bg-surface-subtle px-4 py-3 text-left">Pts</th>
                 </template>
@@ -225,7 +230,7 @@ onMounted(() => seasonStore.load())
                     <div class="min-w-0">
                       <RouterLink
                         :to="`/team/${row.teamId}`"
-                        class="block truncate font-semibold text-text-default hover:text-text-accent"
+                        class="link block truncate font-semibold text-text-default"
                         >{{ row.teamName ?? '(no name)' }}</RouterLink
                       >
                       <div v-if="row.ownerName" class="truncate text-xs text-text-subtle">
@@ -305,5 +310,6 @@ onMounted(() => seasonStore.load())
         </div>
       </BaseCard>
     </template>
+    </div>
   </div>
 </template>

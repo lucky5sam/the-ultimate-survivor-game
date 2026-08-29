@@ -18,8 +18,12 @@ type Season = {
   swap_penalty_role_change: number
   grace_period_through_episode: number
   max_swaps: number | null
+  payouts: Payout[] | null
   created_at: string
 }
+
+// A prize payout for a finishing place, e.g. { place: 1, amount: 100 }.
+type Payout = { place: number; amount: number }
 
 type LocalSeasonAction = {
   catalogId: string
@@ -37,7 +41,7 @@ const errorMsg = ref('')
 const showForm = ref(false)
 const saving = ref(false)
 const editingId = ref<string | null>(null)
-const activeTab = ref<'config' | 'actions' | 'tribes'>('config')
+const activeTab = ref<'config' | 'actions' | 'tribes' | 'payouts'>('config')
 
 // Tribes state (name + color per season)
 type LocalTribe = { id?: string; name: string; color: string }
@@ -57,7 +61,20 @@ const form = ref({
   swap_penalty_role_change: 5,
   grace_period_through_episode: 1,
   max_swaps: null as number | null,
+  payouts: [] as Payout[],
 })
+
+function addPayout() {
+  // Default the new row's place to the next position in the list.
+  form.value.payouts.push({ place: form.value.payouts.length + 1, amount: 0 })
+}
+function removePayout(i: number) {
+  form.value.payouts.splice(i, 1)
+}
+// Total prize pool across all payout rows.
+const payoutsTotal = computed(() =>
+  form.value.payouts.reduce((sum, p) => sum + (Number(p.amount) || 0), 0),
+)
 
 // Action types state
 const localActionTypes = ref<LocalSeasonAction[]>([])
@@ -299,6 +316,7 @@ async function openEdit(season: Season) {
     swap_penalty_role_change: season.swap_penalty_role_change,
     grace_period_through_episode: season.grace_period_through_episode,
     max_swaps: season.max_swaps,
+    payouts: season.payouts ?? [],
   }
   activeTab.value = 'config'
   await Promise.all([loadActionTypes(season.id), loadTribes(season.id)])
@@ -324,6 +342,7 @@ function resetForm() {
     swap_penalty_role_change: 5,
     grace_period_through_episode: 1,
     max_swaps: null,
+    payouts: [],
   }
 }
 
@@ -463,6 +482,20 @@ onMounted(loadSeasons)
             Tribes
             <span v-if="localTribes.length" class="ml-1 text-xs text-gray-400"
               >({{ localTribes.length }})</span
+            >
+          </button>
+          <button
+            @click="activeTab = 'payouts'"
+            :class="[
+              'flex-1 text-sm font-medium py-1.5 rounded-md transition-colors',
+              activeTab === 'payouts'
+                ? 'bg-white shadow text-gray-900'
+                : 'text-gray-500 hover:text-gray-700',
+            ]"
+          >
+            Payouts
+            <span v-if="form.payouts.length" class="ml-1 text-xs text-gray-400"
+              >({{ form.payouts.length }})</span
             >
           </button>
         </div>
@@ -759,6 +792,71 @@ onMounted(loadSeasons)
               >
                 Remove
               </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Payouts tab -->
+        <div v-else-if="activeTab === 'payouts'">
+          <div class="flex items-center justify-between mb-3">
+            <p class="text-sm text-gray-500">
+              Prize amount awarded for each finishing place. Add as many as you like.
+            </p>
+            <button
+              type="button"
+              @click="addPayout"
+              class="text-blue-600 hover:text-blue-800 text-sm font-medium shrink-0"
+            >
+              + Add payout
+            </button>
+          </div>
+
+          <div
+            v-if="form.payouts.length === 0"
+            class="text-center py-8 text-sm text-gray-400 border border-gray-200 rounded-lg"
+          >
+            No payouts yet. Add one to define the prize pool.
+          </div>
+
+          <div v-else class="space-y-2">
+            <div
+              v-for="(p, i) in form.payouts"
+              :key="i"
+              class="flex items-center gap-3 border border-gray-200 rounded-lg px-3 py-2"
+            >
+              <div class="flex-1">
+                <label class="block text-xs font-medium text-gray-700 mb-1">Place</label>
+                <input
+                  v-model.number="p.place"
+                  type="number"
+                  min="1"
+                  class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div class="flex-1">
+                <label class="block text-xs font-medium text-gray-700 mb-1">Amount ($)</label>
+                <input
+                  v-model.number="p.amount"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <button
+                type="button"
+                @click="removePayout(i)"
+                class="text-red-500 hover:text-red-700 text-xs font-medium shrink-0 self-end pb-2"
+              >
+                Remove
+              </button>
+            </div>
+
+            <div class="flex items-center justify-between border-t border-gray-200 pt-3 mt-1">
+              <span class="text-sm font-semibold text-gray-700">Total prize pool</span>
+              <span class="text-sm font-bold tabular-nums text-gray-900"
+                >${{ payoutsTotal.toFixed(2) }}</span
+              >
             </div>
           </div>
         </div>

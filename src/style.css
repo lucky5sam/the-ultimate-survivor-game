@@ -33,6 +33,17 @@
   }
 }
 
+/* Shared text-link style: pointer cursor, underline on hover, no color shift.
+   In @layer components so Tailwind utilities still win when overridden. */
+@layer components {
+  .link {
+    cursor: pointer;
+  }
+  .link:hover {
+    text-decoration-line: underline;
+  }
+}
+
 /* ─────────────────────────────────────────────────────────────
    Color Tokens — light theme (default)
    Naming convention: {role}-{variant}-{context?}-{state?}

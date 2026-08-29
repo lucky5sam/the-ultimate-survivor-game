@@ -18,16 +18,23 @@ const props = withDefaults(
     showTribe?: boolean
     // Make each row clickable to open the contestant detail modal.
     detailsInteractive?: boolean
+    // Make the upcoming (pending) row's episode chip a button that opens the
+    // bounty update flow. Left off for read-only views.
+    pickInteractive?: boolean
   }>(),
   {
     title: 'Bounty Pick',
     emptyText: 'No bounty history yet',
     showTribe: false,
     detailsInteractive: false,
+    pickInteractive: false,
   },
 )
 
-const emit = defineEmits<{ 'open-details': [contestantId: string] }>()
+const emit = defineEmits<{
+  'open-details': [contestantId: string]
+  'update-pick': []
+}>()
 
 function fmtPts(n: number) {
   return n.toFixed(1)
@@ -78,7 +85,17 @@ function contestantPhoto(id: string) {
           ]"
           @click="detailsInteractive && row.contestantId && emit('open-details', row.contestantId)"
         >
-          <span class="w-11 shrink-0 text-center text-sm font-semibold text-text-subtle"
+          <button
+            v-if="pickInteractive && row.state.kind === 'upcoming'"
+            type="button"
+            @click.stop="emit('update-pick')"
+            class="w-11 shrink-0 cursor-pointer rounded-md bg-surface-subtle py-1 text-center text-[10px] font-bold uppercase tracking-wide text-text-default transition-colors hover:opacity-80"
+          >
+            E{{ row.number }}
+          </button>
+          <span
+            v-else
+            class="w-11 shrink-0 rounded-md bg-surface-subtle py-1 text-center text-[10px] font-bold uppercase tracking-wide text-text-subtle"
             >E{{ row.number }}</span
           >
           <template v-if="row.contestantId">
@@ -109,38 +126,24 @@ function contestantPhoto(id: string) {
           <div class="flex shrink-0 items-center gap-2">
             <span
               v-if="row.state.kind === 'hit'"
-              class="rounded-full bg-status-success-surface px-2 py-0.5 text-xs font-semibold text-status-success"
+              class="text-right text-xs font-semibold text-status-success"
               >Hit +{{ fmtPts(row.state.points) }}</span
             >
             <span
               v-else-if="row.state.kind === 'missed'"
-              class="rounded-full bg-surface-subtle px-2 py-0.5 text-xs font-semibold text-text-muted"
+              class="text-right text-xs font-semibold text-text-muted"
               >Missed</span
             >
             <span
               v-else-if="row.state.kind === 'upcoming'"
-              class="rounded-full bg-status-warning-surface px-2 py-0.5 text-xs font-semibold text-status-warning"
+              class="text-right text-xs font-semibold text-status-warning"
               >Pending</span
             >
             <span
               v-else-if="row.state.kind === 'locked'"
-              class="inline-flex items-center gap-1 rounded-full bg-surface-subtle px-2 py-0.5 text-xs font-semibold text-text-muted"
+              class="text-right text-xs font-semibold text-text-muted"
+              >Locked</span
             >
-              <svg
-                class="h-3 w-3"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                stroke-width="2"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                />
-              </svg>
-              Locked
-            </span>
             <span @click.stop><slot name="row-action" :row="row" /></span>
           </div>
         </div>
