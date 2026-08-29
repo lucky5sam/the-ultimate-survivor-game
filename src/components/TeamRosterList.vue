@@ -141,7 +141,7 @@ function playerStatus(id: string): { out: boolean; ep: number | null } {
             'w-11 shrink-0 rounded-md py-1 text-center text-[10px] font-bold uppercase tracking-wide',
             player.role === 'mvp'
               ? 'bg-survivor-sand/20 text-survivor-sand'
-              : 'bg-surface-subtle text-text-subtle',
+              : 'bg-surface-subtle text-text-default',
           ]"
           >{{ positionLabel[player.contestant_id] }}</span
         >

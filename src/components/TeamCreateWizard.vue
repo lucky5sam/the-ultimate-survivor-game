@@ -702,8 +702,8 @@ async function lockIn() {
             <div v-if="bountyContestant" class="flex items-center justify-between px-4 py-3">
               <div class="flex items-center gap-3">
                 <span
-                  class="w-11 shrink-0 rounded-md bg-survivor-bounty/15 py-1 text-center text-[10px] font-bold uppercase tracking-wide text-survivor-bounty"
-                  >BTY</span
+                  class="w-11 shrink-0 rounded-md bg-surface-subtle py-1 text-center text-[10px] font-bold uppercase tracking-wide text-text-default"
+                  >E1</span
                 >
                 <ContestantAvatar
                   :photo-url="bountyContestant.photo_url"
@@ -712,9 +712,9 @@ async function lockIn() {
                   border-color-override="var(--color-survivor-bounty)"
                 />
                 <div>
-                  <p class="text-sm font-medium leading-tight">
+                  <p class="text-sm font-semibold leading-tight">
                     <span class="text-text-default">{{ shortName(bountyContestant) }}</span>
-                    <span v-if="bountyContestant.last_name" class="ml-1 text-text-subtle">{{
+                    <span v-if="bountyContestant.last_name" class="ml-1 text-text-default">{{
                       bountyContestant.last_name
                     }}</span>
                   </p>
