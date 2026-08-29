@@ -127,7 +127,7 @@ onMounted(() => seasonStore.load())
         <!-- Column header, aligned to the row layout below. Sticks to the top of
              the viewport once the page header scrolls away. -->
         <div
-          class="sticky top-0 z-20 flex items-center gap-2 border-b border-border-subtle bg-surface-subtle pl-2 py-2 pr-5 text-xs font-semibold uppercase tracking-wide text-text-muted"
+          class="sticky top-0 z-20 flex items-center gap-2 border-b border-border-subtle bg-surface-subtle pl-2 py-2 pr-5 text-xs font-semibold uppercase tracking-wide text-text-subtle"
         >
           <span class="min-w-7 shrink-0 text-center">Pl</span>
           <span class="flex-1">Team</span>
@@ -207,7 +207,7 @@ onMounted(() => seasonStore.load())
              which lets the header cells stick to the top while scrolling. -->
         <div class="max-h-[calc(100vh-11rem)] overflow-auto">
           <table class="w-full border-collapse text-sm">
-            <thead class="text-xs uppercase tracking-wide text-text-muted">
+            <thead class="text-xs uppercase tracking-wide text-text-subtle">
               <tr>
                 <th
                   class="sticky left-0 top-0 z-30 w-60 min-w-60 bg-surface-subtle px-4 py-3 text-left"

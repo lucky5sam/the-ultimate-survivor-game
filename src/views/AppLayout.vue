@@ -166,7 +166,7 @@ async function handleSignOut() {
     >
       <div class="flex min-w-0 items-center gap-2.5">
         <span
-          class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface-subtle"
+          class="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full"
         >
           <img
             v-if="selectedSeason?.image_url"
@@ -224,6 +224,7 @@ async function handleSignOut() {
               Profile
             </RouterLink>
             <button
+              v-if="auth.isAdmin"
               @click="((userMenuOpen = false), (seasonModalOpen = true))"
               class="block w-full px-3 py-2.5 text-left text-sm text-text-default hover:bg-surface-subtle"
             >
@@ -265,14 +266,14 @@ async function handleSignOut() {
       </RouterLink>
     </nav>
 
-    <!-- Primary tabs condensed into a dropdown (mobile) -->
+    <!-- Primary tabs condensed into a secondary bar (mobile) -->
     <div
       v-if="showTabs && !route.meta.hideMobileTabs"
-      class="relative shrink-0 bg-surface-background px-4 pt-4 pb-2 sm:hidden"
+      class="relative shrink-0 sm:hidden"
     >
       <button
         @click="menuOpen = !menuOpen"
-        class="flex min-h-12 w-full items-center gap-2.5 rounded-md border border-interactive-input-border bg-interactive-input px-3 py-2 text-left text-base font-medium text-text-default transition-colors hover:border-border-strong focus:outline-none focus-visible:ring-2 focus-visible:ring-border-accent"
+        class="flex min-h-12 w-full items-center gap-2.5 border-b border-border-subtle bg-surface-subtle px-4 py-2 text-left text-base font-medium text-text-default transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-border-accent"
       >
         <svg
           class="h-5 w-5 shrink-0 text-icon-subtle"
@@ -298,13 +299,13 @@ async function handleSignOut() {
 
       <div
         v-if="menuOpen"
-        class="absolute inset-x-4 z-30 mt-1 overflow-hidden rounded-md border border-border-subtle bg-surface-overlay shadow-lg"
+        class="absolute inset-x-0 top-full z-30 overflow-hidden border-b border-border-subtle bg-surface-overlay shadow-lg"
       >
         <button
           v-for="t in tabs"
           :key="t.to"
           @click="goTo(t.to)"
-          class="block w-full px-3 py-2 text-left text-base hover:bg-surface-subtle"
+          class="block w-full px-4 py-2.5 text-left text-base hover:bg-surface-subtle"
           :class="route.path === t.to ? 'font-medium text-text-default' : 'text-text-subtle'"
         >
           {{ t.label }}

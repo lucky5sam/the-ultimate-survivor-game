@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { getTribeColors } from '../utils/tribeColors'
-import { displayName } from '../utils/contestantName'
+import { displayName, shortName } from '../utils/contestantName'
 import type { ContestantFull } from '../types/contestant'
+import parchmentUrl from '../assets/survivor_decor_parchment.svg'
 
 const props = defineProps<{
   contestant: ContestantFull
@@ -79,6 +80,10 @@ const highlightColor = computed(() =>
       ? 'var(--color-survivor-bounty)'
       : colors.value.primary,
 )
+// A bounty card that's been chosen swaps its name/tribe label for the parchment
+// scroll (matching the bounty confirmation modal on the team page).
+const isBountyPick = computed(() => !!props.bounty && props.selected)
+
 const cardStyle = computed(() => ({
   borderColor: isHighlighted.value ? highlightColor.value : '#44403c',
   // color-mix keeps the glow working whether highlightColor is a hex or a CSS var.
@@ -158,32 +163,77 @@ const cardStyle = computed(() => ({
     <button
       v-if="!disabled"
       data-info-button
-      class="absolute top-2 right-2 w-7 h-7 bg-black/60 hover:bg-black/90 rounded-full flex items-center justify-center text-white z-10"
+      class="absolute top-2 right-2 z-10 rounded-full bg-black/60 px-2.5 py-1 text-xs font-semibold text-white hover:bg-black/90"
       @click.stop="emit('view-details')"
     >
-      <svg
-        class="w-3.5 h-3.5"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="currentColor"
-        stroke-width="2.5"
-      >
-        <path
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-        />
-      </svg>
+      Info
     </button>
 
-    <!-- Bottom info -->
-    <div class="absolute bottom-0 left-0 right-0 p-3 z-10">
-      <p class="font-bold text-white text-sm leading-tight drop-shadow-sm">
-        {{ displayName(contestant) }}
+    <!-- Bottom info: name + tribe + subtext, hidden once this is the bounty pick -->
+    <div v-if="!isBountyPick" class="absolute bottom-0 left-0 right-0 p-3 z-10">
+      <p class="flex items-center gap-1.5 font-bold text-white text-sm leading-tight drop-shadow-sm">
+        <span class="sm:hidden">{{ shortName(contestant) }}</span>
+        <span class="hidden sm:inline">{{ displayName(contestant) }}</span>
+        <span
+          v-if="contestant.tribe"
+          class="flex h-4 w-4 shrink-0 items-center justify-center rounded-xs text-[10px] font-bold text-white"
+          :style="{ backgroundColor: colors.primary }"
+          :title="contestant.tribe"
+          >{{ contestant.tribe.charAt(0).toUpperCase() }}</span
+        >
       </p>
-      <p class="text-xs mt-0.5 font-medium" :style="{ color: colors.text }">
-        {{ contestant.tribe }}
+      <p class="hidden sm:block text-xs mt-0.5 font-medium text-text-subtle">
+        {{ [contestant.age, contestant.occupation].filter(Boolean).join(', ') }}
       </p>
     </div>
+
+    <!-- Bounty pick: preferred name on a parchment scroll, fading + rising in -->
+    <Transition name="parchment">
+      <div
+        v-if="isBountyPick"
+        class="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex justify-center p-2"
+      >
+        <div class="relative w-full max-w-[220px]">
+          <img
+            :src="parchmentUrl"
+            alt=""
+            aria-hidden="true"
+            class="w-full select-none [filter:drop-shadow(0_4px_8px_rgba(0,0,0,0.45))]"
+          />
+          <span
+            class="absolute inset-0 flex items-center justify-center px-6 text-center font-handwritten text-2xl leading-tight text-material-parchment-ink"
+          >
+            {{ shortName(contestant) }}
+          </span>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
+
+<style scoped>
+.parchment-enter-active {
+  transition:
+    opacity 0.5s ease,
+    transform 0.5s ease;
+}
+.parchment-enter-from {
+  opacity: 0;
+  transform: translateY(16px);
+}
+.parchment-leave-active {
+  transition: opacity 0.2s ease;
+}
+.parchment-leave-to {
+  opacity: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .parchment-enter-active,
+  .parchment-leave-active {
+    transition: opacity 0.2s ease;
+  }
+  .parchment-enter-from {
+    transform: none;
+  }
+}
+</style>

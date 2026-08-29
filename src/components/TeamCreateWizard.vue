@@ -309,21 +309,23 @@ async function lockIn() {
 
       <!-- ── Step 1: League Code ── -->
       <template v-if="step === 1">
-        <div class="mx-auto w-full max-w-5xl">
-          <div class="rounded-lg border border-border-subtle bg-surface-default p-6 sm:p-8">
+        <div class="mx-auto w-full max-w-2xl">
+          <div
+            class="flex flex-col items-center rounded-lg border border-border-subtle bg-surface-default p-6 text-center sm:p-8"
+          >
             <img
               :src="survivorLogoUrl"
               alt="Survivor 51"
               class="pointer-events-none mb-4 h-20 w-auto select-none sm:h-24"
             />
             <h2 class="text-2xl font-bold text-text-default mb-1">Enter League Code</h2>
-            <p class="text-text-subtle text-base mb-6">
+            <p class="text-text-subtle text-base mb-4">
               Ask your league admin for the code to join {{ seasonName }}.
             </p>
             <BaseInput
               v-model="leagueCode"
               size="lg"
-              class="max-w-md"
+              class="w-full max-w-md"
               placeholder="6-digit code"
               inputmode="numeric"
               :maxlength="6"
@@ -332,7 +334,7 @@ async function lockIn() {
             />
             <BaseButton
               size="lg"
-              class="mt-4"
+              class="mt-4 w-full sm:w-auto"
               :loading="loading"
               :disabled="leagueCode.length !== 6"
               @click="nextStep"
@@ -380,7 +382,7 @@ async function lockIn() {
               </span>
             </label>
 
-            <div class="mt-6 flex gap-3">
+            <div class="mt-6 flex justify-end gap-3">
               <BaseButton variant="secondary" size="lg" @click="step--">Back</BaseButton>
               <BaseButton size="lg" :disabled="!rulesAcknowledged" @click="nextStep">
                 Continue
@@ -410,8 +412,8 @@ async function lockIn() {
             />
 
             <div class="mt-6">
-              <label class="mb-1.5 block text-sm font-medium text-text-default">Team Avatar</label>
-              <div class="mb-3 flex rounded-md border border-border-subtle p-0.5">
+              <label class="mb-2 block text-sm font-medium text-text-default">Team Avatar</label>
+              <div class="mb-4 flex rounded-md border border-border-subtle p-1">
                 <button
                   type="button"
                   class="flex-1 rounded px-3 py-1 text-sm font-medium transition-colors"
