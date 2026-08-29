@@ -178,13 +178,6 @@ onUnmounted(() => {
           </button>
         </div>
       </div>
-
-      <!-- Season logo — right side on desktop, above the content on mobile -->
-      <img
-        :src="survivorLogoUrl"
-        alt="Survivor 51"
-        class="pointer-events-none relative z-10 h-16 w-auto shrink-0 select-none sm:h-40"
-      />
     </div>
   </div>
 </template>
