@@ -176,10 +176,9 @@ const cardStyle = computed(() => ({
         <span class="hidden sm:inline">{{ displayName(contestant) }}</span>
         <span
           v-if="contestant.tribe"
-          class="flex h-4 w-4 shrink-0 items-center justify-center rounded-xs text-[10px] font-bold text-white"
-          :style="{ backgroundColor: colors.primary }"
-          :title="contestant.tribe"
-          >{{ contestant.tribe.charAt(0).toUpperCase() }}</span
+          class="shrink-0 font-semibold"
+          :style="{ color: colors.text }"
+          >{{ contestant.tribe }}</span
         >
       </p>
       <p class="hidden sm:block text-xs mt-0.5 font-medium text-text-subtle">

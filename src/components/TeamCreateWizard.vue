@@ -267,7 +267,7 @@ async function lockIn() {
            centered below. A connector line links each number to the next. The
            League Code step is omitted here and the whole bar is hidden while on
            it — purely visual; the wizard still runs on steps 1–7. -->
-      <div v-if="step > 1" class="mx-auto mb-10 flex w-full max-w-5xl">
+      <div v-if="step > 1" class="mx-auto mb-6 flex w-full max-w-5xl">
         <div
           v-for="(s, i) in visibleSteps"
           :key="s.step"
@@ -305,6 +305,27 @@ async function lockIn() {
             {{ s.label }}
           </p>
         </div>
+      </div>
+
+      <!-- Back to the previous step (mobile only). On mobile the footer holds just
+           the full-width primary CTA; on desktop Back lives in the footer instead. -->
+      <div v-if="step > 1" class="mx-auto mb-2 w-full max-w-5xl sm:hidden">
+        <button
+          type="button"
+          class="inline-flex items-center gap-1 text-sm font-medium text-text-subtle transition-colors hover:text-text-default"
+          @click="step--"
+        >
+          <svg
+            class="h-4 w-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+          Back
+        </button>
       </div>
 
       <!-- ── Step 1: League Code ── -->
@@ -383,8 +404,19 @@ async function lockIn() {
             </label>
 
             <div class="mt-6 flex justify-end gap-3">
-              <BaseButton variant="secondary" size="lg" @click="step--">Back</BaseButton>
-              <BaseButton size="lg" :disabled="!rulesAcknowledged" @click="nextStep">
+              <BaseButton
+                variant="secondary"
+                size="lg"
+                class="hidden! sm:inline-flex!"
+                @click="step--"
+                >Back</BaseButton
+              >
+              <BaseButton
+                size="lg"
+                class="w-full sm:w-auto"
+                :disabled="!rulesAcknowledged"
+                @click="nextStep"
+              >
                 Continue
               </BaseButton>
             </div>
@@ -457,20 +489,22 @@ async function lockIn() {
         <div
           class="sticky bottom-0 z-30 -mx-4 -mb-16 mt-auto border-t border-border-subtle bg-surface-page/95 px-4 py-3 backdrop-blur sm:-mx-12 sm:px-12 lg:-mx-20 lg:px-20"
         >
-          <div class="mx-auto flex w-full max-w-5xl">
-            <div class="ml-auto flex w-full gap-3 sm:w-auto">
-              <BaseButton variant="secondary" size="lg" class="flex-1 sm:flex-none" @click="step--"
-                >Back</BaseButton
-              >
-              <BaseButton
-                size="lg"
-                class="flex-1 sm:flex-none"
-                :disabled="!teamName.trim()"
-                @click="nextStep"
-              >
-                Continue
-              </BaseButton>
-            </div>
+          <div class="mx-auto flex w-full max-w-5xl justify-end gap-3">
+            <BaseButton
+              variant="secondary"
+              size="lg"
+              class="hidden! sm:inline-flex!"
+              @click="step--"
+              >Back</BaseButton
+            >
+            <BaseButton
+              size="lg"
+              class="w-full sm:w-auto"
+              :disabled="!teamName.trim()"
+              @click="nextStep"
+            >
+              Continue
+            </BaseButton>
           </div>
         </div>
       </template>
@@ -512,12 +546,16 @@ async function lockIn() {
             :team-name="teamName"
           >
             <div class="flex w-full gap-3 sm:w-auto">
-              <BaseButton variant="secondary" size="lg" class="flex-1 sm:flex-none" @click="step--"
+              <BaseButton
+                variant="secondary"
+                size="lg"
+                class="hidden! sm:inline-flex!"
+                @click="step--"
                 >Back</BaseButton
               >
               <BaseButton
                 size="lg"
-                class="flex-1 sm:flex-none"
+                class="w-full sm:w-auto"
                 :disabled="selectedIds.length < 4"
                 @click="nextStep"
               >
@@ -564,15 +602,14 @@ async function lockIn() {
             :team-name="teamName"
           >
             <div class="flex w-full gap-3 sm:w-auto">
-              <BaseButton variant="secondary" size="lg" class="flex-1 sm:flex-none" @click="step--"
+              <BaseButton
+                variant="secondary"
+                size="lg"
+                class="hidden! sm:inline-flex!"
+                @click="step--"
                 >Back</BaseButton
               >
-              <BaseButton
-                size="lg"
-                class="flex-1 sm:flex-none"
-                :disabled="!mvpId"
-                @click="nextStep"
-              >
+              <BaseButton size="lg" class="w-full sm:w-auto" :disabled="!mvpId" @click="nextStep">
                 {{ mvpId ? 'Continue' : 'Choose MVP' }}
               </BaseButton>
             </div>
@@ -620,12 +657,16 @@ async function lockIn() {
             :team-name="teamName"
           >
             <div class="flex w-full gap-3 sm:w-auto">
-              <BaseButton variant="secondary" size="lg" class="flex-1 sm:flex-none" @click="step--"
+              <BaseButton
+                variant="secondary"
+                size="lg"
+                class="hidden! sm:inline-flex!"
+                @click="step--"
                 >Back</BaseButton
               >
               <BaseButton
                 size="lg"
-                class="flex-1 sm:flex-none"
+                class="w-full sm:w-auto"
                 :disabled="!bountyId"
                 @click="nextStep"
               >
