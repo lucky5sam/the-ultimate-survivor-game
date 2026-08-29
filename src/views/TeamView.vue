@@ -190,6 +190,15 @@ const seasonConfig = ref<SeasonConfig>({
 })
 const swapsUsed = ref(0)
 
+// Season payout structure (place → amount). Used to flag when this team is
+// "in the money" (its rank earns a payout).
+const seasonPayouts = ref<{ place: number; amount: number }[]>([])
+const inMoney = computed(
+  () =>
+    myRank.value != null &&
+    seasonPayouts.value.some((p) => p.place === myRank.value && (p.amount ?? 0) > 0),
+)
+
 // Edit team details (name + avatar) modal. The avatar is either an uploaded
 // photo or an emoji-on-color tile, chosen via `editAvatarMode`.
 const editModalOpen = ref(false)
@@ -594,11 +603,15 @@ async function loadSeasonConfig() {
   const { data } = await supabase
     .from('seasons')
     .select(
-      'grace_period_through_episode, max_swaps, swap_penalty_mvp, swap_penalty_player, swap_penalty_role_change, bounty_points_pre_merge, bounty_points_post_merge, bounty_points_finale',
+      'grace_period_through_episode, max_swaps, swap_penalty_mvp, swap_penalty_player, swap_penalty_role_change, bounty_points_pre_merge, bounty_points_post_merge, bounty_points_finale, payouts',
     )
     .eq('id', selectedSeasonId.value)
     .single()
-  if (data) seasonConfig.value = data as SeasonConfig
+  if (data) {
+    seasonConfig.value = data as SeasonConfig
+    seasonPayouts.value = ((data as { payouts?: { place: number; amount: number }[] }).payouts ??
+      []) as { place: number; amount: number }[]
+  }
 
   if (!existingTeam.value) return
   const { count } = await supabase
@@ -1001,14 +1014,20 @@ onUnmounted(() => {
               padding="sm"
               role="button"
               tabindex="0"
-              class="min-w-[7rem] flex-1 cursor-pointer text-center transition-colors hover:border-border-strong hover:bg-surface-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-border-accent"
+              class="min-w-[7rem] flex-1 cursor-pointer text-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-accent"
+              :class="
+                inMoney
+                  ? 'border-status-success! bg-status-success/10! hover:bg-status-success/15!'
+                  : 'hover:border-border-strong hover:bg-surface-subtle'
+              "
               @click="router.push('/leaderboard')"
               @keydown.enter="router.push('/leaderboard')"
               @keydown.space.prevent="router.push('/leaderboard')"
             >
               <p class="text-sm font-medium text-text-subtle">Place</p>
               <p class="mt-0.5 text-2xl font-bold text-text-default">{{ ordinal(myRank ?? 0) }}</p>
-              <p class="text-xs text-text-muted">{{ totalTeams }} total teams</p>
+              <p v-if="inMoney" class="text-xs font-semibold text-status-success">In the Money</p>
+              <p v-else class="text-xs text-text-muted">{{ totalTeams }} total teams</p>
             </BaseCard>
             <BaseCard
               padding="sm"

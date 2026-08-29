@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
+import { supabase } from '../lib/supabase'
 import { computeLeaderboard, type LeaderboardRow } from '../composables/useLeaderboard'
 import { useSeasonStore } from '../stores/season'
 import { useAuthStore } from '../stores/auth'
@@ -22,6 +23,7 @@ let loadSeq = 0
 async function loadLeaderboard() {
   if (!seasonStore.selectedSeasonId) {
     rows.value = []
+    paidPlaces.value = new Set()
     return
   }
   const seq = ++loadSeq
@@ -29,9 +31,13 @@ async function loadLeaderboard() {
   errorMsg.value = ''
   try {
     await loadTribeColors(seasonStore.selectedSeasonId)
-    const result = await computeLeaderboard(seasonStore.selectedSeasonId)
+    const [result, places] = await Promise.all([
+      computeLeaderboard(seasonStore.selectedSeasonId),
+      fetchPaidPlaces(seasonStore.selectedSeasonId),
+    ])
     if (seq !== loadSeq) return
     rows.value = result
+    paidPlaces.value = places
   } catch (e) {
     if (seq !== loadSeq) return
     errorMsg.value = e instanceof Error ? e.message : 'Failed to load leaderboard'
@@ -64,6 +70,29 @@ const displayRows = computed(() =>
     ),
   })),
 )
+
+// Finishing places that earn a payout (amount > 0) for the selected season.
+// A team "in the money" gets a green row highlight that trumps the my-team gold.
+const paidPlaces = ref<Set<number>>(new Set())
+
+async function fetchPaidPlaces(seasonId: string): Promise<Set<number>> {
+  const { data } = await supabase.from('seasons').select('payouts').eq('id', seasonId).single()
+  const payouts = (data?.payouts ?? []) as { place: number; amount: number }[]
+  return new Set(payouts.filter((p) => (p.amount ?? 0) > 0).map((p) => p.place))
+}
+
+function inMoney(rank: number) {
+  return paidPlaces.value.has(rank)
+}
+// Row background: my-team gold highlight. In-the-money is shown with a badge on
+// the team avatar instead (see the template). The sticky variant is opaque so it
+// masks horizontally-scrolled cells.
+function rowBg(row: { rank: number; ownerId: string }) {
+  return isMyTeam(row.ownerId) ? 'bg-surface-highlight' : 'bg-surface-default'
+}
+function stickyBg(row: { rank: number; ownerId: string }) {
+  return isMyTeam(row.ownerId) ? 'bg-surface-highlight' : 'bg-surface-default'
+}
 
 // The shared store owns the season list + selection; reload when it changes.
 watch(() => seasonStore.selectedSeasonId, loadLeaderboard, { immediate: true })
@@ -110,21 +139,29 @@ onMounted(() => seasonStore.load())
             :key="row.teamId"
             :to="`/team/${row.teamId}`"
             class="group flex items-center gap-2 pl-2 py-3 pr-4 transition-colors"
-            :class="isMyTeam(row.ownerId) ? 'bg-surface-highlight' : 'bg-surface-default'"
+            :class="rowBg(row)"
           >
             <span
               class="min-w-7 shrink-0 text-center text-sm font-bold tabular-nums"
               :class="row.rank === 1 ? 'text-survivor-sand' : 'text-text-subtle'"
               >{{ row.rank }}</span
             >
-            <TeamAvatar
-              :image-url="row.teamImageUrl"
-              :emoji="row.teamEmoji"
-              :color="row.teamColor"
-              :name="row.teamName ?? 'Team'"
-              :size="40"
-              class="rounded-sm border border-border-subtle"
-            />
+            <div class="relative shrink-0">
+              <TeamAvatar
+                :image-url="row.teamImageUrl"
+                :emoji="row.teamEmoji"
+                :color="row.teamColor"
+                :name="row.teamName ?? 'Team'"
+                :size="40"
+                class="rounded-sm border border-border-subtle"
+              />
+              <span
+                v-if="inMoney(row.rank)"
+                class="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-status-success text-[10px] font-bold leading-none text-text-inverse ring-2 ring-surface-page"
+                title="In the money"
+                >$</span
+              >
+            </div>
             <div class="min-w-0 flex-1">
               <p class="truncate text-sm font-bold text-text-default group-hover:underline">
                 {{ row.teamName ?? '(no name)' }}
@@ -206,12 +243,12 @@ onMounted(() => seasonStore.load())
                 v-for="row in displayRows"
                 :key="row.teamId"
                 class="border-t border-border-subtle"
-                :class="{ 'bg-surface-highlight': isMyTeam(row.ownerId) }"
+                :class="rowBg(row)"
               >
                 <!-- Team (sticky): rank + name + owner -->
                 <td
                   class="sticky left-0 z-10 w-60 min-w-60 px-4 py-3"
-                  :class="isMyTeam(row.ownerId) ? 'bg-surface-highlight' : 'bg-surface-default'"
+                  :class="stickyBg(row)"
                 >
                   <div class="flex items-center gap-3">
                     <span
@@ -219,14 +256,22 @@ onMounted(() => seasonStore.load())
                       :class="row.rank === 1 ? 'text-survivor-sand' : 'text-text-subtle'"
                       >{{ row.rank }}</span
                     >
-                    <TeamAvatar
-                      :image-url="row.teamImageUrl"
-                      :emoji="row.teamEmoji"
-                      :color="row.teamColor"
-                      :name="row.teamName ?? 'Team'"
-                      :size="32"
-                      class="rounded-sm border border-border-subtle"
-                    />
+                    <div class="relative shrink-0">
+                      <TeamAvatar
+                        :image-url="row.teamImageUrl"
+                        :emoji="row.teamEmoji"
+                        :color="row.teamColor"
+                        :name="row.teamName ?? 'Team'"
+                        :size="32"
+                        class="rounded-sm border border-border-subtle"
+                      />
+                      <span
+                        v-if="inMoney(row.rank)"
+                        class="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-status-success text-[10px] font-bold leading-none text-text-inverse ring-2 ring-surface-default"
+                        title="In the money"
+                        >$</span
+                      >
+                    </div>
                     <div class="min-w-0">
                       <RouterLink
                         :to="`/team/${row.teamId}`"
@@ -245,7 +290,7 @@ onMounted(() => seasonStore.load())
                   class="sticky left-60 z-10 w-20 px-4 py-3 text-left font-bold tabular-nums"
                   :class="[
                     row.totalPoints >= 0 ? 'text-text-default' : 'text-status-error',
-                    isMyTeam(row.ownerId) ? 'bg-surface-highlight' : 'bg-surface-default',
+                    stickyBg(row),
                   ]"
                 >
                   {{ fmtPts(row.totalPoints) }}

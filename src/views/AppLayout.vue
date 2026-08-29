@@ -101,6 +101,10 @@ const viewingPastSeason = computed(
 const currentSeasonName = computed(
   () => seasonStore.seasons.find((s) => s.id === seasonStore.currentSeasonId)?.name ?? '',
 )
+// The season currently being viewed — drives the header logo + name.
+const selectedSeason = computed(() =>
+  seasonStore.seasons.find((s) => s.id === seasonStore.selectedSeasonId),
+)
 function returnToCurrentSeason() {
   seasonStore.selectedSeasonId = seasonStore.currentSeasonId
 }
@@ -160,7 +164,21 @@ async function handleSignOut() {
     <header
       class="bg-surface-page border-b border-border-subtle px-4 sm:px-6 py-4 flex items-center justify-between shrink-0"
     >
-      <h1 class="text-xl font-bold text-text-default">The Ultimate Survivor Game</h1>
+      <div class="flex min-w-0 items-center gap-2.5">
+        <span
+          class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface-subtle"
+        >
+          <img
+            v-if="selectedSeason?.image_url"
+            :src="selectedSeason.image_url"
+            :alt="selectedSeason?.name ?? 'Season'"
+            class="h-full w-full object-cover"
+          />
+        </span>
+        <span class="truncate text-base font-semibold text-text-default">
+          {{ selectedSeason?.name ?? 'The Ultimate Survivor Game' }}
+        </span>
+      </div>
       <div class="flex items-center gap-4 text-sm">
         <!-- Account avatar + menu -->
         <div class="relative">
