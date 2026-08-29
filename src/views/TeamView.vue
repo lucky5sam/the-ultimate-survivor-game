@@ -7,7 +7,6 @@ import { useAuthStore } from '../stores/auth'
 import { useSeasonStore } from '../stores/season'
 import { useUiStore } from '../stores/ui'
 import TeamCreateWizard from '../components/TeamCreateWizard.vue'
-import ContestantAvatar from '../components/ContestantAvatar.vue'
 import ContestantSelect from '../components/ContestantSelect.vue'
 import TeamRosterList from '../components/TeamRosterList.vue'
 import BountyHistoryList from '../components/BountyHistoryList.vue'
@@ -30,7 +29,8 @@ import {
   type TeamBreakdown,
 } from '../composables/useLeaderboard'
 import { loadTribeColors } from '../utils/tribeColors'
-import { fullName, displayName } from '../utils/contestantName'
+import { fullName, displayName, shortName } from '../utils/contestantName'
+import parchmentUrl from '../assets/survivor_decor_parchment.svg'
 import type { ContestantFull } from '../types/contestant'
 import type { BountyHistoryRow } from '../types/bounty'
 import InviteBanner from '../components/InviteBanner.vue'
@@ -723,13 +723,10 @@ async function saveBountyChange() {
   }
 }
 
-function contestantName(id: string) {
+// Preferred name (falls back to first name) — used on the bounty parchment.
+function contestantShortName(id: string) {
   const c = allContestants.value.find((c) => c.id === id)
-  return c ? displayName(c) : '?'
-}
-
-function contestantPhoto(id: string) {
-  return allContestants.value.find((c) => c.id === id)?.photo_url ?? null
+  return c ? shortName(c) : ''
 }
 
 function openSwapModal(player: ActivePlayer) {
@@ -1353,26 +1350,20 @@ onUnmounted(() => {
     <BaseModal
       :show="changingBounty"
       title="Update Bounty Pick"
+      subtitle="Choose who you think gets voted out next — only players still in the game are shown."
       size="md"
       @close="changingBounty = false"
     >
-      <p class="mb-3 text-sm text-text-subtle">
-        Choose who you think gets voted out next — only players still in the game are shown.
-      </p>
       <ContestantSelect
         v-model="newBountyContestantId"
         :options="inGameContestants"
         placeholder="Select a player"
+        class="py-4"
       />
       <template #footer>
-        <button
-          @click="changingBounty = false"
-          class="text-sm text-text-subtle hover:text-text-default px-4 py-2"
-        >
-          Cancel
-        </button>
+        <BaseButton variant="secondary" @click="changingBounty = false">Cancel</BaseButton>
         <BaseButton :disabled="!newBountyContestantId" @click="confirmingBounty = true"
-          >Save</BaseButton
+          >Submit</BaseButton
         >
       </template>
     </BaseModal>
@@ -1381,28 +1372,23 @@ onUnmounted(() => {
     <BaseModal
       :show="confirmingBounty"
       title="Confirm Bounty Pick"
+      :subtitle="`Set this contestant as your bounty pick for Episode ${nextUpcomingEpisode?.number}?`"
+      :z-index="60"
+      fire-glow
       @close="confirmingBounty = false"
+      size="md"
     >
-      <p class="text-sm text-text-subtle">
-        Set this contestant as your bounty pick for Episode {{ nextUpcomingEpisode?.number }}?
-      </p>
-      <div v-if="newBountyContestantId" class="mt-3 flex items-center gap-3">
-        <ContestantAvatar
-          :photo-url="contestantPhoto(newBountyContestantId)"
-          :name="contestantName(newBountyContestantId)"
-          :size="40"
-        />
-        <span class="font-semibold text-text-default">{{
-          contestantName(newBountyContestantId)
-        }}</span>
+      <!-- Preferred name written on a parchment scroll for a Survivor feel. -->
+      <div v-if="newBountyContestantId" class="relative mx-auto mt-4 w-full max-w-[320px] py-8">
+        <img :src="parchmentUrl" alt="" aria-hidden="true" class="w-full select-none" />
+        <span
+          class="absolute inset-0 flex items-center justify-center px-10 text-center font-handwritten text-5xl leading-tight text-material-parchment-ink"
+        >
+          {{ contestantShortName(newBountyContestantId) }}
+        </span>
       </div>
       <template #footer>
-        <button
-          @click="confirmingBounty = false"
-          class="text-sm text-text-subtle hover:text-text-default px-4 py-2"
-        >
-          Cancel
-        </button>
+        <BaseButton variant="secondary" @click="confirmingBounty = false">Cancel</BaseButton>
         <BaseButton :loading="savingBounty" @click="saveBountyChange">Confirm pick</BaseButton>
       </template>
     </BaseModal>

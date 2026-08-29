@@ -4,7 +4,7 @@
 
 withDefaults(
   defineProps<{
-    variant?: 'primary' | 'secondary' | 'ghost' | 'danger'
+    variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger'
     size?: 'sm' | 'md' | 'lg'
     block?: boolean // full-width
     loading?: boolean // shows spinner + disables
@@ -20,6 +20,8 @@ const variants: Record<string, string> = {
     'bg-gradient-to-b from-interactive-accent-from to-interactive-accent-to text-text-on-accent hover:brightness-95 active:brightness-90 disabled:from-interactive-accent-disabled disabled:to-interactive-accent-disabled disabled:brightness-100',
   secondary:
     'bg-interactive-neutral text-text-default border border-border-default hover:bg-interactive-neutral-hover',
+  outline:
+    'bg-transparent text-text-default border border-border-default hover:bg-surface-subtle',
   ghost: 'bg-transparent text-text-accent hover:bg-surface-accent',
   danger: 'bg-status-error text-text-on-accent hover:opacity-90',
 }

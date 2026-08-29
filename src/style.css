@@ -47,6 +47,10 @@
     'Figtree', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial,
     sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
 
+  /* Handwritten display face (Gochi Hand, loaded in index.html) for thematic
+     ink — e.g. the bounty parchment. Generates the `font-handwritten` utility. */
+  --font-handwritten: 'Gochi Hand', 'Segoe Script', cursive;
+
   /* Survivor brand palette */
   --color-survivor-fire: #f97316;
   --color-survivor-ember: #78350f;
@@ -134,7 +138,7 @@
   --color-material-wood-dark: #2c1a0e;
   --color-material-wood-edge: #6b4426;
   --color-material-parchment: #e8d9b5;
-  --color-material-parchment-ink: #4a2f1a;
+  --color-material-parchment-ink: #2F2822;
   --color-material-frond: #14532d;
   --color-fire-glow: #f97316;
 }

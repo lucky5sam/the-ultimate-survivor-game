@@ -161,7 +161,7 @@ function handleSubmit() {
       :src="palmFrondsUrl"
       alt=""
       aria-hidden="true"
-      class="pointer-events-none absolute left-0 top-0 w-64 select-none opacity-25 sm:w-80"
+      class="pointer-events-none absolute left-0 top-0 w-64 select-none opacity-20 sm:w-80"
     />
 
     <!-- Ambient Survivor fire glow along the bottom edge (decorative, non-interactive). -->
