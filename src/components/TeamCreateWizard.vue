@@ -506,13 +506,13 @@ async function lockIn() {
 
             <div class="mt-6">
               <label class="mb-2 block text-sm font-medium text-text-default">Team Avatar</label>
-              <div class="mb-4 flex rounded-md border border-border-subtle p-1">
+              <div class="mb-4 flex gap-1 rounded-md bg-surface-subtle p-1">
                 <button
                   type="button"
-                  class="flex-1 rounded px-3 py-1 text-sm font-medium transition-colors"
+                  class="flex-1 rounded-sm py-1.5 text-sm font-medium transition-colors"
                   :class="
                     avatarMode === 'photo'
-                      ? 'bg-surface-subtle text-text-default'
+                      ? 'bg-surface-default text-text-default shadow-sm'
                       : 'text-text-subtle hover:text-text-default'
                   "
                   @click="avatarMode = 'photo'"
@@ -521,10 +521,10 @@ async function lockIn() {
                 </button>
                 <button
                   type="button"
-                  class="flex-1 rounded px-3 py-1 text-sm font-medium transition-colors"
+                  class="flex-1 rounded-sm py-1.5 text-sm font-medium transition-colors"
                   :class="
                     avatarMode === 'emoji'
-                      ? 'bg-surface-subtle text-text-default'
+                      ? 'bg-surface-default text-text-default shadow-sm'
                       : 'text-text-subtle hover:text-text-default'
                   "
                   @click="avatarMode = 'emoji'"
@@ -629,7 +629,7 @@ async function lockIn() {
 
       <!-- ── Step 5: Declare MVP ── -->
       <template v-else-if="step === 5">
-        <div class="mx-auto mb-8 w-full max-w-5xl">
+        <div class="mx-auto mb-6 w-full max-w-5xl">
           <h2 class="text-2xl font-bold text-text-default mb-1">Crown Your MVP</h2>
           <p class="text-text-subtle text-base">Your MVP earns 1.5× points each episode.</p>
         </div>

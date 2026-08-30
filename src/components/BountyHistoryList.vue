@@ -21,6 +21,8 @@ const props = withDefaults(
     // Make the upcoming (pending) row's episode chip a button that opens the
     // bounty update flow. Left off for read-only views.
     pickInteractive?: boolean
+    // Always show the last name (default only reveals it from sm+).
+    expandNames?: boolean
   }>(),
   {
     title: 'Bounty Pick',
@@ -28,6 +30,7 @@ const props = withDefaults(
     showTribe: false,
     detailsInteractive: false,
     pickInteractive: false,
+    expandNames: false,
   },
 )
 
@@ -109,7 +112,8 @@ function contestantPhoto(id: string) {
                 <span class="text-text-default">{{ contestantPrimary(row.contestantId) }}</span>
                 <span
                   v-if="contestantSecondary(row.contestantId)"
-                  class="ml-1 hidden text-text-default sm:inline"
+                  class="ml-1 text-text-default"
+                  :class="expandNames ? 'inline' : 'hidden sm:inline'"
                   >{{ contestantSecondary(row.contestantId) }}</span
                 >
               </p>

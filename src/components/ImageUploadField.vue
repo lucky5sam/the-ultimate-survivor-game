@@ -101,14 +101,16 @@ onUnmounted(revokeLocal)
         <BaseButton variant="secondary" size="sm" @click="pick">
           {{ hasImage ? 'Change' : 'Choose image' }}
         </BaseButton>
-        <button
+        <BaseButton
           v-if="hasImage"
-          type="button"
+          variant="secondary"
+          size="sm"
+          aria-label="Remove image"
           @click="remove"
-          class="text-xs font-medium text-status-error hover:opacity-80"
+          class="h-9"
         >
-          Remove
-        </button>
+          <i class="fa-solid fa-trash-can text-status-error"></i><span class="text-status-error">Remove</span>
+        </BaseButton>
       </div>
 
       <input ref="inputEl" type="file" accept="image/*" class="hidden" @change="onFile" />

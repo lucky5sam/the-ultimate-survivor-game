@@ -1,7 +1,9 @@
 <script lang="ts">
 // Shared across every modal instance so that stacked modals keep the page
-// body scroll-locked until the last one closes.
+// body scroll-locked until the last one closes. `savedScrollY` remembers where
+// the page was when the first lock engaged, so we can restore it on release.
 let scrollLockCount = 0
+let savedScrollY = 0
 </script>
 
 <script setup lang="ts">
@@ -46,14 +48,32 @@ let locked = false
 function lockScroll() {
   if (locked) return
   locked = true
-  if (scrollLockCount === 0) document.body.style.overflow = 'hidden'
+  if (scrollLockCount === 0) {
+    // Pin the body in place. `overflow: hidden` alone is ignored by iOS Safari's
+    // touch scrolling, so we fix the body at its current offset and pad for the
+    // now-missing scrollbar to avoid a horizontal layout shift.
+    savedScrollY = window.scrollY
+    const scrollbarW = window.innerWidth - document.documentElement.clientWidth
+    document.body.style.position = 'fixed'
+    document.body.style.top = `-${savedScrollY}px`
+    document.body.style.insetInline = '0'
+    document.body.style.overflow = 'hidden'
+    if (scrollbarW > 0) document.body.style.paddingRight = `${scrollbarW}px`
+  }
   scrollLockCount++
 }
 function unlockScroll() {
   if (!locked) return
   locked = false
   scrollLockCount = Math.max(0, scrollLockCount - 1)
-  if (scrollLockCount === 0) document.body.style.overflow = ''
+  if (scrollLockCount === 0) {
+    document.body.style.position = ''
+    document.body.style.top = ''
+    document.body.style.insetInline = ''
+    document.body.style.overflow = ''
+    document.body.style.paddingRight = ''
+    window.scrollTo(0, savedScrollY)
+  }
 }
 
 watch(

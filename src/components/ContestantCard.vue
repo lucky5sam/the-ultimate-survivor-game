@@ -83,9 +83,17 @@ const highlightColor = computed(() =>
 // A bounty card that's been chosen swaps its name/tribe label for the parchment
 // scroll (matching the bounty confirmation modal on the team page).
 const isBountyPick = computed(() => !!props.bounty && props.selected)
+// An MVP-selected card gets a rotating gradient "supercharged" border.
+const isMvpPick = computed(() => !!props.showCrown && props.selected)
 
 const cardStyle = computed(() => ({
-  borderColor: isHighlighted.value ? highlightColor.value : '#44403c',
+  // MVP cards hand the border over to the rotating .mvp-border overlay, so the
+  // static ring goes transparent and only the animated highlight shows.
+  borderColor: isMvpPick.value
+    ? 'transparent'
+    : isHighlighted.value
+      ? highlightColor.value
+      : '#44403c',
   // color-mix keeps the glow working whether highlightColor is a hex or a CSS var.
   boxShadow: isHighlighted.value
     ? `0 0 28px color-mix(in srgb, ${highlightColor.value} 33%, transparent)`
@@ -148,7 +156,7 @@ const cardStyle = computed(() => ({
     <button
       v-if="!disabled"
       data-info-button
-      class="absolute top-2 right-2 z-10 rounded-full bg-black/60 px-2.5 py-1 text-xs font-semibold text-white hover:bg-black/90"
+      class="absolute top-2 right-2 z-10 rounded-full border border-border-subtle bg-black/60 px-2.5 py-1 text-xs font-semibold text-white hover:bg-black/90"
       @click.stop="emit('view-details')"
     >
       Info
@@ -192,10 +200,64 @@ const cardStyle = computed(() => ({
         </div>
       </div>
     </Transition>
+
+    <!-- MVP "supercharged" rotating gradient border -->
+    <div
+      v-if="isMvpPick"
+      class="mvp-border pointer-events-none absolute inset-0 z-30"
+      aria-hidden="true"
+    ></div>
   </div>
 </template>
 
 <style scoped>
+/* MVP card border: a conic gradient sweeps around the edge to look "supercharged".
+   The mask punches out the interior so only the ~2px ring paints; the drop-shadow
+   gives the sweeping streaks a soft glow. @property lets us animate the angle. */
+@property --mvp-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+.mvp-border {
+  border-radius: inherit;
+  padding: 2px;
+  background: conic-gradient(
+    from var(--mvp-angle),
+    transparent 0deg,
+    var(--color-survivor-sand) 35deg,
+    #fffbe6 60deg,
+    var(--color-survivor-sand) 85deg,
+    transparent 150deg,
+    transparent 180deg,
+    var(--color-survivor-sand) 215deg,
+    #fffbe6 240deg,
+    var(--color-survivor-sand) 265deg,
+    transparent 330deg,
+    transparent 360deg
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--color-survivor-sand) 70%, transparent));
+  animation: mvp-spin 2.5s linear infinite;
+}
+@keyframes mvp-spin {
+  to {
+    --mvp-angle: 360deg;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mvp-border {
+    animation: none;
+  }
+}
+
 .parchment-enter-active {
   transition:
     opacity 0.5s ease,

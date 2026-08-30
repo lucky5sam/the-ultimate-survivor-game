@@ -18,6 +18,7 @@ import TeamAvatar from '../components/TeamAvatar.vue'
 import TeamRosterList from '../components/TeamRosterList.vue'
 import BountyHistoryList from '../components/BountyHistoryList.vue'
 import ScoreBreakdownModal from '../components/ScoreBreakdownModal.vue'
+import FireGlow from '../components/FireGlow.vue'
 import ContestantDetailModal, {
   type ContestantEventItem,
 } from '../components/ContestantDetailModal.vue'
@@ -117,25 +118,7 @@ function isPastLock(iso: string | null): boolean {
   return !!iso && new Date(iso).getTime() <= now.value
 }
 
-const currentEpisodeNumber = computed(() =>
-  currentEpisodeId.value
-    ? (allEpisodes.value.find((e) => e.id === currentEpisodeId.value)?.number ?? null)
-    : null,
-)
-
 const mergeEpNumber = computed(() => allEpisodes.value.find((e) => e.is_merge)?.number ?? Infinity)
-
-// The bounty value in force for the current (or latest) episode's stage, shown
-// in the bounty card footer to mirror the Team page.
-const currentBountyValue = computed<{ points: number; stage: string }>(() => {
-  const epNums = allEpisodes.value.map((e) => e.number)
-  const targetEpNum = currentEpisodeNumber.value ?? (epNums.length > 0 ? Math.max(...epNums) : 1)
-  const ep = allEpisodes.value.find((e) => e.number === targetEpNum) ?? null
-  if (ep?.is_finale) return { points: seasonConfig.value.bounty_points_finale, stage: 'finale' }
-  if (targetEpNum >= mergeEpNumber.value)
-    return { points: seasonConfig.value.bounty_points_post_merge, stage: 'post-merge' }
-  return { points: seasonConfig.value.bounty_points_pre_merge, stage: 'pre-merge' }
-})
 
 const episodesWithEliminations = computed(
   () => new Set(Object.values(eliminatedEpisodeIdByContestant.value).filter(Boolean) as string[]),
@@ -476,7 +459,7 @@ onUnmounted(() => {
             padding="sm"
             role="button"
             tabindex="0"
-            class="min-w-[7rem] flex-1 cursor-pointer text-center transition-colors hover:border-border-strong hover:bg-surface-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-border-accent"
+            class="min-w-[7rem] py-6 flex-1 cursor-pointer text-center transition-colors hover:border-border-strong hover:bg-surface-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-border-accent"
             @click="router.push('/leaderboard')"
             @keydown.enter="router.push('/leaderboard')"
             @keydown.space.prevent="router.push('/leaderboard')"
@@ -489,7 +472,7 @@ onUnmounted(() => {
             padding="sm"
             role="button"
             tabindex="0"
-            class="min-w-[7rem] flex-1 cursor-pointer text-center transition-colors hover:border-border-strong hover:bg-surface-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-border-accent"
+            class="min-w-[7rem] py-6 flex-1 cursor-pointer text-center transition-colors hover:border-border-strong hover:bg-surface-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-border-accent"
             @click="openBreakdown"
             @keydown.enter="openBreakdown"
             @keydown.space.prevent="openBreakdown"
@@ -508,6 +491,7 @@ onUnmounted(() => {
           :episodes="allEpisodes"
           :points-by-id="playerPoints"
           details-interactive
+          expand-names
           @open-details="openContestantDetails"
         />
 
@@ -516,17 +500,8 @@ onUnmounted(() => {
           empty-text="No bounty picks locked in yet."
           :rows="bountyHistory"
           :contestants="allContestants"
-        >
-          <template #footer>
-            <div class="px-4 py-2 bg-surface-subtle border-t border-border-subtle">
-              <p class="text-xs text-text-subtle">
-                Bounty value: +{{ fmtPts(currentBountyValue.points) }} pts ({{
-                  currentBountyValue.stage
-                }})
-              </p>
-            </div>
-          </template>
-        </BountyHistoryList>
+          expand-names
+        />
       </div>
     </div>
 
@@ -548,5 +523,8 @@ onUnmounted(() => {
       :events-loading="detailEventsLoading"
       @close="detailContestant = null"
     />
+
+    <!-- Ambient Survivor fire glow along the bottom edge (decorative, over content) -->
+    <FireGlow />
   </div>
 </template>

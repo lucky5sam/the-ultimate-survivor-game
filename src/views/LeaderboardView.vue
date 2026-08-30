@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { supabase } from '../lib/supabase'
 import { computeLeaderboard, type LeaderboardRow } from '../composables/useLeaderboard'
 import { useSeasonStore } from '../stores/season'
@@ -10,6 +11,7 @@ import TeamAvatar from '../components/TeamAvatar.vue'
 import FireGlow from '../components/FireGlow.vue'
 import { loadTribeColors } from '../utils/tribeColors'
 
+const router = useRouter()
 const seasonStore = useSeasonStore()
 const auth = useAuthStore()
 const rows = ref<LeaderboardRow[]>([])
@@ -138,7 +140,7 @@ onMounted(() => seasonStore.load())
             v-for="row in displayRows"
             :key="row.teamId"
             :to="`/team/${row.teamId}`"
-            class="group flex items-center gap-2 pl-2 py-3 pr-4 transition-colors"
+            class="group flex items-center gap-2 pl-2 py-3 pr-4 transition-colors hover:bg-surface-subtle"
             :class="rowBg(row)"
           >
             <span
@@ -242,12 +244,13 @@ onMounted(() => seasonStore.load())
               <tr
                 v-for="row in displayRows"
                 :key="row.teamId"
-                class="border-t border-border-subtle"
+                class="group cursor-pointer border-t border-border-subtle transition-colors hover:bg-surface-subtle"
                 :class="rowBg(row)"
+                @click="router.push(`/team/${row.teamId}`)"
               >
                 <!-- Team (sticky): rank + name + owner -->
                 <td
-                  class="sticky left-0 z-10 w-60 min-w-60 px-4 py-3"
+                  class="sticky left-0 z-10 w-60 min-w-60 px-4 py-3 transition-colors group-hover:bg-surface-subtle"
                   :class="stickyBg(row)"
                 >
                   <div class="flex items-center gap-3">
@@ -287,7 +290,7 @@ onMounted(() => seasonStore.load())
 
                 <!-- Total (sticky, next to team) -->
                 <td
-                  class="sticky left-60 z-10 w-20 px-4 py-3 text-left font-bold tabular-nums"
+                  class="sticky left-60 z-10 w-20 px-4 py-3 text-left font-bold tabular-nums transition-colors group-hover:bg-surface-subtle"
                   :class="[
                     row.totalPoints >= 0 ? 'text-text-default' : 'text-status-error',
                     stickyBg(row),

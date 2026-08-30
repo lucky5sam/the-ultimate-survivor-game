@@ -169,8 +169,13 @@ function playerStatus(id: string): { out: boolean; ep: number | null } {
                 >
               </p>
               <span
+                v-if="player.role === 'mvp' && !playerStatus(player.contestant_id).out"
+                class="shrink-0 text-sm font-semibold text-survivor-sand"
+                >1.5x</span
+              >
+              <span
                 v-if="playerStatus(player.contestant_id).out"
-                class="shrink-0 rounded-full bg-status-error-surface px-2 py-0.5 text-xs font-semibold text-status-error"
+                class="shrink-0 text-sm font-semibold text-status-error"
                 >Out</span
               >
             </div>
@@ -192,7 +197,16 @@ function playerStatus(id: string): { out: boolean; ep: number | null } {
       </div>
       <div class="flex items-center gap-2">
         <div v-if="showScores" class="text-right">
-          <p class="text-sm font-semibold tabular-nums text-text-default">
+          <p
+            class="text-sm font-semibold tabular-nums"
+            :class="
+              playerStatus(player.contestant_id).out
+                ? 'text-text-subtle'
+                : player.role === 'mvp'
+                  ? 'text-survivor-sand'
+                  : 'text-text-default'
+            "
+          >
             {{ fmtPts(pointsById[player.contestant_id] ?? 0) }}
           </p>
         </div>

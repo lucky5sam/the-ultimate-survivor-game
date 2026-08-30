@@ -34,6 +34,7 @@ import parchmentUrl from '../assets/survivor_decor_parchment.svg'
 import type { ContestantFull } from '../types/contestant'
 import type { BountyHistoryRow } from '../types/bounty'
 import InviteBanner from '../components/InviteBanner.vue'
+import FireGlow from '../components/FireGlow.vue'
 
 type Season = {
   id: string
@@ -950,6 +951,8 @@ onUnmounted(() => {
 
     <!-- Constrained team management view when team exists -->
     <div v-else class="max-w-3xl mx-auto px-4 py-4 w-full sm:px-6 sm:py-6">
+      <!-- Ambient Survivor fire glow along the bottom edge (decorative, over content) -->
+      <FireGlow />
       <template v-if="seasons.length > 0">
         <!-- Team, standing, roster, and bounty stacked with a single gap -->
         <div class="flex flex-col gap-4">
@@ -964,21 +967,22 @@ onUnmounted(() => {
               :size="64"
               class="rounded-2xl border border-border-default"
             />
-            <div class="flex min-w-0 items-start gap-2">
-              <div class="flex min-w-0 flex-col">
+            <div class="flex min-w-0 flex-1 items-start gap-2">
+              <div class="flex min-w-0 flex-1 flex-col">
                 <h2 class="line-clamp-2 text-lg font-bold text-text-default sm:text-2xl">
                   {{ existingTeam?.team_name || 'My Team' }}
                 </h2>
                 <p v-if="ownerName" class="text-base text-text-subtle">{{ ownerName }}</p>
               </div>
-              <button
-                type="button"
+              <BaseButton
+                variant="secondary"
+                size="sm"
                 aria-label="Edit team details"
-                class="shrink-0 rounded-md p-1.5 text-icon-subtle transition-colors hover:bg-surface-subtle hover:text-text-default focus:outline-none focus-visible:ring-2 focus-visible:ring-border-accent"
+                class="h-9 shrink-0"
                 @click="openEditTeam"
               >
                 <i class="fa-solid fa-edit text-base"></i>
-              </button>
+              </BaseButton>
             </div>
           </div>
 
@@ -988,7 +992,7 @@ onUnmounted(() => {
               padding="sm"
               role="button"
               tabindex="0"
-              class="min-w-[7rem] flex-1 cursor-pointer text-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-accent"
+              class="min-w-[7rem] py-5 flex-1 cursor-pointer text-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-accent"
               :class="
                 inMoney
                   ? 'border-status-success! bg-status-success/10! hover:bg-status-success/15!'
@@ -1007,7 +1011,7 @@ onUnmounted(() => {
               padding="sm"
               role="button"
               tabindex="0"
-              class="min-w-[7rem] flex-1 cursor-pointer text-center transition-colors hover:border-border-strong hover:bg-surface-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-border-accent"
+              class="min-w-[7rem] py-5 flex-1 cursor-pointer text-center transition-colors hover:border-border-strong hover:bg-surface-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-border-accent"
               @click="openBreakdown"
               @keydown.enter="openBreakdown"
               @keydown.space.prevent="openBreakdown"
@@ -1029,6 +1033,7 @@ onUnmounted(() => {
             :points-by-id="myPlayerPoints"
             :chip-interactive="canManageRoster"
             details-interactive
+            expand-names
             @chip-click="toggleMenu"
             @open-details="openContestantDetails"
           >
@@ -1070,6 +1075,7 @@ onUnmounted(() => {
             :contestants="allContestants"
             show-tribe
             details-interactive
+            expand-names
             :pick-interactive="!!nextUpcomingEpisode"
             @open-details="openContestantDetails"
             @update-pick="openBountyModal"
