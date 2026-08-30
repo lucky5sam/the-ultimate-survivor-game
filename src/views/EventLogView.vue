@@ -11,6 +11,7 @@ import { useSeasonStore } from '../stores/season'
 import BaseCard from '../components/base/BaseCard.vue'
 import BaseModal from '../components/base/BaseModal.vue'
 import TribeBadge from '../components/TribeBadge.vue'
+import FireGlow from '../components/FireGlow.vue'
 
 type EpisodeInfo = {
   id: string
@@ -196,6 +197,8 @@ onMounted(() => seasonStore.load())
 
 <template>
   <div class="mx-auto w-full max-w-3xl px-4 py-4 sm:px-6 sm:py-6">
+    <!-- Ambient Survivor fire glow along the bottom edge (decorative, over content) -->
+    <FireGlow />
     <h2 class="mb-6 text-2xl font-bold text-text-default">Event Log</h2>
 
     <p v-if="errorMsg" class="mb-4 text-sm text-status-error">{{ errorMsg }}</p>

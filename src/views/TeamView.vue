@@ -978,7 +978,7 @@ onUnmounted(() => {
                 variant="secondary"
                 size="sm"
                 aria-label="Edit team details"
-                class="h-9 shrink-0"
+                class="h-10 shrink-0"
                 @click="openEditTeam"
               >
                 <i class="fa-solid fa-edit text-base"></i>

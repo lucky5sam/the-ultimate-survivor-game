@@ -50,7 +50,13 @@ function contestantName(id: string) {
 // is the last name — mirrors the roster list.
 function contestantPrimary(id: string) {
   const c = props.contestants.find((c) => c.id === id)
-  return c ? shortName(c) : '?'
+  if (!c) return '?'
+  // A player who goes by their last name has it set as their preferred name, so
+  // the short name would duplicate the last-name secondary ("Kilby Kilby"). Fall
+  // back to the first name so it reads "First Last" like the other rows.
+  const last = (c.last_name ?? '').trim()
+  if (last && last.toLowerCase() === shortName(c).toLowerCase()) return c.first_name
+  return shortName(c)
 }
 function contestantSecondary(id: string) {
   return props.contestants.find((c) => c.id === id)?.last_name ?? ''

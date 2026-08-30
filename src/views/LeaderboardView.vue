@@ -319,11 +319,6 @@ onMounted(() => seasonStore.load())
                         :class="{ 'opacity-60': row.roster[n - 1]!.out }"
                         >{{ row.roster[n - 1]!.name }}</span
                       >
-                      <span
-                        v-if="row.roster[n - 1]!.out"
-                        class="shrink-0 rounded-full bg-status-error-surface px-2 py-0.5 text-xs font-semibold text-status-error"
-                        >Out</span
-                      >
                     </span>
                     <span v-else class="text-text-subtle">—</span>
                   </td>
