@@ -10,6 +10,7 @@ import ThemeAtmosphere from '../components/decor/ThemeAtmosphere.vue'
 import FireGlow from '../components/FireGlow.vue'
 import palmFrondsUrl from '../assets/survivor_decor_palm_fronds.svg'
 import lucky5LogoUrl from '../assets/lucky_5_logo.svg'
+import appIconUrl from '../assets/the_ultimate_survivor_game_icon.svg'
 
 type Mode = 'signin' | 'signup' | 'forgot'
 
@@ -166,21 +167,24 @@ function handleSubmit() {
     />
 
     <!-- Ambient Survivor fire glow along the bottom edge (decorative, non-interactive). -->
-    <FireGlow position="absolute" :max-width="600" />
+    <FireGlow position="absolute" />
 
     <div class="relative z-10 w-full max-w-sm">
       <div class="mb-6 text-center">
-        <div
-          class="mx-auto mb-3 inline-flex h-12 w-12 items-center justify-center rounded-full bg-surface-accent text-2xl"
-        >
-          🔥
-        </div>
+        <img
+          :src="appIconUrl"
+          alt="The Ultimate Survivor Game"
+          class="mx-auto mb-3 h-14 w-14 select-none"
+        />
         <h1 class="text-2xl font-bold text-text-default">The Ultimate Survivor Game</h1>
         <p class="mt-1 text-base text-text-subtle">Outdraft. Outscore. Outlast.</p>
       </div>
 
       <BaseCard padding="lg">
-        <div class="mb-6 flex gap-1 rounded-md bg-surface-subtle p-1">
+        <div
+          v-if="mode !== 'forgot'"
+          class="mb-6 flex gap-1 rounded-md bg-surface-subtle p-1"
+        >
           <button
             @click="switchMode('signin')"
             :class="[
@@ -307,7 +311,7 @@ function handleSubmit() {
               <button
                 type="button"
                 @click="switchMode('signin')"
-                class="text-xs text-text-muted hover:text-text-subtle"
+                class="text-sm text-text-muted hover:text-text-subtle"
               >
                 Back to sign in
               </button>

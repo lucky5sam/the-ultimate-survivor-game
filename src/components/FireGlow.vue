@@ -17,7 +17,9 @@ import { computed } from 'vue'
 const props = withDefaults(
   defineProps<{
     height?: number // height of the glow band, px
-    maxWidth?: number // cap the glow width (px) and center it; omit for full width
+    // Cap the glow width (px) and center it. Defaults to a shared value so the
+    // glow is consistent across every view; pass 0 for an uncapped full-width glow.
+    maxWidth?: number
     position?: 'fixed' | 'absolute'
     zIndex?: number
     embers?: boolean // rising ember particles
@@ -25,7 +27,7 @@ const props = withDefaults(
   }>(),
   // Defaults above app content. Safe because `pointer-events: none` means it
   // never intercepts input no matter how high it stacks.
-  { height: 120, position: 'fixed', zIndex: 9999, embers: true, emberCount: 12 },
+  { height: 120, maxWidth: 600, position: 'fixed', zIndex: 9999, embers: true, emberCount: 12 },
 )
 
 // Randomized once at mount (Math.random is fine in browser runtime). Each ember

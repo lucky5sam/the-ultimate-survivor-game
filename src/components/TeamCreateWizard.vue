@@ -48,13 +48,73 @@ const visibleSteps = computed(() =>
   STEP_LABELS.slice(1).map((label, i) => ({ label, step: i + 2 })),
 )
 
+const CODE_LENGTH = 6
 const leagueCode = ref('')
 // The league code is a 6-digit number: keep only digits (handles paste and a
 // pre-filled code from the invite link) and cap the length.
 watch(leagueCode, (v) => {
-  const digits = v.replace(/\D/g, '').slice(0, 6)
+  const digits = v.replace(/\D/g, '').slice(0, CODE_LENGTH)
   if (digits !== v) leagueCode.value = digits
 })
+
+// Segmented code entry: one box per digit. `leagueCode` stays the source of
+// truth; each box just reads/writes a character of it.
+const codeInputs = ref<(HTMLInputElement | null)[]>([])
+const codeDigits = computed(() =>
+  Array.from({ length: CODE_LENGTH }, (_, i) => leagueCode.value[i] ?? ''),
+)
+function setCodeInputRef(el: Element | null, i: number) {
+  codeInputs.value[i] = el as HTMLInputElement | null
+}
+function focusCodeBox(i: number) {
+  const el = codeInputs.value[Math.max(0, Math.min(CODE_LENGTH - 1, i))]
+  el?.focus()
+  el?.select()
+}
+function onCodeInput(e: Event, i: number) {
+  const digits = (e.target as HTMLInputElement).value.replace(/\D/g, '')
+  const arr = codeDigits.value.slice()
+  if (!digits) {
+    arr[i] = ''
+    leagueCode.value = arr.join('')
+    return
+  }
+  // Write from this box onward so fast typing / a multi-char autofill still land.
+  let idx = i
+  for (const d of digits) {
+    if (idx >= CODE_LENGTH) break
+    arr[idx++] = d
+  }
+  leagueCode.value = arr.join('')
+  focusCodeBox(idx) // advance to the next empty box (clamped to the last)
+}
+function onCodeKeydown(e: KeyboardEvent, i: number) {
+  if (e.key === 'Enter') return nextStep()
+  if (e.key === 'Backspace') {
+    e.preventDefault()
+    const arr = codeDigits.value.slice()
+    if (arr[i]) {
+      arr[i] = '' // clear the current box, stay put
+    } else if (i > 0) {
+      arr[i - 1] = '' // already empty: clear+move to the previous box
+      focusCodeBox(i - 1)
+    }
+    leagueCode.value = arr.join('')
+  } else if (e.key === 'ArrowLeft' && i > 0) {
+    e.preventDefault()
+    focusCodeBox(i - 1)
+  } else if (e.key === 'ArrowRight' && i < CODE_LENGTH - 1) {
+    e.preventDefault()
+    focusCodeBox(i + 1)
+  }
+}
+function onCodePaste(e: ClipboardEvent) {
+  e.preventDefault()
+  const digits = (e.clipboardData?.getData('text') ?? '').replace(/\D/g, '').slice(0, CODE_LENGTH)
+  if (!digits) return
+  leagueCode.value = digits
+  focusCodeBox(digits.length)
+}
 const rulesAcknowledged = ref(false)
 const teamName = ref('')
 // Team avatar is optional: either an uploaded photo (uploaded on lock-in, since
@@ -322,7 +382,7 @@ async function lockIn() {
 
       <!-- ── Step 1: League Code ── -->
       <template v-if="step === 1">
-        <div class="mx-auto w-full max-w-2xl">
+        <div class="mx-auto w-full max-w-lg">
           <div
             class="flex flex-col items-center rounded-lg border border-border-subtle bg-surface-default p-6 text-center sm:p-8"
           >
@@ -335,19 +395,28 @@ async function lockIn() {
             <p class="text-text-subtle text-base mb-4">
               Ask your league admin for the code to join {{ seasonName }}.
             </p>
-            <BaseInput
-              v-model="leagueCode"
-              size="lg"
-              class="w-full max-w-md"
-              placeholder="6-digit code"
-              inputmode="numeric"
-              :maxlength="6"
-              :error="errorMsg"
-              @keyup.enter="nextStep"
-            />
+            <div class="flex justify-center gap-2 sm:gap-3" @paste="onCodePaste">
+              <input
+                v-for="(d, i) in codeDigits"
+                :key="i"
+                :ref="(el) => setCodeInputRef(el as Element | null, i)"
+                :value="d"
+                type="text"
+                inputmode="numeric"
+                autocomplete="one-time-code"
+                maxlength="1"
+                :aria-label="`League code digit ${i + 1}`"
+                class="h-14 w-11 rounded-lg border bg-surface-default text-center text-2xl font-bold text-text-default shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-border-accent sm:h-16 sm:w-14"
+                :class="errorMsg ? 'border-status-error' : 'border-border-strong focus:border-border-accent'"
+                @input="onCodeInput($event, i)"
+                @keydown="onCodeKeydown($event, i)"
+                @focus="(e) => (e.target as HTMLInputElement).select()"
+              />
+            </div>
+            <p v-if="errorMsg" class="mt-2 text-sm text-status-error">{{ errorMsg }}</p>
             <BaseButton
               size="lg"
-              class="mt-4 w-full sm:w-auto"
+              class="mt-4 w-full"
               :loading="loading"
               :disabled="leagueCode.length !== 6"
               @click="nextStep"
