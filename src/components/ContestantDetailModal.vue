@@ -129,11 +129,7 @@ const embedUrl = computed(() => {
               class="absolute inset-0 h-full w-full object-cover object-[center_10%]"
             />
             <div v-else class="absolute inset-0 flex items-center justify-center">
-              <svg class="w-24 h-24 text-stone-600" fill="currentColor" viewBox="0 0 24 24">
-                <path
-                  d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"
-                />
-              </svg>
+              <i class="fa-solid fa-user text-8xl text-stone-600"></i>
             </div>
             <div
               class="absolute inset-0 bg-gradient-to-t from-stone-900 via-stone-900/10 to-transparent"
@@ -149,15 +145,7 @@ const embedUrl = computed(() => {
               :class="stuck ? 'pointer-events-none opacity-0' : 'opacity-100'"
               @click="emit('close')"
             >
-              <svg
-                class="h-4 w-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                stroke-width="2.5"
-              >
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              <i class="fa-solid fa-xmark text-base"></i>
             </button>
           </div>
 
@@ -183,15 +171,7 @@ const embedUrl = computed(() => {
                 :class="stuck ? 'opacity-100' : 'pointer-events-none opacity-0'"
                 @click="emit('close')"
               >
-                <svg
-                  class="h-5 w-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  stroke-width="2.5"
-                >
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <i class="fa-solid fa-xmark text-xl"></i>
               </button>
             </div>
 

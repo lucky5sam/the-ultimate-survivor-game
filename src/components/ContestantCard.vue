@@ -127,11 +127,7 @@ const cardStyle = computed(() => ({
         />
       </template>
       <div v-else class="absolute inset-0 flex items-center justify-center">
-        <svg class="w-12 h-12 text-stone-600" fill="currentColor" viewBox="0 0 24 24">
-          <path
-            d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"
-          />
-        </svg>
+        <i class="fa-solid fa-user text-5xl text-stone-600"></i>
       </div>
     </div>
 
@@ -144,19 +140,8 @@ const cardStyle = computed(() => ({
       class="absolute top-2 left-2 w-7 h-7 rounded-full flex items-center justify-center shadow-lg z-10"
       :class="showCrown ? 'bg-survivor-sand' : 'bg-white'"
     >
-      <svg v-if="showCrown" class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
-        <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm0 2h14v2H5v-2z" />
-      </svg>
-      <svg
-        v-else
-        class="w-4 h-4 text-stone-900"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="currentColor"
-        stroke-width="3"
-      >
-        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-      </svg>
+      <i v-if="showCrown" class="fa-solid fa-crown text-xs text-white"></i>
+      <i v-else class="fa-solid fa-check text-sm text-stone-900"></i>
     </div>
 
     <!-- Info button — always visible so it's tappable on touch devices -->

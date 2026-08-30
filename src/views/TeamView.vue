@@ -902,9 +902,7 @@ onUnmounted(() => {
         @click="selectedSeasonId = currentSeasonId"
         class="flex items-center gap-1.5 text-sm font-medium text-text-accent hover:text-interactive-accent-hover"
       >
-        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-        </svg>
+        <i class="fa-solid fa-arrow-left text-sm"></i>
         Return to current season
       </button>
     </div>
@@ -937,19 +935,7 @@ onUnmounted(() => {
       <div
         class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-surface-subtle"
       >
-        <svg
-          class="h-6 w-6 text-text-muted"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          stroke-width="2"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-          />
-        </svg>
+        <i class="fa-solid fa-lock text-2xl text-text-muted"></i>
       </div>
       <h2 class="text-xl font-bold text-text-default">Registration is closed</h2>
       <p class="mt-2 text-sm text-text-muted">
@@ -991,19 +977,7 @@ onUnmounted(() => {
                 class="shrink-0 rounded-md p-1.5 text-icon-subtle transition-colors hover:bg-surface-subtle hover:text-text-default focus:outline-none focus-visible:ring-2 focus-visible:ring-border-accent"
                 @click="openEditTeam"
               >
-                <svg
-                  class="h-5 w-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  stroke-width="2"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                  />
-                </svg>
+                <i class="fa-solid fa-edit text-base"></i>
               </button>
             </div>
           </div>
@@ -1225,19 +1199,9 @@ onUnmounted(() => {
           </div>
 
           <!-- Swap icon (arrows right/left; rotates to up/down on mobile) -->
-          <svg
-            class="mx-auto h-6 w-6 shrink-0 rotate-90 self-center text-icon-subtle sm:mt-7 sm:rotate-0"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            stroke-width="2"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="M7.5 21 3 16.5 7.5 12M3 16.5h13.5M16.5 3 21 7.5 16.5 12M21 7.5H7.5"
-            />
-          </svg>
+          <i
+            class="fa-solid fa-right-left mx-auto shrink-0 rotate-90 self-center text-2xl text-icon-subtle sm:mt-7 sm:rotate-0"
+          ></i>
 
           <!-- Swapping in -->
           <div>
@@ -1346,15 +1310,18 @@ onUnmounted(() => {
       @close="confirmingBounty = false"
       size="md"
     >
-      <!-- Preferred name written on a parchment scroll for a Survivor feel. -->
-      <div v-if="newBountyContestantId" class="relative mx-auto mt-4 w-full max-w-[320px] py-8">
-        <img :src="parchmentUrl" alt="" aria-hidden="true" class="w-full select-none" />
-        <span
-          class="absolute inset-0 flex items-center justify-center px-10 text-center font-handwritten text-5xl leading-tight text-material-parchment-ink"
-        >
-          {{ contestantShortName(newBountyContestantId) }}
-        </span>
-      </div>
+      <!-- Preferred name written on a parchment scroll for a Survivor feel.
+           `appear` fades + rises the scroll in when the modal opens. -->
+      <Transition name="parchment" appear>
+        <div v-if="newBountyContestantId" class="relative mx-auto mt-4 w-full max-w-[320px] py-8">
+          <img :src="parchmentUrl" alt="" aria-hidden="true" class="w-full select-none" />
+          <span
+            class="absolute inset-0 flex items-center justify-center px-10 text-center font-handwritten text-5xl leading-tight text-material-parchment-ink"
+          >
+            {{ contestantShortName(newBountyContestantId) }}
+          </span>
+        </div>
+      </Transition>
       <template #footer>
         <BaseButton variant="secondary" @click="confirmingBounty = false">Cancel</BaseButton>
         <BaseButton :loading="savingBounty" @click="saveBountyChange">Confirm pick</BaseButton>
@@ -1387,3 +1354,33 @@ onUnmounted(() => {
     </Teleport>
   </div>
 </template>
+
+<style scoped>
+/* Bounty parchment: fade in + rise (matches the wizard's bounty card). */
+.parchment-enter-active {
+  /* Delay so the scroll animates in *after* the modal itself has settled,
+     otherwise it finishes before it's visible. */
+  transition:
+    opacity 1s ease 0.3s,
+    transform 1s ease 0.3s;
+}
+.parchment-enter-from {
+  opacity: 0;
+  transform: translateY(16px);
+}
+.parchment-leave-active {
+  transition: opacity 0.2s ease;
+}
+.parchment-leave-to {
+  opacity: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .parchment-enter-active,
+  .parchment-leave-active {
+    transition: opacity 0.2s ease;
+  }
+  .parchment-enter-from {
+    transform: none;
+  }
+}
+</style>

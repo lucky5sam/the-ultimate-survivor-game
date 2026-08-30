@@ -46,16 +46,10 @@ const borderColor = computed(
         :class="{ grayscale }"
       />
       <div v-else class="flex h-full w-full items-center justify-center" :class="{ grayscale }">
-        <svg
-          class="text-icon-subtle"
-          :style="{ width: `${size * 0.55}px`, height: `${size * 0.55}px` }"
-          fill="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"
-          />
-        </svg>
+        <i
+          class="fa-solid fa-user text-icon-subtle"
+          :style="{ fontSize: `${size * 0.55}px` }"
+        ></i>
       </div>
     </div>
 
@@ -75,9 +69,7 @@ const borderColor = computed(
       v-if="showCrown"
       class="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-survivor-sand ring-2 ring-surface-default"
     >
-      <svg class="h-2.5 w-2.5 text-white" fill="currentColor" viewBox="0 0 24 24">
-        <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm0 2h14v2H5v-2z" />
-      </svg>
+      <i class="fa-solid fa-crown text-[9px] text-white"></i>
     </span>
   </div>
 </template>

@@ -9,6 +9,7 @@ import PaymentFields from '../components/PaymentFields.vue'
 import ThemeAtmosphere from '../components/decor/ThemeAtmosphere.vue'
 import FireGlow from '../components/FireGlow.vue'
 import palmFrondsUrl from '../assets/survivor_decor_palm_fronds.svg'
+import lucky5LogoUrl from '../assets/lucky_5_logo.svg'
 
 type Mode = 'signin' | 'signup' | 'forgot'
 
@@ -314,6 +315,17 @@ function handleSubmit() {
           </form>
         </template>
       </BaseCard>
+
+      <!-- Attribution callout beneath the login card. -->
+      <div class="mt-6 flex items-center justify-center gap-2 text-sm text-text-subtle">
+        <span>Presented by</span>
+        <img
+          :src="lucky5LogoUrl"
+          alt="Lucky 5 Games"
+          class="h-5 w-auto select-none"
+        />
+        <span class="font-medium text-text-default">Lucky 5 Games</span>
+      </div>
     </div>
   </div>
 </template>

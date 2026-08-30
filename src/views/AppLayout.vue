@@ -185,15 +185,25 @@ async function handleSignOut() {
           <button
             @click="userMenuOpen = !userMenuOpen"
             :aria-label="ownerName || 'Account'"
-            class="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-surface-subtle text-sm font-semibold text-text-subtle transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-accent"
+            class="flex items-center gap-2 rounded-full transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-accent"
           >
-            <img
-              v-if="auth.avatarUrl"
-              :src="auth.avatarUrl"
-              :alt="ownerName || 'Account'"
-              class="h-full w-full object-cover object-top"
-            />
-            <template v-else>{{ userInitials }}</template>
+            <span
+              class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface-subtle text-sm font-semibold text-text-subtle"
+            >
+              <img
+                v-if="auth.avatarUrl"
+                :src="auth.avatarUrl"
+                :alt="ownerName || 'Account'"
+                class="h-full w-full object-cover object-top"
+              />
+              <template v-else>{{ userInitials }}</template>
+            </span>
+            <span
+              v-if="ownerName"
+              class="hidden max-w-[12rem] truncate pr-1 text-sm font-medium text-text-default sm:block"
+            >
+              {{ ownerName }}
+            </span>
           </button>
 
           <div
@@ -275,26 +285,12 @@ async function handleSignOut() {
         @click="menuOpen = !menuOpen"
         class="flex min-h-12 w-full items-center gap-2.5 border-b border-border-subtle bg-surface-subtle px-4 py-2 text-left text-base font-medium text-text-default transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-border-accent"
       >
-        <svg
-          class="h-5 w-5 shrink-0 text-icon-subtle"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          stroke-width="2"
-        >
-          <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-        </svg>
+        <i class="fa-solid fa-bars shrink-0 text-lg text-icon-subtle"></i>
         <span class="flex-1 truncate font-semibold">{{ activeTab.label }}</span>
-        <svg
-          class="h-4 w-4 shrink-0 text-icon-default transition-transform"
+        <i
+          class="fa-solid fa-chevron-down shrink-0 text-sm text-icon-default transition-transform"
           :class="menuOpen ? 'rotate-180' : ''"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          stroke-width="2"
-        >
-          <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-        </svg>
+        ></i>
       </button>
 
       <div

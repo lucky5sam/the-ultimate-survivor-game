@@ -103,15 +103,7 @@ onUnmounted(() => {
               class="absolute right-4 top-4 rounded-md p-1 text-icon-subtle transition-colors hover:bg-surface-subtle hover:text-text-default focus:outline-none focus-visible:ring-2 focus-visible:ring-border-accent"
               @click="emit('close')"
             >
-              <svg
-                class="h-5 w-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                stroke-width="2"
-              >
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              <i class="fa-solid fa-xmark text-xl"></i>
             </button>
             <div v-if="title || subtitle" class="mb-3 pr-8">
               <h2 v-if="title" class="text-lg font-bold text-text-default">{{ title }}</h2>
