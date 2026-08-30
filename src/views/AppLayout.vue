@@ -283,7 +283,7 @@ async function handleSignOut() {
     >
       <button
         @click="menuOpen = !menuOpen"
-        class="flex min-h-12 w-full items-center gap-2.5 border-b border-border-subtle bg-surface-subtle px-4 py-2 text-left text-base font-medium text-text-default transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-border-accent"
+        class="flex min-h-12 w-full items-center gap-2.5 border-b border-border-subtle bg-surface-page px-4 py-2 text-left text-base font-medium text-text-default transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-border-accent"
       >
         <i class="fa-solid fa-bars shrink-0 text-lg text-icon-subtle"></i>
         <span class="flex-1 truncate font-semibold">{{ activeTab.label }}</span>
