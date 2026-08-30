@@ -519,6 +519,7 @@ onUnmounted(() => {
       :show="!!detailContestant"
       :season-name="seasonName ?? undefined"
       show-event-log
+      show-votes
       :events="detailEvents"
       :events-loading="detailEventsLoading"
       @close="detailContestant = null"

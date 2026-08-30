@@ -14,8 +14,11 @@ const props = withDefaults(
     label?: string
     shape?: 'circle' | 'square'
     size?: number // preview size in px
+    // Reject source files larger than this (MB) before the crop step. Defaults
+    // to 8 to match uploadImage's own upload-time cap.
+    maxSizeMb?: number
   }>(),
-  { shape: 'circle', size: 96 },
+  { shape: 'circle', size: 96, maxSizeMb: 8 },
 )
 
 const emit = defineEmits<{ select: [file: File]; remove: [] }>()
@@ -25,6 +28,8 @@ const inputEl = ref<HTMLInputElement | null>(null)
 const localPreview = ref<string | null>(null)
 // The raw file awaiting crop; drives the crop modal.
 const pendingFile = ref<File | null>(null)
+// Inline validation message for a rejected pick (too large / not an image).
+const fileError = ref('')
 
 // Show the local pick first, then the persisted URL, then the placeholder.
 const previewUrl = computed(() => localPreview.value ?? props.modelValue)
@@ -42,16 +47,27 @@ function pick() {
 }
 
 function onFile(e: Event) {
-  const file = (e.target as HTMLInputElement).files?.[0]
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
   // Reset the input so re-picking the same file still fires change.
-  ;(e.target as HTMLInputElement).value = ''
+  input.value = ''
   if (!file) return
+  fileError.value = ''
+  if (!file.type.startsWith('image/')) {
+    fileError.value = 'Please choose an image file.'
+    return
+  }
+  if (file.size > props.maxSizeMb * 1024 * 1024) {
+    fileError.value = `That image is too large (max ${props.maxSizeMb}MB).`
+    return
+  }
   // Route through the crop modal; the cropped result is what we preview/emit.
   pendingFile.value = file
 }
 
 function onCropped(file: File) {
   pendingFile.value = null
+  fileError.value = ''
   revokeLocal()
   localPreview.value = URL.createObjectURL(file)
   emit('select', file)
@@ -115,6 +131,8 @@ onUnmounted(revokeLocal)
 
       <input ref="inputEl" type="file" accept="image/*" class="hidden" @change="onFile" />
     </div>
+
+    <p v-if="fileError" class="mt-2 text-xs text-status-error">{{ fileError }}</p>
 
     <ImageCropModal
       :show="!!pendingFile"

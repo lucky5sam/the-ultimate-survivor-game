@@ -37,6 +37,12 @@ const showForm = ref(false)
 const saving = ref(false)
 const editingId = ref<string | null>(null)
 
+// The edit modal is tabbed: episode Details vs the Tribal Council Votes.
+const modalTab = ref<'details' | 'votes'>('details')
+// Votes for the episode being edited, keyed by voter contestant id.
+// { target: '' means "no vote recorded" }.
+const voteForm = ref<Record<string, { target: string; nullified: boolean }>>({})
+
 const nextNumber = computed(() =>
   episodes.value.length > 0 ? Math.max(...episodes.value.map((e) => e.number)) + 1 : 1,
 )
@@ -107,6 +113,27 @@ async function loadContestants() {
   contestants.value = data ?? []
 }
 
+// Load the saved votes for an episode into voteForm, seeding an empty entry for
+// every contestant who was in the game that episode so the form has a row each.
+async function loadVotes(episodeId: string) {
+  const { data } = await supabase
+    .from('episode_votes')
+    .select('voter_contestant_id, target_contestant_id, nullified')
+    .eq('episode_id', episodeId)
+  const loaded: Record<string, { target: string; nullified: boolean }> = {}
+  for (const v of data ?? []) {
+    loaded[v.voter_contestant_id] = { target: v.target_contestant_id, nullified: v.nullified }
+  }
+  const map: Record<string, { target: string; nullified: boolean }> = {}
+  for (const c of contestants.value) {
+    // A contestant votes this episode if they're still in, or were voted out here.
+    if (!c.eliminated_episode_id || c.eliminated_episode_id === episodeId) {
+      map[c.id] = loaded[c.id] ?? { target: '', nullified: false }
+    }
+  }
+  voteForm.value = map
+}
+
 async function saveEpisode() {
   saving.value = true
   errorMsg.value = ''
@@ -148,6 +175,26 @@ async function saveEpisode() {
           .update({ eliminated_episode_id: editingId.value })
           .in('id', selected)
         if (aErr) throw new Error(aErr.message)
+      }
+
+      // Votes are a plain factual record (not scoring history), so replace the
+      // whole set for this episode: clear it, then insert the rows with a target.
+      const { error: dErr } = await supabase
+        .from('episode_votes')
+        .delete()
+        .eq('episode_id', editingId.value)
+      if (dErr) throw new Error(dErr.message)
+      const voteRows = Object.entries(voteForm.value)
+        .filter(([, v]) => v.target)
+        .map(([voterId, v]) => ({
+          episode_id: editingId.value,
+          voter_contestant_id: voterId,
+          target_contestant_id: v.target,
+          nullified: v.nullified,
+        }))
+      if (voteRows.length) {
+        const { error: vErr } = await supabase.from('episode_votes').insert(voteRows)
+        if (vErr) throw new Error(vErr.message)
       }
     } else {
       const { error } = await supabase.from('episodes').insert({
@@ -214,6 +261,8 @@ async function deleteEpisode(id: string, number: number) {
 
 function openCreate() {
   editingId.value = null
+  modalTab.value = 'details'
+  voteForm.value = {}
   form.value = {
     number: nextNumber.value,
     title: '',
@@ -227,8 +276,9 @@ function openCreate() {
   showForm.value = true
 }
 
-function openEdit(ep: Episode) {
+async function openEdit(ep: Episode) {
   editingId.value = ep.id
+  modalTab.value = 'details'
   form.value = {
     number: ep.number,
     title: ep.title ?? '',
@@ -242,6 +292,7 @@ function openEdit(ep: Episode) {
       .map((c) => c.id),
   }
   showForm.value = true
+  await loadVotes(ep.id)
 }
 
 function resetForm() {
@@ -396,10 +447,39 @@ onMounted(loadSeasons)
       class="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
       @click.self="showForm = false"
     >
-      <div class="bg-white rounded-xl shadow-lg w-full max-w-sm p-6">
+      <div class="bg-white rounded-xl shadow-lg w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
         <h2 class="text-lg font-bold mb-4">{{ editingId ? 'Edit Episode' : 'New Episode' }}</h2>
 
+        <!-- Tabs: episode details vs Tribal Council votes (votes need a saved episode) -->
+        <div class="mb-4 flex gap-6 border-b border-gray-200">
+          <button
+            type="button"
+            class="-mb-px border-b-2 pb-2 text-sm font-semibold transition-colors"
+            :class="
+              modalTab === 'details'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            "
+            @click="modalTab = 'details'"
+          >
+            Details
+          </button>
+          <button
+            type="button"
+            class="-mb-px border-b-2 pb-2 text-sm font-semibold transition-colors"
+            :class="
+              modalTab === 'votes'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            "
+            @click="modalTab = 'votes'"
+          >
+            Votes
+          </button>
+        </div>
+
         <form @submit.prevent="saveEpisode" class="space-y-4">
+          <div v-show="modalTab === 'details'" class="space-y-4">
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Episode number</label>
             <input
@@ -513,6 +593,57 @@ onMounted(loadSeasons)
                 {{ displayName(c) }}
               </option>
             </select>
+          </div>
+          </div>
+
+          <!-- ── Votes tab ── -->
+          <div v-show="modalTab === 'votes'">
+            <template v-if="editingId">
+              <p class="mb-3 text-xs text-gray-500">
+                Who each contestant voted for at Tribal Council. Check "void" for a vote nullified by
+                a hidden immunity idol.
+              </p>
+              <div class="space-y-2">
+                <div
+                  v-for="c in selectableForElimination"
+                  :key="c.id"
+                  class="flex items-center gap-2"
+                >
+                  <span class="w-28 shrink-0 truncate text-sm text-gray-700" :title="displayName(c)">
+                    {{ displayName(c) }}
+                  </span>
+                  <span class="shrink-0 text-xs text-gray-400">→</span>
+                  <select
+                    v-if="voteForm[c.id]"
+                    v-model="voteForm[c.id]!.target"
+                    class="min-w-0 flex-1 border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">— no vote —</option>
+                    <option v-for="t in selectableForElimination" :key="t.id" :value="t.id">
+                      {{ displayName(t) }}
+                    </option>
+                  </select>
+                  <label
+                    class="flex shrink-0 items-center gap-1 text-xs text-gray-500"
+                    title="Vote nullified by a hidden immunity idol"
+                  >
+                    <input
+                      v-if="voteForm[c.id]"
+                      type="checkbox"
+                      v-model="voteForm[c.id]!.nullified"
+                      class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    void
+                  </label>
+                </div>
+                <p v-if="selectableForElimination.length === 0" class="text-sm text-gray-400">
+                  No contestants available
+                </p>
+              </div>
+            </template>
+            <p v-else class="text-sm text-gray-400">
+              Save the episode first, then reopen it to record votes.
+            </p>
           </div>
 
           <p v-if="errorMsg" class="text-sm text-red-600">{{ errorMsg }}</p>

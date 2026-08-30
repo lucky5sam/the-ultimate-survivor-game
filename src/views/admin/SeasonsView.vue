@@ -284,13 +284,6 @@ async function saveSeason() {
   }
 }
 
-async function deleteSeason(id: string, name: string) {
-  if (!confirm(`Delete "${name}"? This cannot be undone.`)) return
-  const { error } = await supabase.from('seasons').delete().eq('id', id)
-  if (error) errorMsg.value = error.message
-  else await loadSeasons()
-}
-
 async function openCreate() {
   editingId.value = null
   resetForm()
@@ -394,7 +387,17 @@ onMounted(loadSeasons)
       </thead>
       <tbody>
         <tr v-for="season in seasons" :key="season.id" class="border-t border-gray-100">
-          <td class="px-4 py-3 font-medium">{{ season.name }}</td>
+          <td class="px-4 py-3 font-medium">
+            <div class="flex items-center gap-2">
+              <img
+                v-if="season.image_url"
+                :src="season.image_url"
+                alt=""
+                class="h-8 w-8 shrink-0 rounded object-cover"
+              />
+              <span>{{ season.name }}</span>
+            </div>
+          </td>
           <td class="px-4 py-3">
             <span
               :class="['px-2 py-0.5 rounded-full text-xs font-medium', statusColor[season.status]]"
@@ -422,12 +425,6 @@ onMounted(loadSeasons)
               class="text-blue-600 hover:text-blue-800 text-xs font-medium"
             >
               Edit
-            </button>
-            <button
-              @click="deleteSeason(season.id, season.name)"
-              class="text-red-500 hover:text-red-700 text-xs font-medium"
-            >
-              Delete
             </button>
           </td>
         </tr>

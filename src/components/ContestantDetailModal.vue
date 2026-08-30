@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { getTribeColors } from '../utils/tribeColors'
-import { displayName } from '../utils/contestantName'
+import { displayName, shortName } from '../utils/contestantName'
 import { computed, ref, watch, onUnmounted } from 'vue'
+import { supabase } from '../lib/supabase'
+import parchmentUrl from '../assets/survivor_decor_parchment.svg'
 import type { ContestantFull } from '../types/contestant'
 
 // One scored action for the Event Log tab. `points` is the per-action value and
@@ -24,8 +26,11 @@ const props = withDefaults(
     showEventLog?: boolean
     events?: ContestantEventItem[]
     eventsLoading?: boolean
+    // When set, adds a Votes tab and self-fetches this contestant's per-episode
+    // voting record (who they voted for, and who voted for them).
+    showVotes?: boolean
   }>(),
-  { showEventLog: false, events: () => [], eventsLoading: false },
+  { showEventLog: false, events: () => [], eventsLoading: false, showVotes: false },
 )
 
 const emit = defineEmits<{ close: [] }>()
@@ -54,12 +59,69 @@ onUnmounted(() => {
   document.body.style.overflow = ''
 })
 
-const activeTab = ref<'info' | 'events'>('info')
-// Always land on Info when the modal opens or the contestant changes.
+type TabId = 'info' | 'events' | 'votes'
+const activeTab = ref<TabId>('info')
+
+// The tab bar: Info always, then Event Log / Votes when their data is enabled.
+const tabs = computed(() => {
+  const t: { id: TabId; label: string }[] = [{ id: 'info', label: 'Info' }]
+  if (props.showEventLog) t.push({ id: 'events', label: 'Event Log' })
+  if (props.showVotes) t.push({ id: 'votes', label: 'Votes' })
+  return t
+})
+
+// Per-episode voting record for this contestant, newest episode first.
+// `success` (voted-for only) is whether the target was eliminated that episode.
+type VoteRef = { name: string; nullified: boolean; success?: boolean }
+type VoteEpisode = { episodeNumber: number; votedFor: VoteRef[]; votedBy: VoteRef[] }
+const votes = ref<VoteEpisode[]>([])
+const votesLoading = ref(false)
+
+async function loadVotes() {
+  const c = props.contestant
+  if (!c) return
+  votesLoading.value = true
+  votes.value = []
+  try {
+    const { data } = await supabase
+      .from('episode_votes')
+      .select(
+        'nullified, voter_contestant_id, target_contestant_id,' +
+          ' episode:episodes!episode_votes_episode_id_fkey(id, number),' +
+          ' voter:contestants!episode_votes_voter_fkey(first_name, last_name, preferred_name),' +
+          ' target:contestants!episode_votes_target_fkey(first_name, last_name, preferred_name, eliminated_episode_id)',
+      )
+      .or(`voter_contestant_id.eq.${c.id},target_contestant_id.eq.${c.id}`)
+
+    const byEp = new Map<number, VoteEpisode>()
+    for (const row of (data ?? []) as any[]) {
+      const num = row.episode?.number
+      if (num == null) continue
+      if (!byEp.has(num)) byEp.set(num, { episodeNumber: num, votedFor: [], votedBy: [] })
+      const group = byEp.get(num)!
+      if (row.voter_contestant_id === c.id && row.target) {
+        // Successful = the person voted for was eliminated in this same episode.
+        const success =
+          !!row.target.eliminated_episode_id && row.target.eliminated_episode_id === row.episode?.id
+        group.votedFor.push({ name: shortName(row.target), nullified: row.nullified, success })
+      }
+      if (row.target_contestant_id === c.id && row.voter) {
+        group.votedBy.push({ name: shortName(row.voter), nullified: row.nullified })
+      }
+    }
+    votes.value = [...byEp.values()].sort((a, b) => b.episodeNumber - a.episodeNumber)
+  } finally {
+    votesLoading.value = false
+  }
+}
+
+// Always land on Info when the modal opens or the contestant changes, and (re)load
+// the voting record when the Votes tab is enabled.
 watch(
   () => [props.show, props.contestant?.id],
   () => {
     activeTab.value = 'info'
+    if (props.show && props.showVotes && props.contestant) loadVotes()
   },
 )
 
@@ -176,12 +238,9 @@ const embedUrl = computed(() => {
             </div>
 
             <!-- Tabs -->
-            <div v-if="showEventLog" class="mt-3 flex gap-6 px-5">
+            <div v-if="tabs.length > 1" class="mt-3 flex gap-4 px-5">
               <button
-                v-for="tab in [
-                  { id: 'info', label: 'Info' },
-                  { id: 'events', label: 'Event Log' },
-                ]"
+                v-for="tab in tabs"
                 :key="tab.id"
                 class="-mb-px border-b-2 pb-2 text-sm font-semibold transition-colors"
                 :class="
@@ -189,7 +248,7 @@ const embedUrl = computed(() => {
                     ? 'border-white text-white'
                     : 'border-transparent text-stone-500 hover:text-stone-300'
                 "
-                @click="activeTab = tab.id as 'info' | 'events'"
+                @click="activeTab = tab.id"
               >
                 {{ tab.label }}
               </button>
@@ -200,7 +259,7 @@ const embedUrl = computed(() => {
           <!-- Content -->
           <div class="p-5">
             <!-- ── Info tab ── -->
-            <template v-if="!showEventLog || activeTab === 'info'">
+            <template v-if="activeTab === 'info'">
               <!-- Stats grid -->
               <div class="grid grid-cols-2 gap-2 mb-4">
                 <div class="bg-stone-800 rounded-lg p-3 text-left">
@@ -252,7 +311,7 @@ const embedUrl = computed(() => {
             </template>
 
             <!-- ── Event Log tab ── -->
-            <template v-else>
+            <template v-else-if="activeTab === 'events'">
               <div v-if="eventsLoading" class="py-8 text-center text-sm text-stone-500">
                 Loading events…
               </div>
@@ -293,6 +352,69 @@ const embedUrl = computed(() => {
                       :class="group.subtotal >= 0 ? 'text-emerald-400' : 'text-red-400'"
                     >
                       {{ fmtPts(group.subtotal) }}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </template>
+
+            <!-- ── Votes tab ── -->
+            <template v-else-if="activeTab === 'votes'">
+              <div v-if="votesLoading" class="py-8 text-center text-sm text-stone-500">
+                Loading votes…
+              </div>
+              <div v-else-if="votes.length === 0" class="py-8 text-center text-sm text-stone-500">
+                No votes recorded yet.
+              </div>
+              <div v-else class="space-y-3">
+                <div
+                  v-for="group in votes"
+                  :key="group.episodeNumber"
+                  class="rounded-xl bg-stone-800 px-4 py-3"
+                >
+                  <!-- Episode label above the vote parchment(s), stacked -->
+                  <div class="flex flex-col gap-2">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-text-default">
+                      Episode {{ group.episodeNumber }}
+                    </p>
+                    <div v-if="group.votedFor.length" class="flex flex-wrap justify-start gap-2">
+                      <div v-for="(v, i) in group.votedFor" :key="i" class="relative w-28">
+                        <img
+                          :src="parchmentUrl"
+                          alt=""
+                          aria-hidden="true"
+                          class="w-full select-none"
+                          :class="v.nullified ? 'opacity-75' : ''"
+                        />
+                        <span
+                          class="absolute inset-0 flex items-center justify-center px-4 text-center font-handwritten text-base leading-tight text-material-parchment-ink"
+                          :class="v.nullified ? 'line-through' : ''"
+                          >{{ v.name }}</span
+                        >
+                        <!-- Outcome: did the person they voted for go home this episode? -->
+                        <i
+                          class="absolute -right-1 -top-1 rounded-full bg-stone-900 text-base"
+                          :class="
+                            v.success
+                              ? 'fa-solid fa-circle-check text-emerald-400'
+                              : 'fa-solid fa-circle-xmark text-red-400'
+                          "
+                          :title="v.success ? 'Voted out this episode' : 'Survived the vote'"
+                        ></i>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Voted by: only when someone voted for this contestant -->
+                  <div v-if="group.votedBy.length" class="mt-2">
+                    <p class="mb-1 text-xs text-text-subtle">Voted by</p>
+                    <p class="text-sm text-stone-200">
+                      <span v-for="(v, i) in group.votedBy" :key="i">
+                        <span :class="v.nullified ? 'text-stone-500 line-through' : ''">{{
+                          v.name
+                        }}</span
+                        ><span v-if="i < group.votedBy.length - 1">, </span>
+                      </span>
                     </p>
                   </div>
                 </div>

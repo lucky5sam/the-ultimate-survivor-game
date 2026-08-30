@@ -21,7 +21,7 @@ import BaseInput from '../components/base/BaseInput.vue'
 import ImageUploadField from '../components/ImageUploadField.vue'
 import EmojiColorPicker from '../components/EmojiColorPicker.vue'
 import TeamAvatar from '../components/TeamAvatar.vue'
-import { uploadImage } from '../lib/uploadImage'
+import { uploadImage, deleteImageByUrl } from '../lib/uploadImage'
 import { useToast } from '../composables/useToast'
 import {
   computeLeaderboard,
@@ -553,8 +553,12 @@ async function saveTeamDetails() {
       }
     }
 
+    const previousUrl = existingTeam.value.team_image_url
     const { error } = await supabase.from('teams').update(updates).eq('id', existingTeam.value.id)
     if (error) throw new Error(error.message)
+
+    // The team now points at the new avatar (or none), so drop the old file.
+    if (previousUrl && previousUrl !== updates.team_image_url) await deleteImageByUrl(previousUrl)
 
     await loadMyTeam()
     editModalOpen.value = false
@@ -1182,6 +1186,7 @@ onUnmounted(() => {
       :show="!!detailContestant"
       :season-name="currentSeason?.name"
       show-event-log
+      show-votes
       :events="detailEvents"
       :events-loading="detailEventsLoading"
       @close="detailContestant = null"

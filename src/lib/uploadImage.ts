@@ -68,3 +68,19 @@ export async function uploadImage(file: File, prefix: UploadPrefix): Promise<str
 
   return supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl
 }
+
+// Best-effort delete of a previously-uploaded image, given its public URL. Used
+// when a team photo / avatar is replaced or removed so old files don't pile up
+// in the bucket. Silently ignores anything that isn't one of our bucket's files
+// (e.g. an external Google avatar URL) and never throws — cleanup failing must
+// not break the save that already succeeded.
+export async function deleteImageByUrl(url: string | null | undefined): Promise<void> {
+  if (!url) return
+  const marker = `/storage/v1/object/public/${BUCKET}/`
+  const idx = url.indexOf(marker)
+  if (idx === -1) return
+  const path = url.slice(idx + marker.length)
+  if (!path) return
+  const { error } = await supabase.storage.from(BUCKET).remove([path])
+  if (error) console.warn(`Could not remove old image "${path}":`, error.message)
+}

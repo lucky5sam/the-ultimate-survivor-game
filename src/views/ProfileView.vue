@@ -12,7 +12,7 @@ import BaseButton from '../components/base/BaseButton.vue'
 import BaseCard from '../components/base/BaseCard.vue'
 import PaymentFields from '../components/PaymentFields.vue'
 import ImageUploadField from '../components/ImageUploadField.vue'
-import { uploadImage } from '../lib/uploadImage'
+import { uploadImage, deleteImageByUrl } from '../lib/uploadImage'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -65,7 +65,8 @@ async function saveAvatar() {
   avatarError.value = ''
   savingAvatar.value = true
   try {
-    let url: string | null = auth.avatarUrl || null
+    const previousUrl = auth.avatarUrl || null
+    let url: string | null = previousUrl
     if (avatarFile.value) {
       url = await uploadImage(avatarFile.value, 'avatars')
     } else if (avatarRemoved.value) {
@@ -79,6 +80,9 @@ async function saveAvatar() {
     if (error) throw new Error(error.message)
     // Mirror to auth metadata, matching how name/payment are kept in sync.
     await supabase.auth.updateUser({ data: { avatar_url: url } })
+
+    // The DB now points at the new image, so drop the old bucket file.
+    if (previousUrl && previousUrl !== url) await deleteImageByUrl(previousUrl)
 
     auth.avatarUrl = url ?? ''
     avatarFile.value = null
