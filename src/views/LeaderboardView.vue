@@ -6,6 +6,7 @@ import { computeLeaderboard, type LeaderboardRow } from '../composables/useLeade
 import { useSeasonStore } from '../stores/season'
 import { useAuthStore } from '../stores/auth'
 import BaseCard from '../components/base/BaseCard.vue'
+import BaseButton from '../components/base/BaseButton.vue'
 import ContestantAvatar from '../components/ContestantAvatar.vue'
 import TeamAvatar from '../components/TeamAvatar.vue'
 import FireGlow from '../components/FireGlow.vue'
@@ -55,6 +56,23 @@ function fmtPts(n: number) {
 // The signed-in user's own team, highlighted so they can find themselves fast.
 function isMyTeam(ownerId: string) {
   return !!auth.user && ownerId === auth.user.id
+}
+
+// The signed-in user's team id in the current leaderboard (null if they have no
+// team here). Drives the "My Team" jump button.
+const myTeamId = computed(() => displayRows.value.find((r) => isMyTeam(r.ownerId))?.teamId ?? null)
+
+// Scroll the user's own row into view. Mobile and desktop render separate rows;
+// only the layout for the current viewport is visible (the other has no
+// offsetParent), so we jump to whichever one is showing.
+function scrollToMyTeam() {
+  const id = myTeamId.value
+  if (!id) return
+  const el = [
+    document.getElementById(`lb-m-${id}`),
+    document.getElementById(`lb-d-${id}`),
+  ].find((e) => e && e.offsetParent !== null)
+  el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
 }
 
 // Widest roster in the field, so every team gets the same number of player columns.
@@ -107,9 +125,21 @@ onMounted(() => seasonStore.load())
          non-interactive). -->
     <FireGlow position="fixed" :z-index="20" />
     <div class="relative z-10">
-    <div class="flex-col mb-4 ml-1">
-      <h2 class="text-2xl font-bold text-text-default">Leaderboard</h2>
-      <p class="text-text-subtle text-base">{{ rows.length }} total teams</p>
+    <div class="mb-4 ml-1 flex items-start justify-between gap-3">
+      <div class="flex-col">
+        <h2 class="text-2xl font-bold text-text-default">Leaderboard</h2>
+        <p class="text-text-subtle text-base">{{ rows.length }} total teams</p>
+      </div>
+      <BaseButton
+        v-if="myTeamId"
+        variant="secondary"
+        size="sm"
+        class="shrink-0"
+        @click="scrollToMyTeam"
+      >
+        <i class="fa-solid fa-location-crosshairs"></i>
+        <span>My Team</span>
+      </BaseButton>
     </div>
     <p v-if="errorMsg" class="mb-4 text-sm text-status-error">{{ errorMsg }}</p>
     <div v-if="loading" class="text-sm text-text-muted">Loading…</div>
@@ -139,6 +169,7 @@ onMounted(() => seasonStore.load())
           <RouterLink
             v-for="row in displayRows"
             :key="row.teamId"
+            :id="isMyTeam(row.ownerId) ? `lb-m-${row.teamId}` : undefined"
             :to="`/team/${row.teamId}`"
             class="group flex items-center gap-2 pl-2 py-3 pr-4 transition-colors hover:bg-surface-subtle"
             :class="rowBg(row)"
@@ -244,6 +275,7 @@ onMounted(() => seasonStore.load())
               <tr
                 v-for="row in displayRows"
                 :key="row.teamId"
+                :id="isMyTeam(row.ownerId) ? `lb-d-${row.teamId}` : undefined"
                 class="group cursor-pointer border-t border-border-subtle transition-colors hover:bg-surface-subtle"
                 :class="rowBg(row)"
                 @click="router.push(`/team/${row.teamId}`)"
