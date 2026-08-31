@@ -32,6 +32,12 @@ const router = createRouter({
           // tab selector, matching the public team view.
           meta: { hideMobileTabs: true },
         },
+        {
+          // Admin-only read-only preview of the player team-creation wizard.
+          path: 'preview-wizard',
+          component: () => import('../views/WizardPreviewView.vue'),
+          meta: { requiresAdmin: true, hideMobileTabs: true },
+        },
       ],
     },
     {

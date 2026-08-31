@@ -227,6 +227,14 @@ async function handleSignOut() {
               Admin
             </RouterLink>
             <RouterLink
+              v-if="auth.isAdmin"
+              to="/preview-wizard"
+              @click="userMenuOpen = false"
+              class="block px-3 py-2.5 text-sm text-text-default hover:bg-surface-subtle"
+            >
+              Preview Team Wizard
+            </RouterLink>
+            <RouterLink
               to="/profile"
               @click="userMenuOpen = false"
               class="block px-3 py-2.5 text-sm text-text-default hover:bg-surface-subtle"

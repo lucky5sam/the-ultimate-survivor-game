@@ -26,6 +26,9 @@ const props = defineProps<{
   seasonName: string
   contestants: ContestantFull[]
   userId: string
+  // Read-only admin preview: skips the league-code step and disables submission
+  // so an admin who already has a team can walk the exact player-facing flow.
+  preview?: boolean
 }>()
 
 const emit = defineEmits<{ created: [] }>()
@@ -190,6 +193,11 @@ const reviewPlayers = computed(() =>
 )
 
 onMounted(() => {
+  // Preview starts on the Rules step — the league-code gate doesn't apply.
+  if (props.preview) {
+    step.value = 2
+    return
+  }
   const saved = sessionStorage.getItem('pending_league_code')
   if (saved) leagueCode.value = saved
 })
@@ -249,6 +257,7 @@ async function nextStep() {
 }
 
 async function lockIn() {
+  if (props.preview) return // read-only preview never writes
   loading.value = true
   errorMsg.value = ''
 
@@ -600,6 +609,7 @@ async function lockIn() {
 
             <div class="mt-6 flex justify-end gap-3">
               <BaseButton
+                v-if="!preview"
                 variant="secondary"
                 size="lg"
                 class="hidden! sm:inline-flex!"
@@ -982,6 +992,7 @@ async function lockIn() {
             <p v-if="errorMsg" class="text-sm text-status-error mb-2">{{ errorMsg }}</p>
             <div class="flex">
               <BaseButton
+                v-if="!preview"
                 size="lg"
                 class="w-full sm:ml-auto sm:w-auto"
                 :loading="loading"
@@ -989,6 +1000,13 @@ async function lockIn() {
               >
                 {{ loading ? 'Submitting…' : 'Submit' }}
               </BaseButton>
+              <p
+                v-else
+                class="w-full text-center text-sm font-medium text-text-subtle sm:ml-auto sm:w-auto sm:text-right"
+              >
+                <i class="fa-solid fa-eye mr-1"></i>
+                Preview mode — teams can't be created here.
+              </p>
             </div>
           </div>
         </div>
