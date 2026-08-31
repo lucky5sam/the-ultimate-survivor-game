@@ -209,12 +209,14 @@ async function loadTribes(seasonId: string) {
 async function saveTribes(seasonId: string) {
   const rows = localTribes.value.filter((t) => t.name.trim())
 
-  const toUpsert = rows.map((t) => ({
-    ...(t.id ? { id: t.id } : {}),
-    season_id: seasonId,
-    name: t.name.trim(),
-    color: t.color,
-  }))
+  // Give brand-new tribes an id up front. In a mixed upsert batch PostgREST
+  // includes the `id` column for every row, so a new row without one gets sent
+  // as NULL (overriding the gen_random_uuid() default) and is rejected. Assigning
+  // the id back to the local object keeps a re-save an update, not a duplicate.
+  const toUpsert = rows.map((t) => {
+    if (!t.id) t.id = crypto.randomUUID()
+    return { id: t.id, season_id: seasonId, name: t.name.trim(), color: t.color }
+  })
   if (toUpsert.length) {
     const { error } = await supabase.from('tribes').upsert(toUpsert, { onConflict: 'id' })
     if (error) throw new Error(error.message)
