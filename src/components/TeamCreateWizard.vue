@@ -495,7 +495,7 @@ async function lockIn() {
                 </ul>
                 <button
                   type="button"
-                  class="link mt-2 inline-flex items-center gap-1.5 font-semibold"
+                  class="link mt-2 inline-flex items-center gap-1.5 font-semibold text-text-accent hover:text-interactive-accent-hover"
                   @click="showScoringModal = true"
                 >
                   <i class="fa-solid fa-list-ol"></i>
@@ -553,6 +553,26 @@ async function lockIn() {
                   <li>
                     You may swap an eliminated contestant out for someone still in the game (subject
                     to the swap penalty above).
+                  </li>
+                </ul>
+              </div>
+
+              <div>
+                <h3 class="mb-1 text-base font-bold text-text-default">Fair Play — No Spoilers</h3>
+                <ul class="list-disc space-y-1 pl-5">
+                  <li>
+                    This game runs on <em>not</em> knowing what happens next. Using spoilers to
+                    inform your bounty picks, swaps, or roster is <strong>strictly prohibited.</strong>
+                  </li>
+                  <li>
+                    That includes — but is not limited to — <strong>betting and prediction
+                    markets</strong>, <strong>Reddit threads</strong>, spoiler wikis, leaked cast or
+                    boot lists, and any other site or source that reveals results before they air.
+                  </li>
+                  <li>
+                    Play only on what has aired.
+                    <strong class="text-text-default">Cheating with spoilers can result in dismissal
+                    from the season, at the sole discretion of the Commissioner.</strong>
                   </li>
                 </ul>
               </div>
