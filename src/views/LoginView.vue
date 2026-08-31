@@ -59,6 +59,12 @@ async function handleSignIn() {
 }
 
 async function handleSignUp() {
+  // Basic email shape check — confirmation is off, so a typo'd address won't be
+  // caught by a verification email. Requires user@domain.tld with no spaces.
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim())) {
+    errorMsg.value = 'Enter a valid email address'
+    return
+  }
   if (password.value !== confirmPassword.value) {
     errorMsg.value = 'Passwords do not match'
     return
@@ -99,8 +105,8 @@ async function handleSignUp() {
       errorMsg.value = error.message
     } else {
       // If confirmation is off a session exists now, so update the row the signup
-      // trigger just created (it owns the NOT NULL display_name). If confirmation
-      // is on there's no session and the metadata backfill covers it on first load.
+      // trigger just created (it owns the NOT NULL display_name) and drop the user
+      // straight into the app — same as a normal sign-in.
       if (data.session && data.user) {
         await supabase
           .from('profiles')
@@ -110,8 +116,12 @@ async function handleSignUp() {
             ...paymentData,
           })
           .eq('id', data.user.id)
+        router.push('/')
+      } else {
+        // No session: either email confirmation is on, or the address already has
+        // an account (Supabase obfuscates that case by returning no session).
+        successMsg.value = 'Check your email to confirm your account.'
       }
-      successMsg.value = 'Check your email to confirm your account.'
     }
   } catch (e) {
     errorMsg.value = e instanceof Error ? e.message : 'Sign up failed'
