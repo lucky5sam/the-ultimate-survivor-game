@@ -43,6 +43,19 @@ The app is functionally complete for running a season. All core admin and player
 - DB trigger **`prevent_admin_self_escalation`** on `profiles` (BEFORE UPDATE) blocks non-admins from setting `is_admin = true` on their own row — closes a privilege-escalation gap (RLS is row-level, not column-level). Lives in the DB only, not in repo `schema.sql`.
 - RLS confirmed enabled on all public tables; writes owner-scoped, reads open where the leaderboard/public views need them.
 
+## DB-only objects (live in Supabase, NOT in repo schema.sql)
+
+A rebuild-from-scratch must re-create these — none are checked into the repo:
+
+- Trigger **`on_auth_user_created`** on `auth.users` — creates the `profiles` row on signup.
+- Trigger **`prevent_admin_self_escalation`** on `profiles` — blocks non-admins from setting `is_admin`.
+- Function **`check_registration_code`** (+ `league_settings` table) — validates the league code.
+- Function **`admin_team_emails(uuid)`** — admin-gated `security definer` RPC returning team-owner emails for the Weekly Export (the browser can't read `auth.users` directly). Added 2026-08-31.
+
+## Admin Weekly Export
+
+`/admin/export` ([ExportView.vue](../src/views/admin/ExportView.vue)) — one CSV row per team for email personalization, snapshot as of the latest completed episode. Reuses `computeLeaderboard`, which gained an optional `throughEpisode` cap (weekly deltas), `revealPendingOwnerId` (own pending bounty), and `lastBounty*`/`pendingBountyName` fields — all backward-compatible.
+
 ## Known gaps / future work
 
 - SettingsView is a stub (registration code/invite link UI exists but may need wiring)
