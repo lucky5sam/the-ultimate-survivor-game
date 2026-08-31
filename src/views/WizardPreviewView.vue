@@ -6,6 +6,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { supabase } from '../lib/supabase'
 import { useSeasonStore } from '../stores/season'
 import { useAuthStore } from '../stores/auth'
+import { loadTribeColors } from '../utils/tribeColors'
 import type { ContestantFull } from '../types/contestant'
 import TeamCreateWizard from '../components/TeamCreateWizard.vue'
 
@@ -29,6 +30,9 @@ async function loadContestants() {
   loading.value = true
   errorMsg.value = ''
   try {
+    // Load the season's saved tribe colors so cards match the real wizard (which
+    // resolves colors from these overrides, not the fallback hash palette).
+    await loadTribeColors(seasonId.value)
     const { data, error } = await supabase
       .from('contestants')
       .select(
