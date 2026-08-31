@@ -43,6 +43,10 @@ export type LeaderboardRow = {
   // not-yet-resolved) episode. null while the next pick is still editable, so
   // an un-committed pick is never revealed.
   currentBountyName: string | null
+  // The team's not-yet-locked pick, exposed ONLY for the requesting user's own
+  // team (see revealPendingOwnerId). null for everyone else, so no un-committed
+  // pick leaks into the payload. Only set when currentBountyName is null.
+  pendingBountyName: string | null
   // The team's pick for the most-recent completed+resolved episode in range, and
   // whether it hit. Powers the admin export's "this week's bounty" columns.
   // lastBountyHit is null when no completed episode has resolved yet.
@@ -55,6 +59,9 @@ export async function computeLeaderboard(
   // When set, scoring ignores any episode numbered beyond this (used by the
   // admin export to get a team's standing "as of episode N" for weekly deltas).
   throughEpisode: number | null = null,
+  // The owner id whose own not-yet-locked bounty pick should be revealed
+  // (pendingBountyName). Everyone else's un-committed pick stays hidden.
+  revealPendingOwnerId: string | null = null,
 ): Promise<LeaderboardRow[]> {
   // ── Phase 1: everything keyed only on the season id, fetched in parallel ──
   const [seasonRes, epsRes, elimRes, teamsRes, bountyRes] = await Promise.all([
@@ -182,9 +189,7 @@ export async function computeLeaderboard(
       ...(bountyRes.data ?? []).map((p) => p.contestant_id),
     ]),
   ]
-  // Full name for the bounty column; condensed (preferred/first) name for the
-  // player columns, which are tight on horizontal space.
-  const contestantNameMap: Record<string, string> = {}
+  // Condensed (preferred/first) names for the tight player + bounty columns.
   const contestantShortNameMap: Record<string, string> = {}
   const contestantPhotoMap: Record<string, string | null> = {}
   const contestantTribeMap: Record<string, string> = {}
@@ -196,7 +201,6 @@ export async function computeLeaderboard(
       )
       .in('id', contestantIds)
     for (const c of nameData ?? []) {
-      contestantNameMap[c.id] = displayName(c)
       contestantShortNameMap[c.id] = shortName(c)
       contestantPhotoMap[c.id] = c.photo_url ?? null
       // Match the roster view: use the starting (episode 1) tribe assignment.
@@ -321,7 +325,18 @@ export async function computeLeaderboard(
         const pick = eligible.length
           ? eligible.reduce((a, b) => (b.effective_from_episode > a.effective_from_episode ? b : a))
           : null
-        if (pick) currentBountyName = contestantNameMap[pick.contestant_id] ?? null
+        if (pick) currentBountyName = contestantShortNameMap[pick.contestant_id] ?? null
+      }
+
+      // Owner-only: when nothing is locked, still reveal this user's own standing
+      // pick (their latest, which carries forward to the next episode).
+      let pendingBountyName: string | null = null
+      if (currentBountyName === null && revealPendingOwnerId && team.user_id === revealPendingOwnerId) {
+        const picks = picksByTeam[team.id] ?? []
+        const latest = picks.length
+          ? picks.reduce((a, b) => (b.effective_from_episode > a.effective_from_episode ? b : a))
+          : null
+        if (latest) pendingBountyName = contestantShortNameMap[latest.contestant_id] ?? null
       }
 
       return {
@@ -338,6 +353,7 @@ export async function computeLeaderboard(
         swapPenalty,
         totalPoints: actionPoints + bountyPoints + swapPenalty,
         currentBountyName,
+        pendingBountyName,
         lastBountyName: lastBountyByTeam[team.id]?.name ?? null,
         lastBountyHit: lastEp ? (lastBountyByTeam[team.id]?.hit ?? false) : null,
       }

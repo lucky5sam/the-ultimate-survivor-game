@@ -11,6 +11,7 @@ import ContestantAvatar from '../components/ContestantAvatar.vue'
 import TeamAvatar from '../components/TeamAvatar.vue'
 import FireGlow from '../components/FireGlow.vue'
 import { loadTribeColors } from '../utils/tribeColors'
+import parchmentUrl from '../assets/survivor_decor_parchment.svg'
 
 const router = useRouter()
 const seasonStore = useSeasonStore()
@@ -35,7 +36,7 @@ async function loadLeaderboard() {
   try {
     await loadTribeColors(seasonStore.selectedSeasonId)
     const [result, places] = await Promise.all([
-      computeLeaderboard(seasonStore.selectedSeasonId),
+      computeLeaderboard(seasonStore.selectedSeasonId, null, auth.user?.id ?? null),
       fetchPaidPlaces(seasonStore.selectedSeasonId),
     ])
     if (seq !== loadSeq) return
@@ -364,9 +365,30 @@ onMounted(() => seasonStore.load())
                   </td>
                 </template>
 
-                <!-- Current bounty (blank until the pick locks in) -->
+                <!-- Current bounty: the pick's name on a parchment scroll. Locked
+                     picks show for everyone; a not-yet-locked pick shows only on
+                     your own row (dimmed), and stays "Pending" for others. Sized
+                     so it never grows the row: at w-20 the ~2.7:1 scroll is ~30px
+                     tall, under the 32px avatar. -->
                 <td class="px-4 py-3 align-middle text-text-default">
-                  <span v-if="row.currentBountyName">{{ row.currentBountyName }}</span>
+                  <div
+                    v-if="row.currentBountyName || (isMyTeam(row.ownerId) && row.pendingBountyName)"
+                    class="relative w-20"
+                    :class="{ 'opacity-70': !row.currentBountyName }"
+                    :title="!row.currentBountyName ? 'Your pick — not locked in yet' : undefined"
+                  >
+                    <img
+                      :src="parchmentUrl"
+                      alt=""
+                      aria-hidden="true"
+                      class="w-full select-none [filter:drop-shadow(0_1px_2px_rgba(0,0,0,0.3))]"
+                    />
+                    <span
+                      class="absolute inset-0 flex items-center justify-center px-2 text-center font-handwritten text-sm leading-none text-material-parchment-ink"
+                    >
+                      {{ row.currentBountyName || row.pendingBountyName }}
+                    </span>
+                  </div>
                   <span v-else class="text-text-muted">Pending</span>
                 </td>
 
