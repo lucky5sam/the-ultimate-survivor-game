@@ -35,6 +35,14 @@ The app is functionally complete for running a season. All core admin and player
 - Supabase keepalive GitHub Actions cron (Mon + Thu at 9am UTC)
 - Google OAuth redirect URLs configured for both localhost and production
 
+## Launch hardening (verified 2026-08-31, before inviting ~70 players)
+
+- **Email confirmation is OFF** in Supabase Auth (deliberate — trusted friends league, avoids the built-in SMTP hourly rate limit). So `signUp` returns a session immediately and `LoginView.handleSignUp` routes into the app; the "Check your email" message only shows when there's no session (confirmation on, or a duplicate/obfuscated email). Don't suggest re-enabling confirmation without custom SMTP.
+- Sign-up has a basic email-format regex guard (typos aren't caught by a verification email anymore).
+- Supabase **Site URL / Redirect allow-list** point at the production domain `survivor.lucky5sam.com`.
+- DB trigger **`prevent_admin_self_escalation`** on `profiles` (BEFORE UPDATE) blocks non-admins from setting `is_admin = true` on their own row — closes a privilege-escalation gap (RLS is row-level, not column-level). Lives in the DB only, not in repo `schema.sql`.
+- RLS confirmed enabled on all public tables; writes owner-scoped, reads open where the leaderboard/public views need them.
+
 ## Known gaps / future work
 
 - SettingsView is a stub (registration code/invite link UI exists but may need wiring)

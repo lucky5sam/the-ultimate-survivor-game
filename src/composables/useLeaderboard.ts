@@ -43,9 +43,19 @@ export type LeaderboardRow = {
   // not-yet-resolved) episode. null while the next pick is still editable, so
   // an un-committed pick is never revealed.
   currentBountyName: string | null
+  // The team's pick for the most-recent completed+resolved episode in range, and
+  // whether it hit. Powers the admin export's "this week's bounty" columns.
+  // lastBountyHit is null when no completed episode has resolved yet.
+  lastBountyName: string | null
+  lastBountyHit: boolean | null
 }
 
-export async function computeLeaderboard(seasonId: string): Promise<LeaderboardRow[]> {
+export async function computeLeaderboard(
+  seasonId: string,
+  // When set, scoring ignores any episode numbered beyond this (used by the
+  // admin export to get a team's standing "as of episode N" for weekly deltas).
+  throughEpisode: number | null = null,
+): Promise<LeaderboardRow[]> {
   // ── Phase 1: everything keyed only on the season id, fetched in parallel ──
   const [seasonRes, epsRes, elimRes, teamsRes, bountyRes] = await Promise.all([
     supabase
@@ -74,7 +84,9 @@ export async function computeLeaderboard(seasonId: string): Promise<LeaderboardR
 
   const config = seasonRes.data as SeasonConfig
 
-  const episodes = epsRes.data ?? []
+  const allEpisodes = epsRes.data ?? []
+  const episodes =
+    throughEpisode == null ? allEpisodes : allEpisodes.filter((e) => e.number <= throughEpisode)
   const episodeIds = episodes.map((e) => e.id)
   const epNumById: Record<string, number> = {}
   for (const ep of episodes) epNumById[ep.id] = ep.number
@@ -221,6 +233,31 @@ export async function computeLeaderboard(seasonId: string): Promise<LeaderboardR
     }
   }
 
+  // "This week's bounty" for the admin export: the most-recent completed episode
+  // in range that actually resolved (someone was voted out, or a finale winner is
+  // set). For each team, resolve its effective pick for that episode and whether
+  // it hit — same rule as the scoring loop above.
+  const lastEp =
+    [...episodes]
+      .filter((e) => e.status === 'completed')
+      .sort((a, b) => b.number - a.number)
+      .find((e) => (e.is_finale ? !!e.bounty_contestant_id : !!eliminatedByEpisode[e.id]?.size)) ??
+    null
+  const lastBountyByTeam: Record<string, { name: string | null; hit: boolean }> = {}
+  if (lastEp) {
+    const elimSet = eliminatedByEpisode[lastEp.id]
+    for (const [teamId, picks] of Object.entries(picksByTeam)) {
+      const pick = picks
+        .filter((p) => p.effective_from_episode <= lastEp.number)
+        .sort((a, b) => b.effective_from_episode - a.effective_from_episode)[0]
+      if (!pick) continue
+      const hit = lastEp.is_finale
+        ? pick.contestant_id === lastEp.bounty_contestant_id
+        : !!elimSet?.has(pick.contestant_id)
+      lastBountyByTeam[teamId] = { name: contestantShortNameMap[pick.contestant_id] ?? null, hit }
+    }
+  }
+
   // Group team_player records by team
   const playersByTeam: Record<string, TeamPlayerRecord[]> = {}
   for (const p of allTeamPlayers) {
@@ -301,6 +338,8 @@ export async function computeLeaderboard(seasonId: string): Promise<LeaderboardR
         swapPenalty,
         totalPoints: actionPoints + bountyPoints + swapPenalty,
         currentBountyName,
+        lastBountyName: lastBountyByTeam[team.id]?.name ?? null,
+        lastBountyHit: lastEp ? (lastBountyByTeam[team.id]?.hit ?? false) : null,
       }
     })
     .sort((a, b) => b.totalPoints - a.totalPoints)
