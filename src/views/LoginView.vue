@@ -10,7 +10,7 @@ import ThemeAtmosphere from '../components/decor/ThemeAtmosphere.vue'
 import FireGlow from '../components/FireGlow.vue'
 import palmFrondsUrl from '../assets/survivor_decor_palm_fronds.svg'
 import lucky5LogoUrl from '../assets/lucky_5_logo.svg'
-import appIconUrl from '../assets/the_ultimate_survivor_game_icon.svg'
+import appIconUrl from '../assets/the_ultimate_survivor_game_icon.png'
 
 type Mode = 'signin' | 'signup' | 'forgot'
 
@@ -184,7 +184,7 @@ function handleSubmit() {
         <img
           :src="appIconUrl"
           alt="The Ultimate Survivor Game"
-          class="mx-auto h-40 w-40 select-none"
+          class="mx-auto mb-2 w-40 select-none"
         />
         <h1 class="text-2xl font-bold text-text-default">The Ultimate Survivor Game</h1>
         <p class="mt-1 text-base text-text-subtle">Outdraft. Outscore. Outlast.</p>
