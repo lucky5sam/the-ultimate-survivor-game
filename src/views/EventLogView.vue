@@ -10,6 +10,8 @@ import { shortName } from '../utils/contestantName'
 import { useSeasonStore } from '../stores/season'
 import BaseCard from '../components/base/BaseCard.vue'
 import BaseModal from '../components/base/BaseModal.vue'
+import BaseButton from '../components/base/BaseButton.vue'
+import SeasonScoringModal from '../components/SeasonScoringModal.vue'
 import TribeBadge from '../components/TribeBadge.vue'
 import FireGlow from '../components/FireGlow.vue'
 
@@ -34,6 +36,7 @@ type EventRow = {
 type TribeAssignment = { tribe: string; effective_from_episode: number }
 
 const seasonStore = useSeasonStore()
+const showScoringModal = ref(false)
 const episodes = ref<EpisodeInfo[]>([])
 const events = ref<EventRow[]>([])
 const loading = ref(false)
@@ -199,7 +202,19 @@ onMounted(() => seasonStore.load())
   <div class="mx-auto w-full max-w-3xl px-4 py-4 sm:px-6 sm:py-6">
     <!-- Ambient Survivor fire glow along the bottom edge (decorative, over content) -->
     <FireGlow />
-    <h2 class="mb-6 text-2xl font-bold text-text-default">Event Log</h2>
+    <div class="mb-6 flex items-center justify-between gap-3">
+      <h2 class="text-2xl font-bold text-text-default">Event Log</h2>
+      <BaseButton
+        v-if="seasonStore.selectedSeasonId"
+        variant="secondary"
+        size="sm"
+        class="shrink-0"
+        @click="showScoringModal = true"
+      >
+        <i class="fa-solid fa-list-ol"></i>
+        <span>Scoring</span>
+      </BaseButton>
+    </div>
 
     <p v-if="errorMsg" class="mb-4 text-sm text-status-error">{{ errorMsg }}</p>
     <div v-if="loading" class="text-sm text-text-muted">Loading…</div>
@@ -292,6 +307,12 @@ onMounted(() => seasonStore.load())
     </div>
 
     <!-- Full note -->
+    <SeasonScoringModal
+      :show="showScoringModal"
+      :season-id="seasonStore.selectedSeasonId"
+      @close="showScoringModal = false"
+    />
+
     <BaseModal :show="!!activeNote" title="Note" @close="activeNote = null">
       <div v-if="activeNote">
         <p class="text-xs text-text-muted">
