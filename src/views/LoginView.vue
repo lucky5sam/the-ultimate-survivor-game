@@ -184,7 +184,7 @@ function handleSubmit() {
         <img
           :src="appIconUrl"
           alt="The Ultimate Survivor Game"
-          class="mx-auto mb-3 h-14 w-14 select-none"
+          class="mx-auto h-40 w-40 select-none"
         />
         <h1 class="text-2xl font-bold text-text-default">The Ultimate Survivor Game</h1>
         <p class="mt-1 text-base text-text-subtle">Outdraft. Outscore. Outlast.</p>
