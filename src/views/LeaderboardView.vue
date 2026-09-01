@@ -374,7 +374,6 @@ onMounted(() => seasonStore.load())
                   <div
                     v-if="row.currentBountyName || (isMyTeam(row.ownerId) && row.pendingBountyName)"
                     class="relative w-20"
-                    :class="{ 'opacity-70': !row.currentBountyName }"
                     :title="!row.currentBountyName ? 'Your pick — not locked in yet' : undefined"
                   >
                     <img
