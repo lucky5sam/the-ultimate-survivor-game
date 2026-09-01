@@ -176,6 +176,14 @@ function handleSubmit() {
       class="pointer-events-none absolute left-0 top-0 w-64 select-none opacity-20 sm:w-80"
     />
 
+    <!-- Mirrored palm fronds in the top-right corner (desktop only). -->
+    <img
+      :src="palmFrondsUrl"
+      alt=""
+      aria-hidden="true"
+      class="pointer-events-none absolute right-0 top-0 hidden w-80 -scale-x-100 select-none opacity-20 sm:block"
+    />
+
     <!-- Ambient Survivor fire glow along the bottom edge (decorative, non-interactive). -->
     <FireGlow position="absolute" />
 
