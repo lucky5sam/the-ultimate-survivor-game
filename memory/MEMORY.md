@@ -6,3 +6,4 @@
 - [UI testing and layout preferences](feedback_ui_testing_and_layout.md) — Sam tests UI manually (no Playwright); full-page wizards must fill the viewport, not be constrained in a max-width container
 - [Image shape convention](feedback_image_shape_convention.md) — Team photos are square with proportional rounded corners; user avatars are circular
 - [Git workflow](feedback_git_workflow.md) — Default to feature branch + PR (app has live players); direct-to-main only for genuine quick hotfixes
+- [RLS policies in repo](feedback_rls_policies_in_repo.md) — RLS policies are tracked in db/policies.sql (source of truth); mirror any Supabase policy change there
