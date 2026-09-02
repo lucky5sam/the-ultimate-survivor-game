@@ -292,6 +292,25 @@ const roleChangeCost = computed(() =>
   isGracePeriod.value ? 0 : seasonConfig.value.swap_penalty_role_change,
 )
 
+// Glanceable swap-budget chip for the roster card header. Null hides it (no
+// actionable episode, or unlimited paid swaps with nothing to count down).
+const swapsChip = computed<{ label: string; class: string } | null>(() => {
+  if (!nextUpcomingEpisode.value) return null
+  if (swapsLocked.value)
+    return { label: 'Swaps locked', class: 'border border-border-subtle bg-surface-default text-text-muted' }
+  if (isGracePeriod.value)
+    return { label: 'Free swaps', class: 'bg-status-success-surface text-status-success' }
+  // Paid period. With no cap set there's nothing to count.
+  if (seasonConfig.value.max_swaps === null) return null
+  if (atMaxSwaps.value)
+    return { label: 'No swaps left', class: 'bg-status-warning-surface text-status-warning' }
+  const remaining = seasonConfig.value.max_swaps - swapsUsed.value
+  return {
+    label: `${remaining} swap${remaining === 1 ? '' : 's'} left`,
+    class: 'border border-border-subtle bg-surface-default text-text-default',
+  }
+})
+
 const availableContestants = computed(() => {
   // Anyone not currently on the roster and still in the game is selectable —
   // including contestants who were previously swapped out (they can be re-added;
@@ -1062,13 +1081,22 @@ onUnmounted(() => {
             @open-details="openContestantDetails"
           >
             <template #header-actions>
-              <BaseButton
-                v-if="canManageRoster"
-                variant="secondary"
-                size="sm"
-                @click="openEditRoster"
-                >Edit</BaseButton
-              >
+              <div class="flex items-center gap-2">
+                <span
+                  v-if="swapsChip"
+                  class="rounded-full px-2 py-0.5 text-xs font-semibold whitespace-nowrap"
+                  :class="swapsChip.class"
+                >
+                  {{ swapsChip.label }}
+                </span>
+                <BaseButton
+                  v-if="canManageRoster"
+                  variant="secondary"
+                  size="sm"
+                  @click="openEditRoster"
+                  >Edit</BaseButton
+                >
+              </div>
             </template>
             <template #footer>
               <div class="space-y-0.5 border-t border-border-subtle bg-surface-subtle px-4 py-2">
