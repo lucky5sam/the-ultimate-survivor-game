@@ -29,6 +29,7 @@ import {
   type TeamBreakdown,
 } from '../composables/useLeaderboard'
 import { loadTribeColors } from '../utils/tribeColors'
+import { formatPlace } from '../utils/place'
 import type { ContestantFull } from '../types/contestant'
 import type { BountyHistoryRow } from '../types/bounty'
 
@@ -83,6 +84,8 @@ const seasonConfig = ref<SeasonConfig>({
 })
 
 const rank = ref<number | null>(null)
+// True when another team shares this team's place (renders "T-4th").
+const tied = ref(false)
 const score = ref<number | null>(null)
 const totalTeams = ref(0)
 const topScore = ref(0)
@@ -109,11 +112,6 @@ let nowTimer: ReturnType<typeof setInterval> | undefined
 
 function fmtPts(n: number) {
   return n.toFixed(1)
-}
-function ordinal(n: number) {
-  const suffixes = ['th', 'st', 'nd', 'rd']
-  const v = n % 100
-  return `${n}${suffixes[(v - 20) % 10] ?? suffixes[v] ?? suffixes[0]}`
 }
 function isPastLock(iso: string | null): boolean {
   return !!iso && new Date(iso).getTime() <= now.value
@@ -336,7 +334,8 @@ async function load() {
       topScore.value = board[0]?.totalPoints ?? 0
       const idx = board.findIndex((r) => r.teamId === team.id)
       if (idx >= 0) {
-        rank.value = idx + 1
+        rank.value = board[idx]!.rank
+        tied.value = board[idx]!.tied
         score.value = board[idx]!.totalPoints
         playerPoints.value = Object.fromEntries(
           board[idx]!.players.map((p) => [p.contestantId, p.points]),
@@ -464,7 +463,9 @@ onUnmounted(() => {
             @keydown.space.prevent="router.push('/leaderboard')"
           >
             <p class="text-sm font-medium text-text-subtle">Place</p>
-            <p class="mt-0.5 text-2xl font-bold text-text-default">{{ ordinal(rank ?? 0) }}</p>
+            <p class="mt-0.5 text-2xl font-bold text-text-default">
+              {{ formatPlace(rank ?? 0, tied) }}
+            </p>
             <p class="text-xs text-text-muted">{{ totalTeams }} total teams</p>
           </BaseCard>
           <BaseCard

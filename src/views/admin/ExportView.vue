@@ -90,9 +90,9 @@ async function build() {
     const priorTotal: Record<string, number> = {}
     const priorPlace: Record<string, number> = {}
     if (prior) {
-      prior.forEach((r, i) => {
+      prior.forEach((r) => {
         priorTotal[r.teamId] = r.totalPoints
-        priorPlace[r.teamId] = i + 1
+        priorPlace[r.teamId] = r.rank
       })
     }
 
@@ -131,8 +131,9 @@ async function build() {
       }
     }
 
-    rows.value = current.map((row, i) => {
-      const place = i + 1
+    rows.value = current.map((row) => {
+      // Shared competition rank (ties share a place) — matches the leaderboard.
+      const place = row.rank
       const prof = profileById[row.ownerId] ?? null
       const method = prof?.payment_method ?? ''
       const handle = prof?.payment_handle ?? ''

@@ -3,6 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '../lib/supabase'
 import { computeLeaderboard, type LeaderboardRow } from '../composables/useLeaderboard'
+import { formatPlaceShort } from '../utils/place'
 import { useSeasonStore } from '../stores/season'
 import { useAuthStore } from '../stores/auth'
 import BaseCard from '../components/base/BaseCard.vue'
@@ -83,10 +84,10 @@ const maxPlayers = computed(
 )
 
 // Ranked rows with each roster sorted MVP-first, then by individual score.
+// `rank`/`tied` come from computeLeaderboard (standard competition ranking).
 const displayRows = computed(() =>
-  rows.value.map((r, i) => ({
+  rows.value.map((r) => ({
     ...r,
-    rank: i + 1,
     roster: [...r.players].sort(
       (a, b) => (b.isMvp ? 1 : 0) - (a.isMvp ? 1 : 0) || b.points - a.points,
     ),
@@ -103,8 +104,10 @@ async function fetchPaidPlaces(seasonId: string): Promise<Set<number>> {
   return new Set(payouts.filter((p) => (p.amount ?? 0) > 0).map((p) => p.place))
 }
 
-function inMoney(rank: number) {
-  return paidPlaces.value.has(rank)
+// A team is only "in the money" once it has actually scored — this keeps every
+// team from flashing the $ badge pre-season, when they're all tied at 0.
+function inMoney(row: { rank: number; totalPoints: number }) {
+  return row.totalPoints > 0 && paidPlaces.value.has(row.rank)
 }
 // Row background: my-team gold highlight. In-the-money is shown with a badge on
 // the team avatar instead (see the template). The sticky variant is opaque so it
@@ -177,9 +180,8 @@ onMounted(() => seasonStore.load())
             :class="rowBg(row)"
           >
             <span
-              class="min-w-7 shrink-0 text-center text-sm font-bold tabular-nums"
-              :class="row.rank === 1 ? 'text-survivor-sand' : 'text-text-subtle'"
-              >{{ row.rank }}</span
+              class="min-w-7 shrink-0 text-center text-sm font-bold tabular-nums text-text-subtle"
+              >{{ formatPlaceShort(row.rank, row.tied) }}</span
             >
             <div class="relative shrink-0">
               <TeamAvatar
@@ -191,7 +193,7 @@ onMounted(() => seasonStore.load())
                 class="rounded-sm border border-border-subtle"
               />
               <span
-                v-if="inMoney(row.rank)"
+                v-if="inMoney(row)"
                 class="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-status-success text-[10px] font-bold leading-none text-text-inverse ring-2 ring-surface-page"
                 title="In the money"
                 >$</span
@@ -289,9 +291,8 @@ onMounted(() => seasonStore.load())
                 >
                   <div class="flex items-center gap-3">
                     <span
-                      class="w-5 shrink-0 text-center font-bold tabular-nums"
-                      :class="row.rank === 1 ? 'text-survivor-sand' : 'text-text-subtle'"
-                      >{{ row.rank }}</span
+                      class="min-w-5 shrink-0 text-center font-bold tabular-nums text-text-subtle"
+                      >{{ formatPlaceShort(row.rank, row.tied) }}</span
                     >
                     <div class="relative shrink-0">
                       <TeamAvatar
@@ -303,7 +304,7 @@ onMounted(() => seasonStore.load())
                         class="rounded-sm border border-border-subtle"
                       />
                       <span
-                        v-if="inMoney(row.rank)"
+                        v-if="inMoney(row)"
                         class="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-status-success text-[10px] font-bold leading-none text-text-inverse ring-2 ring-surface-default"
                         title="In the money"
                         >$</span

@@ -39,6 +39,11 @@ export type LeaderboardRow = {
   bountyPoints: number
   swapPenalty: number
   totalPoints: number
+  // Finishing place using standard competition ranking: teams tied on points
+  // share a place, and the next place skips accordingly (1, 2, 2, 4, …).
+  rank: number
+  // True when at least one other team shares this exact rank.
+  tied: boolean
   // The team's bounty pick for the currently locked-in (airing / past-lock,
   // not-yet-resolved) episode. null while the next pick is still editable, so
   // an un-committed pick is never revealed.
@@ -270,7 +275,7 @@ export async function computeLeaderboard(
   }
 
   // Build leaderboard rows
-  return teams
+  const rows = teams
     .map((team) => {
       const teamPlayerRecords = playersByTeam[team.id] ?? []
 
@@ -352,6 +357,8 @@ export async function computeLeaderboard(
         bountyPoints,
         swapPenalty,
         totalPoints: actionPoints + bountyPoints + swapPenalty,
+        rank: 0, // assigned after sort below
+        tied: false,
         currentBountyName,
         pendingBountyName,
         lastBountyName: lastBountyByTeam[team.id]?.name ?? null,
@@ -359,6 +366,32 @@ export async function computeLeaderboard(
       }
     })
     .sort((a, b) => b.totalPoints - a.totalPoints)
+
+  // Standard competition ranking: teams tied on points share a place, and the
+  // next place skips (1, 2, 2, 4, …). A team is `tied` when another team shares
+  // its exact place.
+  //
+  // Guard the degenerate pre-season state where every team shares the same total
+  // (all 0 before any episode is scored): competition ranking would give ALL of
+  // them 1st, reading as "everyone tied for 1st". When there's no spread at all,
+  // fall back to positional order with no ties until real scoring differentiates
+  // the field.
+  const hasSpread = rows.some((r) => r.totalPoints !== rows[0]!.totalPoints)
+  if (hasSpread) {
+    rows.forEach((row, i) => {
+      row.rank = i > 0 && row.totalPoints === rows[i - 1]!.totalPoints ? rows[i - 1]!.rank : i + 1
+    })
+    const rankCounts: Record<number, number> = {}
+    for (const row of rows) rankCounts[row.rank] = (rankCounts[row.rank] ?? 0) + 1
+    for (const row of rows) row.tied = (rankCounts[row.rank] ?? 0) > 1
+  } else {
+    rows.forEach((row, i) => {
+      row.rank = i + 1
+      row.tied = false
+    })
+  }
+
+  return rows
 }
 
 // ── Detailed per-team breakdown for the Score Breakdown modal ────────────────

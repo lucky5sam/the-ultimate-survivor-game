@@ -31,6 +31,7 @@ import {
 } from '../composables/useLeaderboard'
 import { loadTribeColors } from '../utils/tribeColors'
 import { fullName, displayName, shortName } from '../utils/contestantName'
+import { formatPlace } from '../utils/place'
 import parchmentUrl from '../assets/survivor_decor_parchment.svg'
 import type { ContestantFull } from '../types/contestant'
 import type { BountyHistoryRow } from '../types/bounty'
@@ -114,6 +115,8 @@ const errorMsg = ref('')
 
 // My standing on the leaderboard (rank + score)
 const myRank = ref<number | null>(null)
+// True when another team shares this team's place (renders "T-4th").
+const myTied = ref(false)
 const myScore = ref<number | null>(null)
 const totalTeams = ref(0)
 const topScore = ref(0)
@@ -136,11 +139,6 @@ function fmtPts(n: number) {
   return n.toFixed(1)
 }
 
-function ordinal(n: number) {
-  const suffixes = ['th', 'st', 'nd', 'rd']
-  const v = n % 100
-  return `${n}${suffixes[(v - 20) % 10] ?? suffixes[v] ?? suffixes[0]}`
-}
 
 // A ticking clock so date-based locks flip automatically without a reload.
 const now = ref(Date.now())
@@ -199,9 +197,12 @@ const swapsUsed = ref(0)
 // Season payout structure (place → amount). Used to flag when this team is
 // "in the money" (its rank earns a payout).
 const seasonPayouts = ref<{ place: number; amount: number }[]>([])
+// Only flag "in the money" once the team has actually scored, so a team doesn't
+// show it pre-season when everyone is tied at 0.
 const inMoney = computed(
   () =>
     myRank.value != null &&
+    (myScore.value ?? 0) > 0 &&
     seasonPayouts.value.some((p) => p.place === myRank.value && (p.amount ?? 0) > 0),
 )
 
@@ -669,6 +670,7 @@ async function loadSeasonConfig() {
 
 async function loadMyStanding() {
   myRank.value = null
+  myTied.value = false
   myScore.value = null
   myPlayerPoints.value = {}
   totalTeams.value = 0
@@ -682,7 +684,8 @@ async function loadMyStanding() {
     secondScore.value = board[1]?.totalPoints ?? 0
     const idx = board.findIndex((r) => r.teamId === existingTeam.value!.id)
     if (idx >= 0) {
-      myRank.value = idx + 1
+      myRank.value = board[idx]!.rank
+      myTied.value = board[idx]!.tied
       myScore.value = board[idx]!.totalPoints
       myPlayerPoints.value = Object.fromEntries(
         board[idx]!.players.map((p) => [p.contestantId, p.points]),
@@ -1046,7 +1049,9 @@ onUnmounted(() => {
               @keydown.space.prevent="router.push('/leaderboard')"
             >
               <p class="text-sm font-medium text-text-subtle">Place</p>
-              <p class="mt-0.5 text-2xl font-bold text-text-default">{{ ordinal(myRank ?? 0) }}</p>
+              <p class="mt-0.5 text-2xl font-bold text-text-default">
+                {{ formatPlace(myRank ?? 0, myTied) }}
+              </p>
               <p v-if="inMoney" class="text-xs font-semibold text-status-success">In the Money</p>
               <p v-else class="text-xs text-text-muted">{{ totalTeams }} total teams</p>
             </BaseCard>
