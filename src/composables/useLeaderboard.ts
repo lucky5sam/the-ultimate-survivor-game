@@ -149,7 +149,7 @@ export async function computeLeaderboard(
           .in('episode_id', episodeIds)
       : Promise.resolve({ data: [] as any[], error: null }),
     ownerIds.length > 0
-      ? supabase.from('profiles').select('id, first_name, last_name').in('id', ownerIds)
+      ? supabase.from('public_profiles').select('id, first_name, last_name').in('id', ownerIds)
       : Promise.resolve({ data: [] as any[], error: null }),
     supabase
       .from('team_players')

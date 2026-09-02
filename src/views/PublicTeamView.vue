@@ -255,7 +255,7 @@ async function load() {
         .single(),
       team.user_id
         ? supabase
-            .from('profiles')
+            .from('public_profiles')
             .select('first_name, last_name')
             .eq('id', team.user_id)
             .maybeSingle()
