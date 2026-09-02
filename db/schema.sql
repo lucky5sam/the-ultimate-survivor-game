@@ -157,6 +157,7 @@ create table teams (
   team_image_url text,
   team_emoji text,
   team_color text,
+  is_test boolean not null default false,   -- test/demo teams; hidden from the leaderboard & ranking
   unique (user_id, season_id)
 );
 

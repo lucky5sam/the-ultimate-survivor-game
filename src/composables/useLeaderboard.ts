@@ -84,7 +84,11 @@ export async function computeLeaderboard(
     supabase
       .from('teams')
       .select('id, team_name, team_image_url, team_emoji, team_color, user_id')
-      .eq('season_id', seasonId),
+      .eq('season_id', seasonId)
+      // Exclude test/demo teams so they never appear on the board or take a
+      // placement (ranks are assigned after this fetch, so a hidden team can't
+      // consume a rank).
+      .eq('is_test', false),
     supabase
       .from('bounty_picks')
       .select('team_id, contestant_id, effective_from_episode')
