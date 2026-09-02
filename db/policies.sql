@@ -37,6 +37,11 @@
 -- `profiles_no_self_admin` BEFORE UPDATE trigger (not defined in this file).
 -- ========================================================================
 
+-- Run the whole file as ONE transaction: if any statement errors, everything
+-- rolls back and the live policies are left exactly as they were. Nothing is
+-- committed until the final `commit;`.
+begin;
+
 
 -- ---------- Make sure RLS is on for every table -------------------------
 -- (Harmless if already enabled. A table with RLS OFF ignores its policies.)
@@ -297,3 +302,8 @@ create or replace view public_profiles as
   from profiles;
 
 grant select on public_profiles to authenticated;
+
+
+-- Commit everything above atomically. If any statement failed, this is never
+-- reached and the transaction rolls back with no changes made.
+commit;
