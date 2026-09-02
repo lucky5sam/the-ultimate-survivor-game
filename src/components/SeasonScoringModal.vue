@@ -8,7 +8,9 @@ import { supabase } from '../lib/supabase'
 import BaseModal from './base/BaseModal.vue'
 import BaseButton from './base/BaseButton.vue'
 
-const props = defineProps<{ show: boolean; seasonId: string }>()
+// `modalZIndex` lets a caller stack this above another open modal (e.g. when the
+// scoring list is launched from the rules modal rather than the wizard page).
+const props = defineProps<{ show: boolean; seasonId: string; modalZIndex?: number }>()
 const emit = defineEmits<{ close: [] }>()
 
 type ScoringAction = { id: string; type: string; category: string; points: number }
@@ -60,6 +62,7 @@ watch(
     title="Scoring List"
     subtitle="Points your contestants earn for in-game actions this season."
     size="lg"
+    :z-index="modalZIndex"
     @close="emit('close')"
   >
     <div v-if="loading" class="py-6 text-center text-sm text-text-subtle">Loading…</div>

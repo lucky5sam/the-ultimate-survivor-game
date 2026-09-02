@@ -19,6 +19,7 @@ type Season = {
   swap_penalty_role_change: number
   grace_period_through_episode: number
   max_swaps: number | null
+  swap_lock_after_episode: number | null
   payouts: Payout[] | null
   created_at: string
 }
@@ -62,6 +63,7 @@ const form = ref({
   swap_penalty_role_change: 5,
   grace_period_through_episode: 1,
   max_swaps: null as number | null,
+  swap_lock_after_episode: null as number | null,
   payouts: [] as Payout[],
 })
 
@@ -312,6 +314,7 @@ async function openEdit(season: Season) {
     swap_penalty_role_change: season.swap_penalty_role_change,
     grace_period_through_episode: season.grace_period_through_episode,
     max_swaps: season.max_swaps,
+    swap_lock_after_episode: season.swap_lock_after_episode,
     payouts: season.payouts ?? [],
   }
   activeTab.value = 'config'
@@ -338,6 +341,7 @@ function resetForm() {
     swap_penalty_role_change: 5,
     grace_period_through_episode: 1,
     max_swaps: null,
+    swap_lock_after_episode: null,
     payouts: [],
   }
 }
@@ -660,6 +664,22 @@ onMounted(loadSeasons)
                   placeholder="∞"
                   class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                  Lock swaps after episode
+                  <span class="text-gray-400 font-normal">(blank = never)</span>
+                </label>
+                <input
+                  v-model.number="form.swap_lock_after_episode"
+                  type="number"
+                  min="1"
+                  placeholder="—"
+                  class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <p class="mt-1 text-xs text-gray-400">
+                  No swaps allowed once the season passes this episode.
+                </p>
               </div>
             </div>
           </form>

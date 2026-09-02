@@ -36,6 +36,7 @@ import type { ContestantFull } from '../types/contestant'
 import type { BountyHistoryRow } from '../types/bounty'
 import InviteBanner from '../components/InviteBanner.vue'
 import FireGlow from '../components/FireGlow.vue'
+import RulesModal from '../components/RulesModal.vue'
 
 type Season = {
   id: string
@@ -69,6 +70,8 @@ type BountyPick = { contestant_id: string; effective_from_episode: number }
 type SeasonConfig = {
   grace_period_through_episode: number
   max_swaps: number | null
+  // Swaps lock permanently once the season moves past this episode. null = never.
+  swap_lock_after_episode: number | null
   swap_penalty_mvp: number
   swap_penalty_player: number
   swap_penalty_role_change: number
@@ -183,6 +186,7 @@ const savingBounty = ref(false)
 const seasonConfig = ref<SeasonConfig>({
   grace_period_through_episode: 1,
   max_swaps: null,
+  swap_lock_after_episode: null,
   swap_penalty_mvp: 15,
   swap_penalty_player: 10,
   swap_penalty_role_change: 5,
@@ -213,6 +217,8 @@ const editColor = ref<string | null>(null)
 const savingTeam = ref(false)
 const editError = ref('')
 
+const rulesModalOpen = ref(false)
+
 const swapModalOpen = ref(false)
 const swappingPlayer = ref<ActivePlayer | null>(null)
 const selectedReplacementId = ref<string | null>(null)
@@ -223,14 +229,26 @@ const atMaxSwaps = computed(
   () => seasonConfig.value.max_swaps !== null && swapsUsed.value >= seasonConfig.value.max_swaps,
 )
 
+// Swaps lock permanently once the season moves past swap_lock_after_episode — the
+// next episode you'd be swapping for is beyond the configured cutoff.
+const swapsLocked = computed(
+  () =>
+    seasonConfig.value.swap_lock_after_episode !== null &&
+    !!nextUpcomingEpisode.value &&
+    nextUpcomingEpisode.value.number > seasonConfig.value.swap_lock_after_episode,
+)
+
 // Roster ordered MVP-first (drives the action-menu lookups). Row rendering and
 // position labels now live in the shared TeamRosterList component.
 const rosterSorted = computed(() =>
   [...activePlayers.value].sort((a, b) => (a.role === 'mvp' ? 0 : 1) - (b.role === 'mvp' ? 0 : 1)),
 )
 
-// Roster edits are only allowed with an upcoming episode and swaps remaining.
-const canManageRoster = computed(() => !!nextUpcomingEpisode.value && !atMaxSwaps.value)
+// Roster edits are only allowed with an upcoming episode, swaps remaining, and
+// before the season's permanent swap lock.
+const canManageRoster = computed(
+  () => !!nextUpcomingEpisode.value && !atMaxSwaps.value && !swapsLocked.value,
+)
 
 // Position-chip action menu (teleported so the card's overflow can't clip it).
 const openMenuId = ref<string | null>(null)
@@ -609,7 +627,7 @@ async function loadSeasonConfig() {
   const { data } = await supabase
     .from('seasons')
     .select(
-      'grace_period_through_episode, max_swaps, swap_penalty_mvp, swap_penalty_player, swap_penalty_role_change, bounty_points_pre_merge, bounty_points_post_merge, bounty_points_finale, payouts',
+      'grace_period_through_episode, max_swaps, swap_lock_after_episode, swap_penalty_mvp, swap_penalty_player, swap_penalty_role_change, bounty_points_pre_merge, bounty_points_post_merge, bounty_points_finale, payouts',
     )
     .eq('id', selectedSeasonId.value)
     .single()
@@ -620,10 +638,13 @@ async function loadSeasonConfig() {
   }
 
   if (!existingTeam.value) return
+  // Only penalized swaps count toward the season cap. Free grace-period swaps are
+  // recorded with penalty_points: 0, so they're excluded here.
   const { count } = await supabase
     .from('team_swaps')
     .select('*', { count: 'exact', head: true })
     .eq('team_id', existingTeam.value.id)
+    .lt('penalty_points', 0)
   swapsUsed.value = count ?? 0
 }
 
@@ -1058,6 +1079,9 @@ onUnmounted(() => {
                   >
                   <template v-else>Locked — no upcoming episode scheduled</template>
                 </p>
+                <p v-else-if="swapsLocked" class="text-xs text-text-muted">
+                  Swaps are locked for the rest of the season
+                </p>
                 <p v-else-if="atMaxSwaps" class="text-xs text-text-muted">
                   Maximum swaps reached for this season
                 </p>
@@ -1100,8 +1124,26 @@ onUnmounted(() => {
 
         <p v-if="existingTeam && errorMsg" class="text-status-error text-sm mt-4">{{ errorMsg }}</p>
         <InviteBanner />
+
+        <!-- Quiet link to the full league rules, for clarification only. -->
+        <div class="mt-8 text-center">
+          <button
+            type="button"
+            class="text-xs text-text-muted underline underline-offset-2 transition-colors hover:text-text-subtle"
+            @click="rulesModalOpen = true"
+          >
+            League rules
+          </button>
+        </div>
       </template>
     </div>
+
+    <!-- Read-only league rules, opened from the quiet footer link -->
+    <RulesModal
+      :show="rulesModalOpen"
+      :season-id="selectedSeasonId"
+      @close="rulesModalOpen = false"
+    />
 
     <!-- Edit team details modal -->
     <BaseModal
