@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { supabase } from '../../lib/supabase'
+import LoadingState from '../../components/LoadingState.vue'
 import { useAuthStore } from '../../stores/auth'
 import { displayName } from '../../utils/contestantName'
 
@@ -274,7 +275,7 @@ onMounted(async () => {
       </div>
     </div>
 
-    <div v-if="loading" class="text-gray-400 text-sm">Loading…</div>
+    <LoadingState v-if="loading" />
 
     <template v-else>
       <!-- Tribe bulk add -->

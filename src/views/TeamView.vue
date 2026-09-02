@@ -9,6 +9,7 @@ import { useUiStore } from '../stores/ui'
 import TeamCreateWizard from '../components/TeamCreateWizard.vue'
 import ContestantSelect from '../components/ContestantSelect.vue'
 import TeamRosterList from '../components/TeamRosterList.vue'
+import LoadingState from '../components/LoadingState.vue'
 import BountyHistoryList from '../components/BountyHistoryList.vue'
 import ScoreBreakdownModal from '../components/ScoreBreakdownModal.vue'
 import ContestantDetailModal, {
@@ -913,9 +914,7 @@ onUnmounted(() => {
     </div>
 
     <!-- Loading -->
-    <div v-if="loading" class="max-w-3xl mx-auto px-4 py-8 text-text-muted text-sm sm:px-6">
-      Loading…
-    </div>
+    <LoadingState v-if="loading" />
 
     <template v-else-if="seasons.length === 0">
       <div class="max-w-3xl mx-auto px-4 py-6 text-text-subtle text-sm sm:px-6">

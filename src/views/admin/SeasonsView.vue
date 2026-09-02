@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watchEffect, onMounted } from 'vue'
 import { supabase } from '../../lib/supabase'
+import LoadingState from '../../components/LoadingState.vue'
 import { etInputToIso, isoToEtInput, fmtEt } from '../../lib/time'
 import { getTribeColors } from '../../utils/tribeColors'
 
@@ -369,7 +370,7 @@ onMounted(loadSeasons)
     </div>
 
     <p v-if="errorMsg" class="text-red-600 text-sm mb-4">{{ errorMsg }}</p>
-    <div v-if="loading" class="text-gray-400 text-sm">Loading…</div>
+    <LoadingState v-if="loading" />
 
     <div v-else-if="seasons.length === 0" class="text-gray-400 text-sm">
       No seasons yet. Create one to get started.

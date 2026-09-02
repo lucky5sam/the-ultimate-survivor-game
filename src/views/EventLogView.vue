@@ -14,6 +14,7 @@ import BaseButton from '../components/base/BaseButton.vue'
 import SeasonScoringModal from '../components/SeasonScoringModal.vue'
 import TribeBadge from '../components/TribeBadge.vue'
 import FireGlow from '../components/FireGlow.vue'
+import LoadingState from '../components/LoadingState.vue'
 
 type EpisodeInfo = {
   id: string
@@ -217,7 +218,7 @@ onMounted(() => seasonStore.load())
     </div>
 
     <p v-if="errorMsg" class="mb-4 text-sm text-status-error">{{ errorMsg }}</p>
-    <div v-if="loading" class="text-sm text-text-muted">Loading…</div>
+    <LoadingState v-if="loading" />
 
     <div v-else-if="!seasonStore.selectedSeasonId" class="text-sm text-text-muted">
       No active seasons right now.

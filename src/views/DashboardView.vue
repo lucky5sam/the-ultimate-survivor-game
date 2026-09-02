@@ -3,6 +3,7 @@ import { ref, onMounted, watch } from 'vue'
 import { computeLeaderboard, type LeaderboardRow } from '../composables/useLeaderboard'
 import { useSeasonStore } from '../stores/season'
 import BaseCard from '../components/base/BaseCard.vue'
+import LoadingState from '../components/LoadingState.vue'
 
 const seasonStore = useSeasonStore()
 const rows = ref<LeaderboardRow[]>([])
@@ -47,7 +48,7 @@ onMounted(() => seasonStore.load())
     <h2 class="mb-6 text-2xl font-bold text-text-default">Dashboard</h2>
 
     <p v-if="errorMsg" class="mb-4 text-sm text-status-error">{{ errorMsg }}</p>
-    <div v-if="loading" class="text-sm text-text-muted">Loading…</div>
+    <LoadingState v-if="loading" />
 
     <div v-else-if="!seasonStore.selectedSeasonId" class="text-sm text-text-muted">
       No active seasons right now.

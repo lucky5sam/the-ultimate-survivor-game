@@ -9,6 +9,7 @@ import { useAuthStore } from '../stores/auth'
 import { loadTribeColors } from '../utils/tribeColors'
 import type { ContestantFull } from '../types/contestant'
 import TeamCreateWizard from '../components/TeamCreateWizard.vue'
+import LoadingState from '../components/LoadingState.vue'
 
 const seasonStore = useSeasonStore()
 const auth = useAuthStore()
@@ -81,7 +82,7 @@ watch(seasonId, loadContestants, { immediate: true })
     </div>
 
     <p v-if="errorMsg" class="px-4 py-4 text-sm text-status-error">{{ errorMsg }}</p>
-    <div v-else-if="loading" class="px-4 py-8 text-sm text-text-muted">Loading…</div>
+    <LoadingState v-else-if="loading" />
     <div v-else-if="!seasonId" class="px-4 py-8 text-sm text-text-muted">
       No active season to preview.
     </div>

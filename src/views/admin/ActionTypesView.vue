@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watchEffect, onMounted } from 'vue'
 import { supabase } from '../../lib/supabase'
+import LoadingState from '../../components/LoadingState.vue'
 
 type CatalogAction = {
   tempId: string
@@ -129,7 +130,7 @@ onMounted(load)
     </div>
 
     <p v-if="errorMsg" class="text-red-600 text-sm mb-4">{{ errorMsg }}</p>
-    <div v-if="loading" class="text-gray-400 text-sm">Loading…</div>
+    <LoadingState v-if="loading" />
 
     <div v-else class="bg-white rounded-xl shadow overflow-hidden">
       <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50">

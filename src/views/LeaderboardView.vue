@@ -10,6 +10,7 @@ import BaseButton from '../components/base/BaseButton.vue'
 import ContestantAvatar from '../components/ContestantAvatar.vue'
 import TeamAvatar from '../components/TeamAvatar.vue'
 import FireGlow from '../components/FireGlow.vue'
+import LoadingState from '../components/LoadingState.vue'
 import { loadTribeColors } from '../utils/tribeColors'
 import parchmentUrl from '../assets/survivor_decor_parchment.svg'
 
@@ -143,7 +144,7 @@ onMounted(() => seasonStore.load())
       </BaseButton>
     </div>
     <p v-if="errorMsg" class="mb-4 text-sm text-status-error">{{ errorMsg }}</p>
-    <div v-if="loading" class="text-sm text-text-muted">Loading…</div>
+    <LoadingState v-if="loading" />
 
     <div v-else-if="!seasonStore.selectedSeasonId" class="text-sm text-text-muted">
       No active seasons right now.

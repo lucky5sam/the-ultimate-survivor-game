@@ -16,6 +16,7 @@ import BaseButton from '../components/base/BaseButton.vue'
 import BaseCard from '../components/base/BaseCard.vue'
 import TeamAvatar from '../components/TeamAvatar.vue'
 import TeamRosterList from '../components/TeamRosterList.vue'
+import LoadingState from '../components/LoadingState.vue'
 import BountyHistoryList from '../components/BountyHistoryList.vue'
 import ScoreBreakdownModal from '../components/ScoreBreakdownModal.vue'
 import FireGlow from '../components/FireGlow.vue'
@@ -420,9 +421,7 @@ onUnmounted(() => {
       </Transition>
     </div>
 
-    <div v-if="loading" class="mx-auto max-w-3xl px-4 py-8 text-sm text-text-muted sm:px-6">
-      Loading…
-    </div>
+    <LoadingState v-if="loading" />
 
     <div v-else-if="errorMsg" class="mx-auto max-w-md px-4 py-16 text-center sm:px-6">
       <h2 class="text-xl font-bold text-text-default">{{ errorMsg }}</h2>

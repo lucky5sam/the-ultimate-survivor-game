@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { supabase } from '../../lib/supabase'
+import LoadingState from '../../components/LoadingState.vue'
 import { fullName, displayName } from '../../utils/contestantName'
 
 type Season = { id: string; name: string }
@@ -716,7 +717,7 @@ onMounted(loadSeasons)
       No seasons found. Create a season first.
     </div>
 
-    <div v-else-if="loading" class="text-gray-400 text-sm">Loading…</div>
+    <LoadingState v-else-if="loading" />
 
     <div v-else-if="contestants.length === 0" class="text-gray-400 text-sm">
       No contestants yet for this season.

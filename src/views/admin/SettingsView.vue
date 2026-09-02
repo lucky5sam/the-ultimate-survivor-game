@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue'
 import { supabase } from '../../lib/supabase'
+import LoadingState from '../../components/LoadingState.vue'
 
 const registrationCode = ref('')
 const newCode = ref('')
@@ -69,7 +70,7 @@ onMounted(fetchCode)
   <div class="max-w-lg">
     <h2 class="text-xl font-semibold text-gray-900 mb-6">League Settings</h2>
 
-    <div v-if="loading" class="text-sm text-gray-500">Loading…</div>
+    <LoadingState v-if="loading" />
 
     <template v-else>
       <div class="bg-white rounded-xl border border-gray-200 p-6 space-y-5">

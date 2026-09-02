@@ -2,6 +2,7 @@
 import { ref, onMounted, watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '../../lib/supabase'
+import LoadingState from '../../components/LoadingState.vue'
 import { etInputToIso, isoToEtInput, fmtEt } from '../../lib/time'
 import { displayName } from '../../utils/contestantName'
 
@@ -348,7 +349,7 @@ onMounted(loadSeasons)
     </div>
 
     <p v-if="errorMsg" class="text-red-600 text-sm mb-4">{{ errorMsg }}</p>
-    <div v-if="loading" class="text-gray-400 text-sm">Loading…</div>
+    <LoadingState v-if="loading" />
 
     <div v-else-if="episodes.length === 0" class="text-gray-400 text-sm">
       No episodes yet. Create one to get started.
