@@ -15,12 +15,13 @@
 -- had before is taken away; the only reads removed were the two wide-open
 -- `using (true)` policies on `profiles` that leaked payment info.
 --
--- Behavioral gaps intentionally PRESERVED (flagged for a future decision, not
--- changed here so this file can't silently alter the security model):
+-- Behavioral choices intentionally PRESERVED (not changed here so this file
+-- can't silently alter the security model):
 --   * bounty_picks / team_swaps have no admin-write policy — admins cannot
 --     edit these directly. Add a *_admin policy if that's wrong.
---   * league_settings has no read policy for non-admins — regular users
---     cannot read it at all. Add a read policy if the app needs it everywhere.
+--   * league_settings is admin-only (no non-admin read). This is CORRECT and
+--     deliberate: it holds registration_code (the league join code), which
+--     must never be readable via the API. Do NOT add a public read policy.
 --
 -- Prerequisite: the is_admin() helper must exist. It should be SECURITY
 -- DEFINER so it can read `profiles` without tripping that table's own RLS
@@ -155,7 +156,8 @@ create policy "episodes_admin" on episodes
 
 
 -- ---------- league_settings ---------------------------------------------
--- NOTE: admin-only. Non-admins cannot read this table (see header).
+-- Admin-only by design: holds registration_code (the league join code), which
+-- must never be readable via the API. No non-admin read policy — intentional.
 drop policy if exists "admins_manage_league_settings" on league_settings;
 
 create policy "league_settings_admin" on league_settings
