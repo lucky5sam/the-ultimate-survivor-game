@@ -10,6 +10,12 @@
   display: none;
 }
 
+/* Aged, sepia-toned "old photo" treatment — apply to an <img> (or its container)
+   for a faded wanted-poster / archival look. */
+.sepia-photo {
+  filter: sepia(0.75) contrast(1.1) brightness(0.95) saturate(1.3);
+}
+
 /* iOS Safari auto-zooms the page whenever a focused form control has a
    font-size below 16px. Force ≥16px on mobile widths to stop that zoom (and the
    layout reflow it causes). Unlayered so it beats Tailwind's text-sm utility;
