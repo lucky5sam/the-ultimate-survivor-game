@@ -78,11 +78,10 @@ watchEffect(() => {
 })
 
 const tabs = [
+  { label: 'Home', to: '/dashboard' },
   { label: 'My Team', to: '/my-team' },
   { label: 'Leaderboard', to: '/leaderboard' },
   { label: 'Event Log', to: '/event-log' },
-  // Dashboard hidden for now:
-  // { label: 'Dashboard', to: '/dashboard' },
 ]
 
 const activeTab = computed(() => tabs.find((t) => t.to === route.path) ?? tabs[0]!)
