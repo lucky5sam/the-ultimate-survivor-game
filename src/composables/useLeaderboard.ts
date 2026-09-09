@@ -57,6 +57,9 @@ export type LeaderboardRow = {
   // lastBountyHit is null when no completed episode has resolved yet.
   lastBountyName: string | null
   lastBountyHit: boolean | null
+  // The contestant id behind lastBountyName, so callers can show that pick's
+  // photo (the dashboard's "wanted poster"). null when no bounty has resolved.
+  lastBountyContestantId: string | null
 }
 
 export async function computeLeaderboard(
@@ -256,7 +259,10 @@ export async function computeLeaderboard(
       .sort((a, b) => b.number - a.number)
       .find((e) => (e.is_finale ? !!e.bounty_contestant_id : !!eliminatedByEpisode[e.id]?.size)) ??
     null
-  const lastBountyByTeam: Record<string, { name: string | null; hit: boolean }> = {}
+  const lastBountyByTeam: Record<
+    string,
+    { name: string | null; hit: boolean; contestantId: string }
+  > = {}
   if (lastEp) {
     const elimSet = eliminatedByEpisode[lastEp.id]
     for (const [teamId, picks] of Object.entries(picksByTeam)) {
@@ -267,7 +273,11 @@ export async function computeLeaderboard(
       const hit = lastEp.is_finale
         ? pick.contestant_id === lastEp.bounty_contestant_id
         : !!elimSet?.has(pick.contestant_id)
-      lastBountyByTeam[teamId] = { name: contestantShortNameMap[pick.contestant_id] ?? null, hit }
+      lastBountyByTeam[teamId] = {
+        name: contestantShortNameMap[pick.contestant_id] ?? null,
+        hit,
+        contestantId: pick.contestant_id,
+      }
     }
   }
 
@@ -367,6 +377,7 @@ export async function computeLeaderboard(
         pendingBountyName,
         lastBountyName: lastBountyByTeam[team.id]?.name ?? null,
         lastBountyHit: lastEp ? (lastBountyByTeam[team.id]?.hit ?? false) : null,
+        lastBountyContestantId: lastBountyByTeam[team.id]?.contestantId ?? null,
       }
     })
     .sort((a, b) => b.totalPoints - a.totalPoints)
