@@ -44,6 +44,35 @@ const columns = [
   'Zelle ID',
   'Paid',
 ] as const
+
+// The email delivery system imports by exact header name, so the CSV uses these
+// (mostly "Manual N") names instead of the readable ones shown in the table.
+// Keyed by the internal column name above; the on-screen table still shows the
+// readable names for the admin's benefit.
+const csvHeaders: Record<(typeof columns)[number], string> = {
+  Email: 'Email',
+  'First Name': 'First Name',
+  'Last Name': 'Last Name',
+  'Team Name': 'Manual 1',
+  'Total Points': 'Manual 2',
+  Place: 'Manual 3',
+  MVP: 'Manual 5',
+  P1: 'Manual 6',
+  P2: 'Manual 7',
+  P3: 'Manual 8',
+  Bounty: 'Manual 4',
+  'Bounty Success': 'Manual 11',
+  'MVP Status': 'Manual 12',
+  'P1 Status': 'Manual 13',
+  'P2 Status': 'Manual 14',
+  'P3 Status': 'Manual 15',
+  'Net Score (this week)': 'Manual 20',
+  'Place Change (this week)': 'Manual 21',
+  'Preferred Payment Method': 'Preferred Payment Method',
+  'Venmo Username': 'Manual 9',
+  'Zelle ID': 'Zelle ID',
+  Paid: 'Manual 18',
+}
 const rows = ref<ExportRow[]>([])
 
 // Entry-fee paid status, keyed by team id. Kept separate from the text `rows`
@@ -222,7 +251,7 @@ function csvCell(v: string) {
 }
 
 function downloadCsv() {
-  const header = columns.map(csvCell).join(',')
+  const header = columns.map((c) => csvCell(csvHeaders[c])).join(',')
   const body = rows.value.map((r) =>
     columns
       .map((c) =>
