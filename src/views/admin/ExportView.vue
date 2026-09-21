@@ -11,7 +11,6 @@ const errorMsg = ref('')
 // Set when the email column can't be filled (the admin_team_emails RPC is
 // missing). The rest of the export still works.
 const emailWarning = ref('')
-const seasonName = ref('')
 // The episode number this snapshot is "as of" (latest completed), and whether a
 // prior completed episode exists to compute weekly deltas against.
 const asOfEpisode = ref<number | null>(null)
@@ -73,8 +72,6 @@ async function build() {
       errorMsg.value = 'No active season found.'
       return
     }
-    seasonName.value = seasonStore.seasons.find((s) => s.id === seasonId)?.name ?? ''
-
     // Latest + previous COMPLETED episode numbers drive the snapshot and the
     // weekly deltas.
     const { data: eps, error: epErr } = await supabase
@@ -253,15 +250,6 @@ onMounted(build)
     <div class="flex items-start justify-between mb-6">
       <div>
         <h2 class="text-xl font-semibold text-gray-900">Weekly Export</h2>
-        <p class="text-sm text-gray-500 mt-1">
-          One row per team for email personalization.
-          <span v-if="!loading && asOfEpisode != null">
-            Snapshot as of <strong>Episode {{ asOfEpisode }}</strong
-            ><span v-if="seasonName"> · {{ seasonName }}</span
-            >.
-          </span>
-          <span v-else-if="!loading"> No completed episodes yet — scores show as 0. </span>
-        </p>
       </div>
       <div class="flex gap-2 shrink-0">
         <button
@@ -297,24 +285,37 @@ onMounted(build)
 
       <p class="text-xs text-gray-400 mb-2">{{ rows.length }} teams</p>
       <div class="overflow-x-auto border border-gray-200 rounded-lg bg-white">
-        <table class="text-xs whitespace-nowrap">
+        <!-- border-separate (not the Tailwind-default collapse) is required for
+             the sticky Email column to work; spacing-0 keeps it looking collapsed -->
+        <table class="text-xs whitespace-nowrap border-separate border-spacing-0">
           <thead class="bg-gray-50 text-gray-500">
             <tr>
               <th
                 v-for="c in columns"
                 :key="c"
                 class="text-left font-medium px-3 py-2 border-b border-gray-200"
+                :class="
+                  c === 'Email' ? 'sticky left-0 z-10 bg-gray-50 border-r border-gray-200' : ''
+                "
               >
                 {{ c }}
               </th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(r, i) in rows" :key="i" class="even:bg-gray-50/50">
+            <tr v-for="(r, i) in rows" :key="i" class="bg-white even:bg-gray-50">
               <td
                 v-for="c in columns"
                 :key="c"
                 class="px-3 py-1.5 text-gray-700 border-b border-gray-100"
+                :class="
+                  c === 'Email'
+                    ? [
+                        'sticky left-0 z-10 border-r border-gray-200',
+                        i % 2 === 1 ? 'bg-gray-50' : 'bg-white',
+                      ]
+                    : ''
+                "
               >
                 <input
                   v-if="c === 'Paid'"
