@@ -164,7 +164,7 @@ async function handleSignOut() {
       v-if="needsToPayFee"
       class="block shrink-0 bg-status-warning-surface px-6 py-2 text-center text-sm font-medium text-status-warning"
     >
-      Your league entry fee is unpaid — please pay to stay eligible for prizes.
+      Your $20 league entry fee is unpaid — please pay to stay eligible for prizes.
     </div>
 
     <!-- Incomplete-profile banner: shown until payment info is filled in, but
