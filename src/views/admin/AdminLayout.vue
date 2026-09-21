@@ -66,7 +66,10 @@ async function handleSignOut() {
       </div>
     </aside>
 
-    <main class="flex-1 bg-gray-50 p-8">
+    <!-- min-w-0 lets this flex child shrink to the viewport instead of growing
+         to fit wide content (e.g. the export table), so horizontal scrolling
+         stays inside the content's own scroll container and the sidebar stays put -->
+    <main class="min-w-0 flex-1 bg-gray-50 p-8">
       <RouterView />
     </main>
   </div>
