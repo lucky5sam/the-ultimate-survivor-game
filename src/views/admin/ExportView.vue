@@ -17,8 +17,10 @@ const seasonName = ref('')
 const asOfEpisode = ref<number | null>(null)
 const hasPriorEpisode = ref(false)
 
-// One assembled record per team, already in leaderboard (Place) order.
-type ExportRow = Record<string, string>
+// One assembled record per team, already in leaderboard (Place) order. The
+// `_teamId` isn't a CSV column — it's carried so the Paid checkbox knows which
+// team row to write, and stays out of `columns` so it never renders/exports.
+type ExportRow = Record<string, string> & { _teamId: string }
 const columns = [
   'Email',
   'First Name',
@@ -41,19 +43,29 @@ const columns = [
   'Preferred Payment Method',
   'Venmo Username',
   'Zelle ID',
+  'Paid',
 ] as const
 const rows = ref<ExportRow[]>([])
 
+// Entry-fee paid status, keyed by team id. Kept separate from the text `rows`
+// so the on-screen checkbox and the CSV both read the live value (a toggle
+// updates this after the rows are built).
+const paidByTeam = ref<Record<string, boolean>>({})
+// Shown as an inline banner when a toggle fails to save — deliberately NOT
+// `errorMsg`, which would hide the whole table.
+const paidError = ref('')
+
 const round1 = (n: number) => Math.round(n * 10) / 10
 const statusLabel = (out: boolean) => (out ? 'Voted Out' : 'In the Game')
-const prettyMethod = (m: string) =>
-  ({ venmo: 'Venmo', zelle: 'Zelle', other: 'Other' })[m] ?? ''
+const prettyMethod = (m: string) => ({ venmo: 'Venmo', zelle: 'Zelle', other: 'Other' })[m] ?? ''
 
 async function build() {
   loading.value = true
   errorMsg.value = ''
   emailWarning.value = ''
+  paidError.value = ''
   rows.value = []
+  paidByTeam.value = {}
   try {
     await seasonStore.load()
     const seasonId = seasonStore.currentSeasonId
@@ -116,6 +128,18 @@ async function build() {
       for (const p of profs ?? []) profileById[p.id] = p
     }
 
+    // Entry-fee status for every team in the season (one query, keyed by id).
+    const { data: paidRows, error: paidErr } = await supabase
+      .from('teams')
+      .select('id, paid')
+      .eq('season_id', seasonId)
+    if (paidErr) throw new Error(paidErr.message)
+    const paidMap: Record<string, boolean> = {}
+    for (const t of (paidRows ?? []) as { id: string; paid: boolean }[]) {
+      paidMap[t.id] = t.paid
+    }
+    paidByTeam.value = paidMap
+
     // Emails live in auth.users — only reachable through the admin-gated RPC.
     // If it isn't installed yet, warn and leave the column blank.
     const emailById: Record<string, string> = {}
@@ -150,6 +174,7 @@ async function build() {
       const placeChange = hasPriorEpisode.value ? (priorPlace[row.teamId] ?? place) - place : null
 
       return {
+        _teamId: row.teamId,
         Email: emailById[row.ownerId] ?? '',
         'First Name': prof?.first_name ?? '',
         'Last Name': prof?.last_name ?? '',
@@ -180,6 +205,20 @@ async function build() {
   }
 }
 
+// Flip a team's entry-fee status and persist it immediately. Optimistic: update
+// the local map first so the checkbox responds instantly, then roll back if the
+// write fails (admins are allowed to write teams by the teams_admin RLS policy).
+async function togglePaid(teamId: string, next: boolean) {
+  paidError.value = ''
+  const prev = paidByTeam.value[teamId] ?? false
+  paidByTeam.value[teamId] = next
+  const { error } = await supabase.from('teams').update({ paid: next }).eq('id', teamId)
+  if (error) {
+    paidByTeam.value[teamId] = prev
+    paidError.value = `Couldn't save Paid status: ${error.message}`
+  }
+}
+
 function csvCell(v: string) {
   // Quote if the value contains a comma, quote, or newline; double any quotes.
   return /[",\n\r]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v
@@ -187,7 +226,13 @@ function csvCell(v: string) {
 
 function downloadCsv() {
   const header = columns.map(csvCell).join(',')
-  const body = rows.value.map((r) => columns.map((c) => csvCell(r[c] ?? '')).join(','))
+  const body = rows.value.map((r) =>
+    columns
+      .map((c) =>
+        csvCell(c === 'Paid' ? (paidByTeam.value[r._teamId] ? 'Yes' : 'No') : (r[c] ?? '')),
+      )
+      .join(','),
+  )
   const csv = [header, ...body].join('\r\n')
   const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
   const url = URL.createObjectURL(blob)
@@ -243,6 +288,9 @@ onMounted(build)
       <p v-if="emailWarning" class="text-sm text-amber-600 bg-amber-50 rounded-lg px-3 py-2 mb-4">
         ⚠️ {{ emailWarning }}
       </p>
+      <p v-if="paidError" class="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2 mb-4">
+        {{ paidError }}
+      </p>
       <p v-if="!hasPriorEpisode && asOfEpisode != null" class="text-xs text-gray-400 mb-4">
         Only one completed episode — “Place Change” is blank and “Net Score” equals the full total.
       </p>
@@ -252,15 +300,30 @@ onMounted(build)
         <table class="text-xs whitespace-nowrap">
           <thead class="bg-gray-50 text-gray-500">
             <tr>
-              <th v-for="c in columns" :key="c" class="text-left font-medium px-3 py-2 border-b border-gray-200">
+              <th
+                v-for="c in columns"
+                :key="c"
+                class="text-left font-medium px-3 py-2 border-b border-gray-200"
+              >
                 {{ c }}
               </th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="(r, i) in rows" :key="i" class="even:bg-gray-50/50">
-              <td v-for="c in columns" :key="c" class="px-3 py-1.5 text-gray-700 border-b border-gray-100">
-                {{ r[c] }}
+              <td
+                v-for="c in columns"
+                :key="c"
+                class="px-3 py-1.5 text-gray-700 border-b border-gray-100"
+              >
+                <input
+                  v-if="c === 'Paid'"
+                  type="checkbox"
+                  :checked="paidByTeam[r._teamId]"
+                  @change="togglePaid(r._teamId, ($event.target as HTMLInputElement).checked)"
+                  class="h-4 w-4 cursor-pointer accent-blue-600"
+                />
+                <template v-else>{{ r[c] }}</template>
               </td>
             </tr>
           </tbody>
