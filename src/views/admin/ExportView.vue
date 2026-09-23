@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue'
 import { supabase } from '../../lib/supabase'
 import { useSeasonStore } from '../../stores/season'
 import { computeLeaderboard, type LeaderboardRow } from '../../composables/useLeaderboard'
+import { shortName } from '../../utils/contestantName'
 
 const seasonStore = useSeasonStore()
 
@@ -33,6 +34,7 @@ const columns = [
   'P3',
   'Bounty',
   'Bounty Success',
+  'Upcoming Bounty',
   'MVP Status',
   'P1 Status',
   'P2 Status',
@@ -62,6 +64,7 @@ const csvHeaders: Record<(typeof columns)[number], string> = {
   P3: 'Manual 8',
   Bounty: 'Manual 4',
   'Bounty Success': 'Manual 11',
+  'Upcoming Bounty': 'Manual 23',
   'MVP Status': 'Manual 12',
   'P1 Status': 'Manual 13',
   'P2 Status': 'Manual 14',
@@ -166,6 +169,46 @@ async function build() {
     }
     paidByTeam.value = paidMap
 
+    // Upcoming bounty pick per team — each team's latest standing pick (highest
+    // effective_from_episode), regardless of whether the next episode has locked.
+    // The shared leaderboard deliberately hides this from non-owners; here in the
+    // admin-only export we surface everyone's so picks can be seen before lock.
+    const upcomingBountyMap: Record<string, string> = {}
+    const { data: picks, error: picksErr } = await supabase
+      .from('bounty_picks')
+      .select('team_id, contestant_id, effective_from_episode')
+      .eq('season_id', seasonId)
+    if (picksErr) throw new Error(picksErr.message)
+    const latestPickByTeam: Record<string, { contestant_id: string; ep: number }> = {}
+    for (const p of (picks ?? []) as {
+      team_id: string
+      contestant_id: string
+      effective_from_episode: number
+    }[]) {
+      const cur = latestPickByTeam[p.team_id]
+      if (!cur || p.effective_from_episode > cur.ep) {
+        latestPickByTeam[p.team_id] = {
+          contestant_id: p.contestant_id,
+          ep: p.effective_from_episode,
+        }
+      }
+    }
+    const pickContestantIds = [
+      ...new Set(Object.values(latestPickByTeam).map((p) => p.contestant_id)),
+    ]
+    if (pickContestantIds.length) {
+      const { data: picked, error: pickedErr } = await supabase
+        .from('contestants')
+        .select('id, first_name, last_name, preferred_name')
+        .in('id', pickContestantIds)
+      if (pickedErr) throw new Error(pickedErr.message)
+      const nameById: Record<string, string> = {}
+      for (const c of picked ?? []) nameById[c.id] = shortName(c)
+      for (const [teamId, p] of Object.entries(latestPickByTeam)) {
+        upcomingBountyMap[teamId] = nameById[p.contestant_id] ?? ''
+      }
+    }
+
     // Emails live in auth.users — only reachable through the admin-gated RPC.
     // If it isn't installed yet, warn and leave the column blank.
     const emailById: Record<string, string> = {}
@@ -213,6 +256,7 @@ async function build() {
         P3: slot(2)?.name ?? '',
         Bounty: row.lastBountyName ?? '',
         'Bounty Success': row.lastBountyHit == null ? '' : row.lastBountyHit ? 'Yes' : 'No',
+        'Upcoming Bounty': upcomingBountyMap[row.teamId] ?? '',
         'MVP Status': mvp ? statusLabel(mvp.out) : '',
         'P1 Status': slot(0) ? statusLabel(slot(0)!.out) : '',
         'P2 Status': slot(1) ? statusLabel(slot(1)!.out) : '',
