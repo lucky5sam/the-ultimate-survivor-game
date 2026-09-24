@@ -21,8 +21,10 @@ const props = withDefaults(
     borderColorOverride?: string | null
     // Desaturate the photo (e.g. a voted-out player).
     grayscale?: boolean
+    // Aged, sepia-toned "wanted poster" treatment (e.g. bounty picks).
+    sepia?: boolean
   }>(),
-  { size: 36, showTribe: false, showCrown: false, grayscale: false },
+  { size: 36, showTribe: false, showCrown: false, grayscale: false, sepia: false },
 )
 
 // A ring in the tribe color when a tribe is known — unless overridden.
@@ -43,9 +45,9 @@ const borderColor = computed(
         :src="photoUrl"
         :alt="name"
         class="h-full w-full object-cover object-top"
-        :class="{ grayscale }"
+        :class="{ grayscale, 'sepia-photo': sepia }"
       />
-      <div v-else class="flex h-full w-full items-center justify-center" :class="{ grayscale }">
+      <div v-else class="flex h-full w-full items-center justify-center" :class="{ grayscale, 'sepia-photo': sepia }">
         <i
           class="fa-solid fa-user text-icon-subtle"
           :style="{ fontSize: `${size * 0.55}px` }"

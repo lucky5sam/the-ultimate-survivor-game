@@ -23,6 +23,8 @@ const props = withDefaults(
     pickInteractive?: boolean
     // Always show the last name (default only reveals it from sm+).
     expandNames?: boolean
+    // Give each pick's photo the aged sepia "wanted poster" treatment.
+    sepiaAvatars?: boolean
   }>(),
   {
     title: 'Bounty Pick',
@@ -31,6 +33,7 @@ const props = withDefaults(
     detailsInteractive: false,
     pickInteractive: false,
     expandNames: false,
+    sepiaAvatars: false,
   },
 )
 
@@ -112,6 +115,7 @@ function contestantPhoto(id: string) {
               :photo-url="contestantPhoto(row.contestantId)"
               :name="contestantName(row.contestantId)"
               border-color-override="var(--color-survivor-bounty)"
+              :sepia="sepiaAvatars"
             />
             <div class="min-w-0 flex-1">
               <p class="truncate text-sm font-semibold leading-tight">

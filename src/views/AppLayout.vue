@@ -65,6 +65,7 @@ async function loadCurrentSeasonMembership() {
 // A player who has joined this season but hasn't paid the entry fee. This
 // banner takes precedence over the "complete your profile" one.
 const needsToPayFee = computed(() => hasTeamCurrentSeason.value && !feePaidCurrentSeason.value)
+
 watch([() => seasonStore.currentSeasonId, () => auth.user?.id], loadCurrentSeasonMembership, {
   immediate: true,
 })
@@ -84,15 +85,17 @@ watchEffect(() => {
   }
 })
 
-const tabs = [
-  { label: 'My Team', to: '/my-team' },
-  { label: 'Leaderboard', to: '/leaderboard' },
-  { label: 'Event Log', to: '/event-log' },
-  // Dashboard hidden for now:
-  // { label: 'Dashboard', to: '/dashboard' },
-]
+// League Home is admin-only for now (see the router), so only admins get the tab.
+const tabs = computed(() =>
+  [
+    { label: 'Home', to: '/dashboard', adminOnly: true },
+    { label: 'My Team', to: '/my-team' },
+    { label: 'Leaderboard', to: '/leaderboard' },
+    { label: 'Event Log', to: '/event-log' },
+  ].filter((t) => !t.adminOnly || auth.isAdmin),
+)
 
-const activeTab = computed(() => tabs.find((t) => t.to === route.path) ?? tabs[0]!)
+const activeTab = computed(() => tabs.value.find((t) => t.to === route.path) ?? tabs.value[0]!)
 const menuOpen = ref(false)
 const userMenuOpen = ref(false)
 const seasonModalOpen = ref(false)
