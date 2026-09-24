@@ -39,22 +39,9 @@ const plotW = computed(() => Math.max(0, width.value - pad.left - pad.right))
 const plotH = computed(() => Math.max(0, height.value - pad.top - pad.bottom))
 
 // ── Scales ──
-// The y range hugs the places this team has actually held (with a little air),
-// so a move from 3rd to 5th is visible even in a 70-team league.
-const yDomain = computed<[number, number]>(() => {
-  const ranks = props.history.map((p) => p.rank)
-  // Keep the in-the-money line in view, even when this team is far below it.
-  if (props.moneyCutoff) ranks.push(props.moneyCutoff, props.moneyCutoff + 1)
-  const max = Math.max(props.teamCount, 1)
-  let lo = Math.max(1, Math.min(...ranks) - 1)
-  let hi = Math.min(max, Math.max(...ranks) + 1)
-  // Always show at least a few places of range so a flat line isn't pinned to an edge.
-  while (hi - lo < 4 && (lo > 1 || hi < max)) {
-    if (lo > 1) lo--
-    if (hi - lo < 4 && hi < max) hi++
-  }
-  return [lo, Math.max(hi, lo + 1)]
-})
+// The y range is the whole league — 1st at the top, last place at the bottom —
+// so the line shows where this team sits in the full field.
+const yDomain = computed<[number, number]>(() => [1, Math.max(props.teamCount, 2)])
 function x(i: number) {
   const n = props.history.length
   return pad.left + (n <= 1 ? plotW.value / 2 : (i / (n - 1)) * plotW.value)
@@ -92,9 +79,16 @@ const moneyY = computed(() => {
   return at > lo && at < hi ? y(at) : null
 })
 
-const linePath = computed(() =>
-  props.history.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i)},${y(p.rank)}`).join(' '),
-)
+// With a single episode there's no movement yet, so draw a flat line across the
+// whole plot at that place (the point sits in the middle, over its E1 label).
+const linePath = computed(() => {
+  const h = props.history
+  if (h.length === 1) {
+    const yy = y(h[0]!.rank)
+    return `M${pad.left},${yy} L${pad.left + plotW.value},${yy}`
+  }
+  return h.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i)},${y(p.rank)}`).join(' ')
+})
 
 // ── Hover ──
 const hoverIndex = ref<number | null>(null)

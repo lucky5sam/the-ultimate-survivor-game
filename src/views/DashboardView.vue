@@ -582,7 +582,7 @@ onMounted(() => {
               <div class="mt-4 flex min-h-48 flex-1 flex-col">
                 <p class="mb-1 text-xs font-medium text-text-subtle">Place by episode</p>
                 <PlaceHistoryChart
-                  v-if="placeHistory.length >= 2"
+                  v-if="placeHistory.length"
                   :history="placeHistory"
                   :team-count="rows.length"
                   :money-cutoff="moneyCutoff"
@@ -592,12 +592,7 @@ onMounted(() => {
                   v-else
                   class="flex flex-1 items-center justify-center rounded-md bg-surface-subtle px-4 text-center text-sm text-text-muted"
                 >
-                  <template v-if="placeHistory.length === 1"
-                    >{{ formatPlace(placeHistory[0]!.rank, placeHistory[0]!.tied) }} after Ep
-                    {{ placeHistory[0]!.episode }}. Your line starts after the next
-                    episode.</template
-                  >
-                  <template v-else>Your place history starts after the first episode.</template>
+                  Your place history starts after the first episode.
                 </div>
               </div>
             </BaseCard>
