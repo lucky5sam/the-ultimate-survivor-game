@@ -77,7 +77,6 @@ function choose(id: string) {
         :name="displayName(selected)"
         :size="32"
         :grayscale="isOut(selected.id)"
-        :border-color-override="isOut(selected.id) ? 'var(--color-border-subtle)' : null"
       />
       <input
         ref="inputEl"
@@ -114,7 +113,6 @@ function choose(id: string) {
             :name="displayName(c)"
             :size="28"
             :grayscale="isOut(c.id)"
-            :border-color-override="isOut(c.id) ? 'var(--color-border-subtle)' : null"
           />
           <span class="flex-1 truncate text-sm text-text-default">{{ displayName(c) }}</span>
           <span class="text-xs text-text-muted">{{ c.tribe }}</span>

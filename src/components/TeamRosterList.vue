@@ -159,9 +159,6 @@ function playerStatus(id: string): { out: boolean; ep: number | null } {
             :tribe="contestantTribe(player.contestant_id)"
             :show-crown="player.role === 'mvp'"
             :grayscale="playerStatus(player.contestant_id).out"
-            :border-color-override="
-              playerStatus(player.contestant_id).out ? 'var(--color-border-subtle)' : null
-            "
           />
           <div>
             <div class="flex items-center gap-1">

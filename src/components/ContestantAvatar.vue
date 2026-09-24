@@ -19,7 +19,8 @@ const props = withDefaults(
     showCrown?: boolean
     // Force a specific border color instead of the tribe color (e.g. bounty red).
     borderColorOverride?: string | null
-    // Desaturate the photo (e.g. a voted-out player).
+    // A voted-out player: desaturates the photo and swaps the tribe-color ring
+    // for a neutral gray one (an eliminated player no longer has a tribe).
     grayscale?: boolean
     // Aged, sepia-toned "wanted poster" treatment (e.g. bounty picks).
     sepia?: boolean
@@ -27,10 +28,13 @@ const props = withDefaults(
   { size: 36, showTribe: false, showCrown: false, grayscale: false, sepia: false },
 )
 
-// A ring in the tribe color when a tribe is known — unless overridden.
-const borderColor = computed(
-  () => props.borderColorOverride ?? (props.tribe ? getTribeColors(props.tribe).primary : null),
-)
+// Ring color, in priority order: an explicit override (e.g. bounty red), then a
+// neutral gray for an eliminated player, then the tribe color when known.
+const borderColor = computed(() => {
+  if (props.borderColorOverride) return props.borderColorOverride
+  if (props.grayscale) return 'var(--color-border-subtle)'
+  return props.tribe ? getTribeColors(props.tribe).primary : null
+})
 </script>
 
 <template>
@@ -47,11 +51,12 @@ const borderColor = computed(
         class="h-full w-full object-cover object-top"
         :class="{ grayscale, 'sepia-photo': sepia }"
       />
-      <div v-else class="flex h-full w-full items-center justify-center" :class="{ grayscale, 'sepia-photo': sepia }">
-        <i
-          class="fa-solid fa-user text-icon-subtle"
-          :style="{ fontSize: `${size * 0.55}px` }"
-        ></i>
+      <div
+        v-else
+        class="flex h-full w-full items-center justify-center"
+        :class="{ grayscale, 'sepia-photo': sepia }"
+      >
+        <i class="fa-solid fa-user text-icon-subtle" :style="{ fontSize: `${size * 0.55}px` }"></i>
       </div>
     </div>
 

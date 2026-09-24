@@ -23,6 +23,8 @@ import TeamAvatar from '../components/TeamAvatar.vue'
 import ContestantAvatar from '../components/ContestantAvatar.vue'
 import PlaceHistoryChart, { type PlacePoint } from '../components/PlaceHistoryChart.vue'
 import PlayerScoresTable, { type PlayerScoreRow } from '../components/PlayerScoresTable.vue'
+import PopularPlayersList, { type RosterShare } from '../components/PopularPlayersList.vue'
+import BaseModal from '../components/base/BaseModal.vue'
 import parchmentUrl from '../assets/survivor_decor_parchment.svg'
 import { loadTribeColors } from '../utils/tribeColors'
 
@@ -45,18 +47,6 @@ type PopularPick = {
   // e.g. by an idol, counted separately).
   votes: number
   nullifiedVotes: number
-}
-// One contestant's presence across the league's current rosters: how many teams
-// have them as MVP vs as a regular player (a contestant is on a team at most once).
-type RosterShare = {
-  contestantId: string
-  name: string
-  photoUrl: string | null
-  tribe: string
-  out: boolean
-  mvp: number
-  player: number
-  total: number
 }
 type ContestantRow = {
   id: string
@@ -97,6 +87,8 @@ const moneyCutoff = ref<number | null>(null)
 const playerScores = ref<PlayerScoreRow[]>([])
 // The completed episodes (ascending) — the Player Scores columns.
 const scoreEpisodes = ref<number[]>([])
+// Contestants still in the game (not yet voted out) — Most Popular Players subtitle.
+const remainingPlayers = ref(0)
 
 // Drop stale responses if the season changes mid-fetch.
 let loadSeq = 0
@@ -127,11 +119,26 @@ const myRowBelowTop = computed(
 )
 const topStandings = computed(() => rows.value.slice(0, myRowBelowTop.value ? 5 : 6))
 
-// ── Roster breakdown (MVP + player slots combined) ──
-// Tallies every team's current roster, so it reflects swaps. Ranked by how many
-// teams have the contestant at all, then by MVP count.
-const rosterShares = computed<RosterShare[]>(() => {
+// ── Most popular players (MVP + player slots combined) ──
+// Tallies every team's current roster, so it reflects swaps. Covers every
+// contestant in the season — anyone no team picked shows ×0 — ranked by how many
+// teams have them, then by MVP count. The card shows the top 5; "View All" opens
+// the full list.
+const allRosterShares = computed<RosterShare[]>(() => {
   const byId = new Map<string, RosterShare>()
+  // Seed with every contestant (the Player Scores rows cover the whole cast).
+  for (const c of playerScores.value) {
+    byId.set(c.id, {
+      contestantId: c.id,
+      name: c.name,
+      photoUrl: c.photoUrl,
+      tribe: c.tribe,
+      out: c.eliminatedEp != null,
+      mvp: 0,
+      player: 0,
+      total: 0,
+    })
+  }
   for (const r of rows.value) {
     for (const p of r.players) {
       const share = byId.get(p.contestantId) ?? {
@@ -150,15 +157,14 @@ const rosterShares = computed<RosterShare[]>(() => {
       byId.set(p.contestantId, share)
     }
   }
-  return [...byId.values()]
-    .sort((a, b) => b.total - a.total || b.mvp - a.mvp || a.name.localeCompare(b.name))
-    .slice(0, 5)
+  return [...byId.values()].sort(
+    (a, b) => b.total - a.total || b.mvp - a.mvp || a.name.localeCompare(b.name),
+  )
 })
+const rosterShares = computed(() => allRosterShares.value.slice(0, 5))
+const showAllPopular = ref(false)
 // Teams with a roster — the bar scale (a full bar = every team has them).
 const rosteredTeams = computed(() => rows.value.filter((r) => r.players.length).length)
-function sharePct(n: number) {
-  return rosteredTeams.value ? (n / rosteredTeams.value) * 100 : 0
-}
 
 function reset() {
   rows.value = []
@@ -174,6 +180,7 @@ function reset() {
   moneyCutoff.value = null
   playerScores.value = []
   scoreEpisodes.value = []
+  remainingPlayers.value = 0
 }
 
 // DEV-ONLY: fill every section with believable fake data so the layout can be
@@ -314,6 +321,7 @@ function loadMock() {
   // Points by episode for the Player Scores table. Bruce went out in Ep 5, so
   // his row stops there. Kaleb lost points in Ep 3 (a negative cell).
   scoreEpisodes.value = [1, 2, 3, 4, 5]
+  remainingPlayers.value = 7 // everyone but Bruce
   const scores: [string, number | null, number[]][] = [
     ['Kenzie', null, [4, 7.5, 6, 5, 8.5]],
     ['Q', null, [6, 3, 9, 2, 7.5]],
@@ -446,6 +454,7 @@ async function load() {
     // total. Their row stops after the episode they were voted out in.
     const epNumById = new Map(episodes.map((e) => [e.id, e.number]))
     scoreEpisodes.value = completedNums
+    remainingPlayers.value = contestants.filter((c) => !c.eliminated_episode_id).length
     playerScores.value = contestants
       .map((c) => {
         const pts = snapshots.contestantEpisodePoints[c.id] ?? {}
@@ -610,7 +619,7 @@ onMounted(() => {
               <!-- Same size as the team name on the team card -->
               <div class="min-w-0">
                 <h3 class="text-lg font-bold text-text-default">Season Leaders</h3>
-                <p class="text-xs text-text-subtle">
+                <p class="text-sm text-text-subtle">
                   {{ rows.length }} {{ rows.length === 1 ? 'Team' : 'Teams' }}
                 </p>
               </div>
@@ -706,7 +715,7 @@ onMounted(() => {
             >
               <div class="min-w-0">
                 <h3 class="text-lg font-bold text-text-default">Bounty Breakdown</h3>
-                <p v-if="lastBountyEpisodeNumber" class="truncate text-xs text-text-subtle">
+                <p v-if="lastBountyEpisodeNumber" class="truncate text-sm text-text-subtle">
                   Episode {{ lastBountyEpisodeNumber
                   }}<template v-if="lastBountyEpisodeName">: {{ lastBountyEpisodeName }}</template>
                 </p>
@@ -796,85 +805,53 @@ onMounted(() => {
             >
               <div class="min-w-0">
                 <h3 class="text-lg font-bold text-text-default">Most Popular Players</h3>
-                <p class="text-xs text-text-subtle">
-                  {{ rosteredTeams }} {{ rosteredTeams === 1 ? 'Team' : 'Teams' }}
+                <p class="text-sm text-text-subtle">
+                  {{ remainingPlayers }} {{ remainingPlayers === 1 ? 'Player' : 'Players' }}
+                  Remaining
                 </p>
               </div>
-              <!-- Legend: two series, so identity never rests on color alone -->
-              <div class="flex shrink-0 items-center gap-3 text-xs text-text-subtle">
-                <span class="inline-flex items-center gap-1.5">
-                  <span class="h-2.5 w-2.5 rounded-sm bg-chart-mvp"></span>MVP
-                </span>
-                <span class="inline-flex items-center gap-1.5">
-                  <span class="h-2.5 w-2.5 rounded-sm bg-chart-player"></span>Player
-                </span>
-              </div>
+              <button
+                v-if="allRosterShares.length > rosterShares.length"
+                type="button"
+                :class="headerButtonClass"
+                @click="showAllPopular = true"
+              >
+                View All
+              </button>
             </div>
             <div class="flex flex-1 flex-col p-6">
-              <div v-if="rosterShares.length" class="flex flex-col divide-y divide-border-subtle">
-                <div
-                  v-for="p in rosterShares"
-                  :key="p.contestantId"
-                  class="py-3.5 first:pt-0 last:pb-0"
-                  :title="`${p.name} is on ${p.total} of ${rosteredTeams} teams (${p.mvp} as MVP, ${p.player} as player)`"
-                >
-                  <!-- Photo on the left, spanning both lines; name + total on top,
-                       the split bar underneath. -->
-                  <div class="flex items-center gap-3">
-                    <ContestantAvatar
-                      :photo-url="p.photoUrl"
-                      :name="p.name"
-                      :tribe="p.tribe"
-                      :grayscale="p.out"
-                      :size="36"
-                    />
-                    <div class="min-w-0 flex-1">
-                      <div class="flex items-center gap-2 text-base">
-                        <p
-                          class="flex min-w-0 flex-1 items-center gap-1.5 text-sm font-semibold leading-tight"
-                        >
-                          <span
-                            class="truncate"
-                            :class="p.out ? 'text-text-muted' : 'text-text-default'"
-                            >{{ p.name }}</span
-                          >
-                          <span v-if="p.out" class="shrink-0 text-xs text-status-error">Out</span>
-                          <!-- MVP / player split, beside the name -->
-                          <span class="shrink-0 text-xs font-normal text-text-subtle">
-                            {{ p.mvp }} MVP · {{ p.player }} player
-                          </span>
-                        </p>
-                        <span class="shrink-0 font-semibold tabular-nums text-text-default"
-                          >×{{ p.total }}</span
-                        >
-                      </div>
-                      <!-- Split bar on a neutral track. A 2px surface gap separates the
-                           two segments; an eliminated contestant's bar is dimmed. -->
-                      <div
-                        class="mt-2 flex h-2 w-full overflow-hidden rounded bg-surface-strong"
-                        :class="p.out ? 'opacity-40' : ''"
-                      >
-                        <div
-                          v-if="p.mvp"
-                          class="h-full bg-chart-mvp transition-[width] duration-500"
-                          :class="p.player ? 'border-r-2 border-surface-default' : ''"
-                          :style="{ width: `${sharePct(p.mvp)}%` }"
-                        ></div>
-                        <div
-                          v-if="p.player"
-                          class="h-full bg-chart-player transition-[width] duration-500"
-                          :style="{ width: `${sharePct(p.player)}%` }"
-                        ></div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <PopularPlayersList
+                v-if="rosterShares.length"
+                :shares="rosterShares"
+                :team-count="rosteredTeams"
+              />
               <p v-else class="text-sm text-text-muted">No rosters yet.</p>
             </div>
           </BaseCard>
         </div>
       </section>
+
+      <!-- Every contestant, same view as the card. The legend lives here since
+           the card's header holds the View All button. -->
+      <BaseModal
+        :show="showAllPopular"
+        size="lg"
+        title="Most Popular Players"
+        :subtitle="`${remainingPlayers} ${remainingPlayers === 1 ? 'Player' : 'Players'} Remaining · ${rosteredTeams} ${rosteredTeams === 1 ? 'Team' : 'Teams'}`"
+        @close="showAllPopular = false"
+      >
+        <div class="mb-4 flex items-center gap-3 text-xs text-text-subtle">
+          <span class="inline-flex items-center gap-1.5">
+            <span class="h-2.5 w-2.5 rounded-sm bg-chart-mvp"></span>MVP
+          </span>
+          <span class="inline-flex items-center gap-1.5">
+            <span class="h-2.5 w-2.5 rounded-sm bg-chart-player"></span>Player
+          </span>
+        </div>
+        <div class="-mx-6 max-h-[65vh] overflow-y-auto px-6">
+          <PopularPlayersList :shares="allRosterShares" :team-count="rosteredTeams" />
+        </div>
+      </BaseModal>
 
       <!-- ── 3. Player scores: every contestant's points by episode ───────── -->
       <section v-if="playerScores.length && scoreEpisodes.length">
@@ -884,7 +861,7 @@ onMounted(() => {
           >
             <div class="min-w-0">
               <h3 class="text-lg font-bold text-text-default">Player Scores</h3>
-              <p class="text-xs text-text-subtle">Points by episode</p>
+              <p class="text-sm text-text-subtle">Points by episode</p>
             </div>
             <!-- Legend: shade = points gained (green) or lost (red) that episode -->
             <div class="flex shrink-0 items-center gap-3 text-xs text-text-subtle">

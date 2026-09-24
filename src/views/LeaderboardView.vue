@@ -219,7 +219,6 @@ onMounted(() => seasonStore.load())
                   :name="p.name"
                   :tribe="p.tribe"
                   :grayscale="p.out"
-                  :border-color-override="p.out ? 'var(--color-border-subtle)' : null"
                   :size="24"
                 />
               </div>
@@ -344,9 +343,6 @@ onMounted(() => seasonStore.load())
                         :tribe="row.roster[n - 1]!.tribe"
                         :show-crown="row.roster[n - 1]!.isMvp"
                         :grayscale="row.roster[n - 1]!.out"
-                        :border-color-override="
-                          row.roster[n - 1]!.out ? 'var(--color-border-subtle)' : null
-                        "
                         :size="28"
                       />
                       <span

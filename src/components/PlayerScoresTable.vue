@@ -9,8 +9,9 @@
 // After a contestant is voted out their remaining cells are blank.
 //
 // Scrolls sideways when there are many episodes, with the player and Total
-// columns pinned on the left. The player column has a fixed width so the Total
-// column knows where to pin (left-40).
+// columns pinned on the left. Both have fixed widths so the Total column knows
+// where to pin (left-40). Episode columns cap at 120px via a trailing spacer
+// column that takes the spare width (table cells ignore max-width).
 import { computed } from 'vue'
 import ContestantAvatar from './ContestantAvatar.vue'
 
@@ -60,6 +61,11 @@ function fmt(n: number) {
 
 <template>
   <div class="overflow-x-auto">
+    <!-- Full width so the row dividers span the card. Episode columns ask for
+         120px each and shrink toward their 44px minimum only when many episodes
+         compete for room; past that, the table scrolls sideways. A trailing
+         spacer column (no width) soaks up any spare space, so episode columns
+         never stretch past 120px. -->
     <table class="w-full border-separate border-spacing-0 text-sm">
       <thead>
         <tr>
@@ -69,17 +75,18 @@ function fmt(n: number) {
             Player
           </th>
           <th
-            class="sticky left-40 z-10 border-r border-border-subtle bg-surface-default py-2 pl-1 pr-3 text-right text-xs font-medium text-text-subtle"
+            class="sticky left-40 z-10 w-16 min-w-16 max-w-16 border-r border-border-subtle bg-surface-default py-2 pl-1 pr-3 text-right text-xs font-medium text-text-subtle"
           >
             Total
           </th>
           <th
             v-for="ep in episodes"
             :key="ep"
-            class="min-w-11 px-0.5 py-2 text-center text-xs font-medium text-text-subtle last:pr-6"
+            class="w-[120px] min-w-11 px-0.5 py-2 text-center text-xs font-medium text-text-subtle"
           >
             E{{ ep }}
           </th>
+          <th aria-hidden="true" class="pr-6"></th>
         </tr>
       </thead>
       <tbody>
@@ -106,7 +113,7 @@ function fmt(n: number) {
           </th>
           <!-- Pinned season total, right beside the player -->
           <td
-            class="sticky left-40 z-10 border-r border-t border-border-subtle bg-surface-default py-1.5 pl-1 pr-3 text-right font-semibold tabular-nums text-text-default"
+            class="sticky left-40 z-10 w-16 min-w-16 max-w-16 border-r border-t border-border-subtle bg-surface-default py-1.5 pl-1 pr-3 text-right font-semibold tabular-nums text-text-default"
           >
             {{ fmt(r.total) }}
           </td>
@@ -114,7 +121,7 @@ function fmt(n: number) {
           <td
             v-for="ep in episodes"
             :key="ep"
-            class="border-t border-border-subtle p-0.5 text-center last:pr-6"
+            class="w-[120px] border-t border-border-subtle p-0.5 text-center"
           >
             <div
               v-if="played(r, ep)"
@@ -126,6 +133,8 @@ function fmt(n: number) {
               {{ fmt(r.byEpisode[ep] ?? 0) }}
             </div>
           </td>
+          <!-- Spacer: fills spare width and carries the row divider across -->
+          <td aria-hidden="true" class="border-t border-border-subtle pr-6"></td>
         </tr>
       </tbody>
     </table>
