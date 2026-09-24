@@ -393,7 +393,7 @@ const embedUrl = computed(() => {
                         >
                         <!-- Outcome: did the person they voted for go home this episode? -->
                         <i
-                          class="absolute -right-1 -top-1 rounded-full bg-stone-900 text-base"
+                          class="absolute -right-1 -top-1 rounded-full bg-white text-base"
                           :class="
                             v.success
                               ? 'fa-solid fa-circle-check text-emerald-400'
