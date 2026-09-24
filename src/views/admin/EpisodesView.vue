@@ -3,8 +3,10 @@ import { ref, onMounted, watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '../../lib/supabase'
 import LoadingState from '../../components/LoadingState.vue'
+import TribeBadge from '../../components/TribeBadge.vue'
 import { etInputToIso, isoToEtInput, fmtEt } from '../../lib/time'
 import { displayName } from '../../utils/contestantName'
+import { loadTribeColors } from '../../utils/tribeColors'
 
 type Season = { id: string; name: string; current_episode_id: string | null }
 type Episode = {
@@ -24,6 +26,7 @@ type Contestant = {
   last_name: string | null
   preferred_name: string | null
   eliminated_episode_id: string | null
+  tribe_assignments: { tribe: string; effective_from_episode: number }[]
 }
 
 const router = useRouter()
@@ -106,12 +109,35 @@ async function loadEpisodes() {
 
 async function loadContestants() {
   if (!selectedSeasonId.value) return
+  await loadTribeColors(selectedSeasonId.value)
   const { data } = await supabase
     .from('contestants')
-    .select('id, first_name, last_name, preferred_name, eliminated_episode_id')
+    .select(
+      'id, first_name, last_name, preferred_name, eliminated_episode_id,' +
+        ' contestant_tribe_assignments(tribe, effective_from_episode)',
+    )
     .eq('season_id', selectedSeasonId.value)
     .order('first_name')
-  contestants.value = data ?? []
+  contestants.value = ((data ?? []) as any[]).map((c) => ({
+    id: c.id,
+    first_name: c.first_name,
+    last_name: c.last_name ?? null,
+    preferred_name: c.preferred_name ?? null,
+    eliminated_episode_id: c.eliminated_episode_id ?? null,
+    tribe_assignments: ((c.contestant_tribe_assignments as any[]) ?? []).map((a) => ({
+      tribe: a.tribe,
+      effective_from_episode: a.effective_from_episode,
+    })),
+  }))
+}
+
+// The tribe a contestant was on at a given episode number: the latest assignment
+// that took effect on or before it (append-only — a later one supersedes).
+function tribeAt(c: Contestant, epNum: number): string {
+  const eligible = c.tribe_assignments.filter((a) => a.effective_from_episode <= epNum)
+  if (eligible.length === 0) return ''
+  return eligible.reduce((a, b) => (b.effective_from_episode > a.effective_from_episode ? b : a))
+    .tribe
 }
 
 // Load the saved votes for an episode into voteForm, seeding an empty entry for
@@ -610,6 +636,11 @@ onMounted(loadSeasons)
                   :key="c.id"
                   class="flex items-center gap-2"
                 >
+                  <TribeBadge
+                    v-if="tribeAt(c, form.number)"
+                    :tribe="tribeAt(c, form.number)"
+                    :size="18"
+                  />
                   <span class="w-28 shrink-0 truncate text-sm text-gray-700" :title="displayName(c)">
                     {{ displayName(c) }}
                   </span>

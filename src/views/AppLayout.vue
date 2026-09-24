@@ -41,21 +41,31 @@ watch(() => seasonStore.selectedSeasonId, loadMembership, { immediate: true })
 // which season is being viewed). Gates the "complete your profile" banner so it
 // only nags players who've actually joined this season.
 const hasTeamCurrentSeason = ref(false)
+// Whether that current-season team has paid its entry fee — drives the
+// "pay your league fee" banner. Admins toggle this from the weekly export.
+const feePaidCurrentSeason = ref(false)
 async function loadCurrentSeasonMembership() {
   const uid = auth.user?.id
   const seasonId = seasonStore.currentSeasonId
   if (!uid || !seasonId) {
     hasTeamCurrentSeason.value = false
+    feePaidCurrentSeason.value = false
     return
   }
   const { data } = await supabase
     .from('teams')
-    .select('id')
+    .select('id, paid')
     .eq('season_id', seasonId)
     .eq('user_id', uid)
     .maybeSingle()
   hasTeamCurrentSeason.value = !!data
+  feePaidCurrentSeason.value = data?.paid ?? false
 }
+
+// A player who has joined this season but hasn't paid the entry fee. This
+// banner takes precedence over the "complete your profile" one.
+const needsToPayFee = computed(() => hasTeamCurrentSeason.value && !feePaidCurrentSeason.value)
+
 watch([() => seasonStore.currentSeasonId, () => auth.user?.id], loadCurrentSeasonMembership, {
   immediate: true,
 })
@@ -151,10 +161,20 @@ async function handleSignOut() {
       </button>
     </div>
 
+    <!-- Unpaid-fee banner: takes precedence over the profile banner (same slot)
+         while the player's current-season team hasn't paid its entry fee -->
+    <div
+      v-if="needsToPayFee"
+      class="block shrink-0 bg-status-warning-surface px-6 py-2 text-center text-sm font-medium text-status-warning"
+    >
+      Your $20 league entry fee is unpaid — please pay to stay eligible for prizes.
+    </div>
+
     <!-- Incomplete-profile banner: shown until payment info is filled in, but
-         only once the player has a team in the current season -->
+         only once the player has a team in the current season (and the fee is
+         paid, so the two banners never stack) -->
     <RouterLink
-      v-if="!auth.isProfileComplete && hasTeamCurrentSeason"
+      v-else-if="!auth.isProfileComplete && hasTeamCurrentSeason"
       to="/profile"
       class="block shrink-0 bg-status-warning-surface px-6 py-2 text-center text-sm font-medium text-status-warning hover:opacity-90"
     >

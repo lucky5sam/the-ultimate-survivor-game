@@ -247,14 +247,14 @@ onMounted(() => seasonStore.load())
             <thead class="text-xs uppercase tracking-wide text-text-subtle">
               <tr>
                 <th
-                  class="sticky left-0 top-0 z-30 w-60 min-w-60 bg-surface-subtle px-4 py-3 text-left"
+                  class="sticky left-0 top-0 z-30 w-90 min-w-90 bg-surface-subtle px-4 py-3 text-left"
                 >
                   <div class="flex items-center gap-3">
                     <span>Pl</span>
                     <span>Team</span>
                   </div>
                 </th>
-                <th class="sticky left-60 top-0 z-30 w-20 bg-surface-subtle px-4 py-3 text-left">
+                <th class="sticky left-90 top-0 z-30 w-20 bg-surface-subtle px-4 py-3 text-left">
                   Total
                 </th>
                 <template v-for="n in maxPlayers" :key="n">
@@ -286,7 +286,7 @@ onMounted(() => seasonStore.load())
               >
                 <!-- Team (sticky): rank + name + owner -->
                 <td
-                  class="sticky left-0 z-10 w-60 min-w-60 px-4 py-3 transition-colors group-hover:bg-surface-subtle"
+                  class="sticky left-0 z-10 w-90 min-w-90 px-4 py-3 transition-colors group-hover:bg-surface-subtle"
                   :class="stickyBg(row)"
                 >
                   <div class="flex items-center gap-3">
@@ -367,16 +367,17 @@ onMounted(() => seasonStore.load())
                   </td>
                 </template>
 
-                <!-- Current bounty: the pick's name on a parchment scroll. Locked
-                     picks show for everyone; a not-yet-locked pick shows only on
-                     your own row (dimmed), and stays "Pending" for others. Sized
-                     so it never grows the row: at w-20 the ~2.7:1 scroll is ~30px
+                <!-- Bounty: on a parchment scroll. Once an episode is locked (active,
+                     or past its lock time) its picks can no longer change, so we reveal
+                     that episode's pick (currentBountyName). Before that — while picks
+                     are still editable — we fall back to the previous resolved
+                     episode's pick (lastBountyName); an editable pick stays obfuscated.
+                     Sized so it never grows the row: at w-20 the ~2.7:1 scroll is ~30px
                      tall, under the 32px avatar. -->
                 <td class="px-4 py-3 align-middle text-text-default">
                   <div
-                    v-if="row.currentBountyName || (isMyTeam(row.ownerId) && row.pendingBountyName)"
+                    v-if="row.currentBountyName || row.lastBountyName"
                     class="relative w-20"
-                    :title="!row.currentBountyName ? 'Your pick — not locked in yet' : undefined"
                   >
                     <img
                       :src="parchmentUrl"
@@ -387,17 +388,29 @@ onMounted(() => seasonStore.load())
                     <span
                       class="absolute inset-0 flex items-center justify-center px-2 text-center font-handwritten text-sm leading-none text-material-parchment-ink"
                     >
-                      {{ row.currentBountyName || row.pendingBountyName }}
+                      {{ row.currentBountyName || row.lastBountyName }}
                     </span>
+                    <!-- Outcome: only on a resolved bounty (the lastBounty fallback);
+                         a locked-but-unscored currentBounty has no known result yet. -->
+                    <i
+                      v-if="!row.currentBountyName && row.lastBountyName"
+                      class="absolute -right-1 -top-1 rounded-full bg-white text-base"
+                      :class="
+                        row.lastBountyHit
+                          ? 'fa-solid fa-circle-check text-emerald-400'
+                          : 'fa-solid fa-circle-xmark text-red-400'
+                      "
+                      :title="row.lastBountyHit ? 'Bounty hit' : 'Bounty missed'"
+                    ></i>
                   </div>
-                  <span v-else class="text-text-muted">Pending</span>
+                  <span v-else class="text-text-muted">—</span>
                 </td>
 
                 <td class="whitespace-nowrap px-4 py-3 text-left tabular-nums text-text-default">
                   {{ fmtPts(row.actionPoints) }}
                 </td>
-                <td class="whitespace-nowrap px-4 py-3 text-left tabular-nums text-text-subtle">
-                  {{ row.bountyPoints > 0 ? '+' + fmtPts(row.bountyPoints) : fmtPts(0) }}
+                <td class="whitespace-nowrap px-4 py-3 text-left tabular-nums text-text-default">
+                  {{ fmtPts(row.bountyPoints) }}
                 </td>
                 <td class="whitespace-nowrap px-4 py-3 text-left tabular-nums text-status-error">
                   {{ row.swapPenalty < 0 ? fmtPts(row.swapPenalty) : fmtPts(0) }}

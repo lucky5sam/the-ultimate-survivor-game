@@ -12,9 +12,13 @@ import BaseCard from '../components/base/BaseCard.vue'
 import BaseModal from '../components/base/BaseModal.vue'
 import BaseButton from '../components/base/BaseButton.vue'
 import SeasonScoringModal from '../components/SeasonScoringModal.vue'
+import ContestantDetailModal, {
+  type ContestantEventItem,
+} from '../components/ContestantDetailModal.vue'
 import TribeBadge from '../components/TribeBadge.vue'
 import FireGlow from '../components/FireGlow.vue'
 import LoadingState from '../components/LoadingState.vue'
+import type { ContestantFull } from '../types/contestant'
 
 type EpisodeInfo = {
   id: string
@@ -29,6 +33,7 @@ type EventRow = {
   category: string
   points: number
   count: number
+  contestantId: string
   recipient: string
   tribe: string
   note: string | null
@@ -42,6 +47,45 @@ const episodes = ref<EpisodeInfo[]>([])
 const events = ref<EventRow[]>([])
 const loading = ref(false)
 const errorMsg = ref('')
+
+// Full contestant records, keyed by id, so clicking a recipient name can open the
+// shared player-details modal (same one the team pages use).
+const contestantsById = ref<Record<string, ContestantFull>>({})
+const detailContestant = ref<ContestantFull | null>(null)
+const detailEvents = ref<ContestantEventItem[]>([])
+const detailEventsLoading = ref(false)
+
+const seasonName = computed(
+  () => seasonStore.seasons.find((s) => s.id === seasonStore.selectedSeasonId)?.name ?? '',
+)
+
+async function openContestantDetails(contestantId: string) {
+  const c = contestantsById.value[contestantId] ?? null
+  if (!c) return
+  detailContestant.value = c
+  detailEvents.value = []
+  detailEventsLoading.value = true
+  try {
+    const epNumById = Object.fromEntries(episodes.value.map((e) => [e.id, e.number]))
+    const episodeIds = episodes.value.map((e) => e.id)
+    if (episodeIds.length === 0) return
+    const { data } = await supabase
+      .from('contestant_actions')
+      .select('episode_id, count, action_types(category, points)')
+      .eq('contestant_id', contestantId)
+      .in('episode_id', episodeIds)
+    detailEvents.value = (data ?? []).map((a: any) => ({
+      episodeNumber: epNumById[a.episode_id] ?? 0,
+      label: (a.action_types as { category: string } | null)?.category ?? 'Action',
+      points: (a.action_types as { points: number } | null)?.points ?? 0,
+      count: a.count ?? 1,
+    }))
+  } catch {
+    detailEvents.value = []
+  } finally {
+    detailEventsLoading.value = false
+  }
+}
 
 // Full-note modal (notes can be long, so the column is just a link).
 const activeNote = ref<{
@@ -139,16 +183,33 @@ async function loadEvents() {
     // season filter is a simple top-level column, not a fragile embedded filter.
     const { data: contRows } = await supabase
       .from('contestants')
-      .select('id, contestant_tribe_assignments(tribe, effective_from_episode)')
+      .select(
+        'id, first_name, last_name, preferred_name, photo_url, alt_image, video_url, bio, age,' +
+          ' hometown, occupation, contestant_tribe_assignments(tribe, effective_from_episode)',
+      )
       .eq('season_id', seasonId)
     const assignmentsByContestant: Record<string, TribeAssignment[]> = {}
-    for (const c of contRows ?? []) {
-      assignmentsByContestant[c.id] = ((c.contestant_tribe_assignments as any[]) ?? []).map(
-        (a) => ({
-          tribe: a.tribe,
-          effective_from_episode: a.effective_from_episode,
-        }),
-      )
+    const contById: Record<string, ContestantFull> = {}
+    for (const c of (contRows ?? []) as any[]) {
+      const assignments = ((c.contestant_tribe_assignments as any[]) ?? []).map((a) => ({
+        tribe: a.tribe,
+        effective_from_episode: a.effective_from_episode,
+      }))
+      assignmentsByContestant[c.id] = assignments
+      contById[c.id] = {
+        id: c.id,
+        first_name: c.first_name,
+        last_name: c.last_name ?? null,
+        preferred_name: c.preferred_name ?? null,
+        tribe: assignments.find((a) => a.effective_from_episode === 1)?.tribe ?? 'Unknown',
+        photo_url: c.photo_url ?? null,
+        alt_image: c.alt_image ?? null,
+        video_url: c.video_url ?? null,
+        bio: c.bio ?? null,
+        age: c.age ?? null,
+        hometown: c.hometown ?? null,
+        occupation: c.occupation ?? null,
+      }
     }
     // The tribe in force for a contestant at a given episode number: the latest
     // assignment that took effect on or before it (append-only — a later
@@ -177,6 +238,7 @@ async function loadEvents() {
       category: a.action_types?.category ?? '—',
       points: a.action_types?.points ?? 0,
       count: a.count ?? 1,
+      contestantId: a.contestant_id,
       recipient: a.contestants ? shortName(a.contestants) : '?',
       tribe: tribeAt(a.contestant_id, epNumById[a.episode_id] ?? 0),
       note: a.note ?? null,
@@ -186,6 +248,7 @@ async function loadEvents() {
     if (seq !== loadSeq) return
     episodes.value = epList
     events.value = eventRows
+    contestantsById.value = contById
   } catch (e) {
     if (seq !== loadSeq) return
     errorMsg.value = e instanceof Error ? e.message : 'Failed to load the event log'
@@ -253,15 +316,15 @@ onMounted(() => seasonStore.load())
           <table class="w-full table-fixed border-collapse text-sm">
             <colgroup>
               <col class="w-40" />
-              <col class="w-16" />
               <col class="w-40" />
+              <col class="w-16" />
               <col class="w-28" />
             </colgroup>
             <thead class="text-xs uppercase tracking-wide text-text-muted">
               <tr class="border-b border-border-subtle">
+                <th class="px-4 py-2 text-left font-medium">Recipient</th>
                 <th class="px-4 py-2 text-left font-medium">Category</th>
                 <th class="px-4 py-2 text-left font-medium">Points</th>
-                <th class="px-4 py-2 text-left font-medium">Recipient</th>
                 <th class="px-4 py-2 text-left font-medium">Note</th>
               </tr>
             </thead>
@@ -271,6 +334,17 @@ onMounted(() => seasonStore.load())
                 :key="row.id"
                 class="border-b border-border-subtle last:border-0"
               >
+                <td class="px-4 py-2.5 align-top text-text-default">
+                  <div class="flex items-center gap-2">
+                    <TribeBadge v-if="row.tribe" :tribe="row.tribe" />
+                    <button
+                      class="break-words text-left text-text-default hover:underline"
+                      @click="openContestantDetails(row.contestantId)"
+                    >
+                      {{ row.recipient }}
+                    </button>
+                  </div>
+                </td>
                 <td class="px-4 py-2.5 align-top text-text-default">
                   <span class="break-words">{{ row.category }}</span
                   ><span v-if="row.count > 1" class="ml-1 text-text-muted">×{{ row.count }}</span>
@@ -283,12 +357,6 @@ onMounted(() => seasonStore.load())
                   }}<span v-if="row.count > 1" class="text-text-muted">
                     ({{ pointsLabel(row.points * row.count) }})</span
                   >
-                </td>
-                <td class="px-4 py-2.5 align-top text-text-default">
-                  <div class="flex items-center gap-2">
-                    <TribeBadge v-if="row.tribe" :tribe="row.tribe" />
-                    <span class="break-words">{{ row.recipient }}</span>
-                  </div>
                 </td>
                 <td class="px-4 py-2.5 align-top">
                   <button
@@ -312,6 +380,18 @@ onMounted(() => seasonStore.load())
       :show="showScoringModal"
       :season-id="seasonStore.selectedSeasonId"
       @close="showScoringModal = false"
+    />
+
+    <!-- Player details (same modal the team pages use), opened from a recipient name -->
+    <ContestantDetailModal
+      :contestant="detailContestant"
+      :show="!!detailContestant"
+      :season-name="seasonName"
+      show-event-log
+      show-votes
+      :events="detailEvents"
+      :events-loading="detailEventsLoading"
+      @close="detailContestant = null"
     />
 
     <BaseModal :show="!!activeNote" title="Note" @close="activeNote = null">
