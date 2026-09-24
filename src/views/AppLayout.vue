@@ -56,11 +56,9 @@ async function loadCurrentSeasonMembership() {
     .maybeSingle()
   hasTeamCurrentSeason.value = !!data
 }
-watch(
-  [() => seasonStore.currentSeasonId, () => auth.user?.id],
-  loadCurrentSeasonMembership,
-  { immediate: true },
-)
+watch([() => seasonStore.currentSeasonId, () => auth.user?.id], loadCurrentSeasonMembership, {
+  immediate: true,
+})
 
 // Team-less players get no tabs, so keep them off the tabbed pages (Profile
 // stays reachable via the avatar menu). Admins are exempt — they manage the
@@ -77,14 +75,17 @@ watchEffect(() => {
   }
 })
 
-const tabs = [
-  { label: 'Home', to: '/dashboard' },
-  { label: 'My Team', to: '/my-team' },
-  { label: 'Leaderboard', to: '/leaderboard' },
-  { label: 'Event Log', to: '/event-log' },
-]
+// League Home is admin-only for now (see the router), so only admins get the tab.
+const tabs = computed(() =>
+  [
+    { label: 'Home', to: '/dashboard', adminOnly: true },
+    { label: 'My Team', to: '/my-team' },
+    { label: 'Leaderboard', to: '/leaderboard' },
+    { label: 'Event Log', to: '/event-log' },
+  ].filter((t) => !t.adminOnly || auth.isAdmin),
+)
 
-const activeTab = computed(() => tabs.find((t) => t.to === route.path) ?? tabs[0]!)
+const activeTab = computed(() => tabs.value.find((t) => t.to === route.path) ?? tabs.value[0]!)
 const menuOpen = ref(false)
 const userMenuOpen = ref(false)
 const seasonModalOpen = ref(false)
@@ -284,10 +285,7 @@ async function handleSignOut() {
     </nav>
 
     <!-- Primary tabs condensed into a secondary bar (mobile) -->
-    <div
-      v-if="showTabs && !route.meta.hideMobileTabs"
-      class="relative shrink-0 sm:hidden"
-    >
+    <div v-if="showTabs && !route.meta.hideMobileTabs" class="relative shrink-0 sm:hidden">
       <button
         @click="menuOpen = !menuOpen"
         class="flex min-h-12 w-full items-center gap-2.5 border-b border-border-subtle bg-surface-page px-4 py-2 text-left text-base font-medium text-text-default transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-border-accent"
