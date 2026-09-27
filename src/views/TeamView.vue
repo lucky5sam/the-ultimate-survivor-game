@@ -1052,8 +1052,8 @@ onUnmounted(() => {
               <p class="mt-0.5 text-2xl font-bold text-text-default">
                 {{ formatPlace(myRank ?? 0, myTied) }}
               </p>
-              <p v-if="inMoney" class="text-xs font-semibold text-status-success">In the Money</p>
-              <p v-else class="text-xs text-text-muted">{{ totalTeams }} total teams</p>
+              <p v-if="inMoney" class="text-sm font-semibold text-status-success">In the Money</p>
+              <p v-else class="text-sm text-text-muted">{{ totalTeams }} total teams</p>
             </BaseCard>
             <BaseCard
               padding="sm"
@@ -1066,7 +1066,7 @@ onUnmounted(() => {
             >
               <p class="text-sm font-medium text-text-subtle">Score</p>
               <p class="mt-0.5 text-2xl font-bold text-text-default">{{ fmtPts(myScore ?? 0) }}</p>
-              <p class="text-xs text-text-muted">1st Place: {{ fmtPts(topScore) }} points</p>
+              <p class="text-sm text-text-muted">1st Place: {{ fmtPts(topScore) }} points</p>
             </BaseCard>
           </div>
 
@@ -1136,6 +1136,7 @@ onUnmounted(() => {
             show-tribe
             details-interactive
             expand-names
+            sepia-avatars
             :pick-interactive="!!nextUpcomingEpisode"
             @open-details="openContestantDetails"
             @update-pick="openBountyModal"
@@ -1258,7 +1259,6 @@ onUnmounted(() => {
     <ContestantDetailModal
       :contestant="detailContestant"
       :show="!!detailContestant"
-      :season-name="currentSeason?.name"
       show-event-log
       show-votes
       :events="detailEvents"

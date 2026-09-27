@@ -162,11 +162,15 @@ function playerStatus(id: string): { out: boolean; ep: number | null } {
           />
           <div>
             <div class="flex items-center gap-1">
-              <p class="text-sm font-semibold leading-tight">
-                <span class="text-text-default">{{ contestantPrimary(player.contestant_id) }}</span>
+              <!-- A voted-out player's name drops to the subtle text color -->
+              <p
+                class="text-sm font-semibold leading-tight"
+                :class="playerStatus(player.contestant_id).out ? 'text-text-subtle' : 'text-text-default'"
+              >
+                <span>{{ contestantPrimary(player.contestant_id) }}</span>
                 <span
                   v-if="contestantSecondary(player.contestant_id)"
-                  class="ml-1 text-text-default"
+                  class="ml-1"
                   :class="expandNames ? 'inline' : 'hidden sm:inline'"
                   >{{ contestantSecondary(player.contestant_id) }}</span
                 >

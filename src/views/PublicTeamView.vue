@@ -101,7 +101,6 @@ const teamNameEl = ref<HTMLElement | null>(null)
 const showBreadcrumb = ref(false)
 let headerObserver: IntersectionObserver | undefined
 
-const seasonName = ref<string | null>(null)
 const detailContestant = ref<Contestant | null>(null)
 const detailEvents = ref<ContestantEventItem[]>([])
 const detailEventsLoading = ref(false)
@@ -263,7 +262,6 @@ async function load() {
     ])
 
     if (season) {
-      seasonName.value = season.name
       currentEpisodeId.value = season.current_episode_id
       seasonConfig.value = {
         bounty_points_pre_merge: season.bounty_points_pre_merge,
@@ -517,7 +515,6 @@ onUnmounted(() => {
     <ContestantDetailModal
       :contestant="detailContestant"
       :show="!!detailContestant"
-      :season-name="seasonName ?? undefined"
       show-event-log
       show-votes
       :events="detailEvents"

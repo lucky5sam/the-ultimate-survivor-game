@@ -55,10 +55,6 @@ const detailContestant = ref<ContestantFull | null>(null)
 const detailEvents = ref<ContestantEventItem[]>([])
 const detailEventsLoading = ref(false)
 
-const seasonName = computed(
-  () => seasonStore.seasons.find((s) => s.id === seasonStore.selectedSeasonId)?.name ?? '',
-)
-
 async function openContestantDetails(contestantId: string) {
   const c = contestantsById.value[contestantId] ?? null
   if (!c) return
@@ -386,7 +382,6 @@ onMounted(() => seasonStore.load())
     <ContestantDetailModal
       :contestant="detailContestant"
       :show="!!detailContestant"
-      :season-name="seasonName"
       show-event-log
       show-votes
       :events="detailEvents"

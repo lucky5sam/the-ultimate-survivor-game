@@ -867,7 +867,6 @@ async function lockIn() {
   <ContestantDetailModal
     :contestant="detailContestant"
     :show="!!detailContestant"
-    :season-name="seasonName"
     @close="detailContestant = null"
   />
 </template>
