@@ -70,6 +70,10 @@ const router = createRouter({
         { path: 'action-types', component: () => import('../views/admin/ActionTypesView.vue') },
         { path: 'settings', component: () => import('../views/admin/SettingsView.vue') },
         { path: 'export', component: () => import('../views/admin/ExportView.vue') },
+        {
+          path: 'transactions',
+          component: () => import('../views/admin/TransactionLogView.vue'),
+        },
       ],
     },
   ],

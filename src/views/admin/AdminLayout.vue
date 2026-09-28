@@ -59,6 +59,13 @@ async function handleSignOut() {
         >
           Weekly Export
         </RouterLink>
+        <RouterLink
+          to="/admin/transactions"
+          class="block px-3 py-2 rounded-lg text-sm hover:bg-gray-700"
+          active-class="bg-gray-700"
+        >
+          Transaction Log
+        </RouterLink>
       </nav>
       <div class="px-4 py-4 border-t border-gray-700 text-xs text-gray-400">
         <p class="truncate mb-2">{{ auth.user?.email }}</p>

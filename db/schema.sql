@@ -11,7 +11,8 @@
 --     INFERRED here: `on delete cascade` is applied to team-owned child rows
 --     (so deleting a team/profile cleans up its data), matching prior intent.
 --     Verify against the live DB if a delete-rule detail matters.
---   * CHECK constraints, indexes (beyond those implied by PK/UNIQUE),
+--   * CHECK constraints (except team_swaps_penalty_not_positive, added
+--     after the review), indexes (beyond those implied by PK/UNIQUE),
 --     triggers, and functions are NOT captured here. Notably:
 --       - the `profiles_no_self_admin` BEFORE UPDATE trigger (blocks privilege
 --         escalation on is_admin) exists in the DB but is not defined here.
@@ -183,7 +184,11 @@ create table team_swaps (
   added_contestant_id uuid references contestants(id),
   effective_from_episode int not null,
   penalty_points int not null default 0,    -- stored negative; subtracts directly
-  created_at timestamptz default now()
+  created_at timestamptz default now(),
+  -- Players insert their own swaps directly (team_swaps_insert_own), and the
+  -- leaderboard adds penalty_points as-is — so a positive value would award
+  -- free points. Added 2026-09-27 after the security audit proved it.
+  constraint team_swaps_penalty_not_positive check (penalty_points <= 0)
 );
 
 
