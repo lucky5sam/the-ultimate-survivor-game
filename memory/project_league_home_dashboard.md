@@ -9,7 +9,7 @@ Sam wanted a league home screen that acts as a summary/dashboard and serves as t
 
 **Why:** Players landed straight on their own team page; Sam wanted a league-wide summary as the first thing they see.
 
-**How to apply:** It lives in `DashboardView.vue` on the `/dashboard` route. It is **admin-only for now** (`requiresAdmin` on the route, `adminOnly` on the Home tab in `AppLayout.vue`, and `/` sends admins to `/dashboard`, everyone else to `/my-team`). Releasing it to players = removing those three gates. See [[project_the_ultimate_survivor_game_fantasy]] and the append-only / client-side-scoring conventions.
+**How to apply:** It lives in `DashboardView.vue` on the `/dashboard` route. It is **limited to admins plus a temporary tester email list for now** (added 2026-09-30 for a quick test): `DASHBOARD_TESTERS` + `canViewDashboard` in `stores/auth.ts`, used by the `/dashboard` `beforeEnter`, the `dashboardOnly` Home tab in `AppLayout.vue`, and `/` (sends those users to `/dashboard`, everyone else to `/my-team`). Releasing it to players = removing those three gates and the tester list. See [[project_the_ultimate_survivor_game_fantasy]] and the append-only / client-side-scoring conventions.
 
 ---
 

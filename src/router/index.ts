@@ -14,20 +14,22 @@ const router = createRouter({
       meta: { requiresAuth: true },
       children: [
         {
-          // The front door. League Home is admin-only for now (still being
-          // built), so admins land there and everyone else lands on My Team.
-          // A beforeEnter guard rather than a plain redirect: it runs after the
-          // global guard below has waited for auth, so isAdmin is known.
+          // The front door. League Home is limited to admins and testers for
+          // now (still being built), so they land there and everyone else
+          // lands on My Team. A beforeEnter guard rather than a plain redirect:
+          // it runs after the global guard below has waited for auth, so the
+          // profile is known.
           path: '',
           component: () => import('../views/TeamView.vue'),
-          beforeEnter: () => (useAuthStore().isAdmin ? '/dashboard' : '/my-team'),
+          beforeEnter: () => (useAuthStore().canViewDashboard ? '/dashboard' : '/my-team'),
         },
         {
-          // League Home — admin-only until it's ready for players. Drop
-          // requiresAdmin (and the tab filter in AppLayout) to release it.
+          // League Home — admins and testers (DASHBOARD_TESTERS in the auth
+          // store) until it's ready for players. Drop this guard (and the tab
+          // filter in AppLayout) to release it.
           path: 'dashboard',
           component: () => import('../views/DashboardView.vue'),
-          meta: { requiresAdmin: true },
+          beforeEnter: () => useAuthStore().canViewDashboard || '/my-team',
         },
         { path: 'leaderboard', component: () => import('../views/LeaderboardView.vue') },
         { path: 'event-log', component: () => import('../views/EventLogView.vue') },

@@ -3,6 +3,10 @@ import { defineStore } from 'pinia'
 import { supabase } from '../lib/supabase'
 import type { User } from '@supabase/supabase-js'
 
+// Non-admin accounts that can preview League Home before it's released.
+// Temporary, for testing — lowercase emails. Remove once Home ships to everyone.
+const DASHBOARD_TESTERS: string[] = ['albers.carter@gmail.com', 'nickcittadino21@gmail.com']
+
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
   const isAdmin = ref(false)
@@ -22,6 +26,11 @@ export const useAuthStore = defineStore('auth', () => {
     if (paymentMethod.value === 'other') return paymentNote.value.trim().length > 0
     return paymentHandle.value.trim().length > 0
   })
+
+  // League Home is gated to admins plus the tester list above.
+  const canViewDashboard = computed(
+    () => isAdmin.value || DASHBOARD_TESTERS.includes(user.value?.email?.toLowerCase() ?? ''),
+  )
 
   async function fetchProfile(userId: string) {
     const { data } = await supabase
@@ -139,6 +148,7 @@ export const useAuthStore = defineStore('auth', () => {
   return {
     user,
     isAdmin,
+    canViewDashboard,
     firstName,
     lastName,
     avatarUrl,
