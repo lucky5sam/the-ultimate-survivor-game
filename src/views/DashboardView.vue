@@ -164,6 +164,10 @@ const allRosterShares = computed<RosterShare[]>(() => {
 })
 const rosterShares = computed(() => allRosterShares.value.slice(0, 5))
 const showAllPopular = ref(false)
+// Rosters stay private until the season starts (any episode active/completed or
+// past its lock), so preseason drafters can't see who everyone else is picking.
+// Same rule as the League Picks tiles in ContestantDetailModal.
+const seasonStarted = ref(false)
 // Teams with a roster — the bar scale (a full bar = every team has them).
 const rosteredTeams = computed(() => rows.value.filter((r) => r.players.length).length)
 
@@ -182,6 +186,7 @@ function reset() {
   playerScores.value = []
   scoreEpisodes.value = []
   remainingPlayers.value = 0
+  seasonStarted.value = false
 }
 
 // DEV-ONLY: fill every section with believable fake data so the layout can be
@@ -363,6 +368,7 @@ async function load() {
   // out and the ?mock flag does nothing on the live site.
   if (import.meta.env.DEV && route.query.mock) {
     loadMock()
+    seasonStarted.value = true
     return
   }
 
@@ -387,6 +393,13 @@ async function load() {
       .order('number')
     if (epErr) throw new Error(epErr.message)
     const episodes = (eps ?? []) as Episode[]
+    const now = Date.now()
+    seasonStarted.value = episodes.some(
+      (e) =>
+        e.status === 'active' ||
+        e.status === 'completed' ||
+        (e.locks_at != null && Date.parse(e.locks_at) <= now),
+    )
 
     const completed = episodes
       .filter((e) => e.status === 'completed')
@@ -810,7 +823,7 @@ onMounted(() => {
                 </p>
               </div>
               <button
-                v-if="allRosterShares.length > rosterShares.length"
+                v-if="seasonStarted && allRosterShares.length > rosterShares.length"
                 type="button"
                 :class="headerButtonClass"
                 @click="showAllPopular = true"
@@ -819,8 +832,11 @@ onMounted(() => {
               </button>
             </div>
             <div class="flex flex-1 flex-col p-6">
+              <p v-if="!seasonStarted" class="text-sm text-text-muted">
+                Revealed once the season starts.
+              </p>
               <PopularPlayersList
-                v-if="rosterShares.length"
+                v-else-if="rosterShares.length"
                 :shares="rosterShares"
                 :team-count="rosteredTeams"
               />

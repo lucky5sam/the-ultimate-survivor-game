@@ -85,18 +85,14 @@ watchEffect(() => {
   }
 })
 
-// League Home is limited to admins and testers for now (see the router), so
-// only they get the tab.
-const tabs = computed(() =>
-  [
-    { label: 'Home', to: '/dashboard', dashboardOnly: true },
-    { label: 'My Team', to: '/my-team' },
-    { label: 'Leaderboard', to: '/leaderboard' },
-    { label: 'Event Log', to: '/event-log' },
-  ].filter((t) => !t.dashboardOnly || auth.canViewDashboard),
-)
+const tabs = [
+  { label: 'Home', to: '/dashboard' },
+  { label: 'My Team', to: '/my-team' },
+  { label: 'Leaderboard', to: '/leaderboard' },
+  { label: 'Event Log', to: '/event-log' },
+]
 
-const activeTab = computed(() => tabs.value.find((t) => t.to === route.path) ?? tabs.value[0]!)
+const activeTab = computed(() => tabs.find((t) => t.to === route.path) ?? tabs[0]!)
 const menuOpen = ref(false)
 const userMenuOpen = ref(false)
 const seasonModalOpen = ref(false)

@@ -9,7 +9,7 @@ Sam wanted a league home screen that acts as a summary/dashboard and serves as t
 
 **Why:** Players landed straight on their own team page; Sam wanted a league-wide summary as the first thing they see.
 
-**How to apply:** It lives in `DashboardView.vue` on the `/dashboard` route. It is **limited to admins plus a temporary tester email list for now** (added 2026-09-30 for a quick test): `DASHBOARD_TESTERS` + `canViewDashboard` in `stores/auth.ts`, used by the `/dashboard` `beforeEnter`, the `dashboardOnly` Home tab in `AppLayout.vue`, and `/` (sends those users to `/dashboard`, everyone else to `/my-team`). Releasing it to players = removing those three gates and the tester list. See [[project_the_ultimate_survivor_game_fantasy]] and the append-only / client-side-scoring conventions.
+**How to apply:** It lives in `DashboardView.vue` on the `/dashboard` route. **Released to everyone (branch `feature/release-league-home`, 2026-09-30):** `/` redirects to `/dashboard` for all players and the Home tab is unconditional; the earlier admin-only gate and temporary tester email list were removed. Team-less players are still funneled to `/my-team` (the wizard) by `AppLayout.vue`. Most Popular Players shows "Revealed once the season starts" in preseason (same season-started rule as `ContestantDetailModal`'s League Picks), so drafters can't see others' picks. See [[project_the_ultimate_survivor_game_fantasy]] and the append-only / client-side-scoring conventions.
 
 ---
 
