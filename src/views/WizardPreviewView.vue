@@ -7,6 +7,7 @@ import { supabase } from '../lib/supabase'
 import { useSeasonStore } from '../stores/season'
 import { useAuthStore } from '../stores/auth'
 import { loadTribeColors } from '../utils/tribeColors'
+import { currentTribe } from '../utils/tribe'
 import type { ContestantFull } from '../types/contestant'
 import TeamCreateWizard from '../components/TeamCreateWizard.vue'
 import LoadingState from '../components/LoadingState.vue'
@@ -47,9 +48,7 @@ async function loadContestants() {
       first_name: c.first_name,
       last_name: c.last_name ?? null,
       preferred_name: c.preferred_name ?? null,
-      tribe:
-        (c.contestant_tribe_assignments as any[]).find((a) => a.effective_from_episode === 1)
-          ?.tribe ?? 'Unknown',
+      tribe: currentTribe(c.contestant_tribe_assignments) ?? 'Unknown',
       photo_url: c.photo_url ?? null,
       alt_image: c.alt_image ?? null,
       video_url: c.video_url ?? null,

@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase'
 import { displayName, shortName } from '../utils/contestantName'
+import { currentTribe } from '../utils/tribe'
 
 // Shared client-side scoring. Used by the leaderboard and the Team page so the
 // two never drift. Throws on query error; caller handles messaging.
@@ -278,12 +279,11 @@ async function fetchLeaderboardData(seasonId: string): Promise<LeaderboardData |
     for (const c of nameData ?? []) {
       contestantShortNameMap[c.id] = shortName(c)
       contestantPhotoMap[c.id] = c.photo_url ?? null
-      // Match the roster view: use the starting (episode 1) tribe assignment.
+      // Match the roster view: the current (latest) tribe assignment.
       contestantTribeMap[c.id] =
-        (
-          (c.contestant_tribe_assignments as { tribe: string; effective_from_episode: number }[]) ??
-          []
-        ).find((a) => a.effective_from_episode === 1)?.tribe ?? 'Unknown'
+        currentTribe(
+          c.contestant_tribe_assignments as { tribe: string; effective_from_episode: number }[],
+        ) ?? 'Unknown'
     }
   }
 

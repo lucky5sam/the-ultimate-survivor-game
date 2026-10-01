@@ -16,6 +16,7 @@ import { useSeasonStore } from '../stores/season'
 import { useAuthStore } from '../stores/auth'
 import { computeLeaderboardSnapshots, type LeaderboardRow } from '../composables/useLeaderboard'
 import { shortName } from '../utils/contestantName'
+import { currentTribe } from '../utils/tribe'
 import { formatPlace, formatPlaceShort } from '../utils/place'
 import BaseCard from '../components/base/BaseCard.vue'
 import LoadingState from '../components/LoadingState.vue'
@@ -464,10 +465,8 @@ async function load() {
           id: c.id,
           name: shortName(c),
           photoUrl: c.photo_url ?? null,
-          // Starting tribe, matching the roster and leaderboard views.
-          tribe:
-            (c.contestant_tribe_assignments ?? []).find((a) => a.effective_from_episode === 1)
-              ?.tribe ?? null,
+          // Current tribe, matching the roster and leaderboard views.
+          tribe: currentTribe(c.contestant_tribe_assignments),
           eliminatedEp: c.eliminated_episode_id
             ? (epNumById.get(c.eliminated_episode_id) ?? null)
             : null,

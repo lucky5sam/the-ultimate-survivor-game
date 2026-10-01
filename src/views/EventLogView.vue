@@ -7,6 +7,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { supabase } from '../lib/supabase'
 import { loadTribeColors } from '../utils/tribeColors'
 import { shortName } from '../utils/contestantName'
+import { currentTribe } from '../utils/tribe'
 import { useSeasonStore } from '../stores/season'
 import BaseCard from '../components/base/BaseCard.vue'
 import BaseModal from '../components/base/BaseModal.vue'
@@ -197,7 +198,7 @@ async function loadEvents() {
         first_name: c.first_name,
         last_name: c.last_name ?? null,
         preferred_name: c.preferred_name ?? null,
-        tribe: assignments.find((a) => a.effective_from_episode === 1)?.tribe ?? 'Unknown',
+        tribe: currentTribe(assignments) ?? 'Unknown',
         photo_url: c.photo_url ?? null,
         alt_image: c.alt_image ?? null,
         video_url: c.video_url ?? null,

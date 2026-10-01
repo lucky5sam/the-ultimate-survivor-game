@@ -32,6 +32,7 @@ import {
 import { loadTribeColors } from '../utils/tribeColors'
 import { fullName, displayName, shortName } from '../utils/contestantName'
 import { formatPlace } from '../utils/place'
+import { currentTribe } from '../utils/tribe'
 import parchmentUrl from '../assets/survivor_decor_parchment.svg'
 import type { ContestantFull } from '../types/contestant'
 import type { BountyHistoryRow } from '../types/bounty'
@@ -484,9 +485,7 @@ async function loadContestants() {
     first_name: c.first_name,
     last_name: c.last_name ?? null,
     preferred_name: c.preferred_name ?? null,
-    tribe:
-      (c.contestant_tribe_assignments as any[]).find((a) => a.effective_from_episode === 1)
-        ?.tribe ?? 'Unknown',
+    tribe: currentTribe(c.contestant_tribe_assignments) ?? 'Unknown',
     photo_url: c.photo_url ?? null,
     alt_image: c.alt_image ?? null,
     video_url: c.video_url ?? null,
