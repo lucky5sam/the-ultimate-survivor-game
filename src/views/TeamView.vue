@@ -6,6 +6,7 @@ import { fmtEt } from '../lib/time'
 import { useAuthStore } from '../stores/auth'
 import { useSeasonStore } from '../stores/season'
 import { useUiStore } from '../stores/ui'
+import { useSpoilerStore } from '../stores/spoiler'
 import TeamCreateWizard from '../components/TeamCreateWizard.vue'
 import ContestantSelect from '../components/ContestantSelect.vue'
 import TeamRosterList from '../components/TeamRosterList.vue'
@@ -33,12 +34,14 @@ import { loadTribeColors } from '../utils/tribeColors'
 import { fullName, displayName, shortName } from '../utils/contestantName'
 import { formatPlace } from '../utils/place'
 import { currentTribe } from '../utils/tribe'
+import { aired, committed, rewindEpisode } from '../utils/spoiler'
 import parchmentUrl from '../assets/survivor_decor_parchment.svg'
 import type { ContestantFull } from '../types/contestant'
 import type { BountyHistoryRow } from '../types/bounty'
 import InviteBanner from '../components/InviteBanner.vue'
 import FireGlow from '../components/FireGlow.vue'
 import RulesModal from '../components/RulesModal.vue'
+import SpoilerBanner from '../components/SpoilerBanner.vue'
 
 type Season = {
   id: string
@@ -87,6 +90,7 @@ const router = useRouter()
 const toast = useToast()
 const seasonStore = useSeasonStore()
 const uiStore = useUiStore()
+const spoiler = useSpoilerStore()
 
 // Season list + selection live in the shared store (driven by the top-of-page
 // season selector). Aliased here so the rest of this view is unchanged.
@@ -98,10 +102,25 @@ const selectedSeasonId = computed({
   },
 })
 const currentSeasonId = computed(() => seasonStore.currentSeasonId)
+// Spoiler protection: the last episode this player can see results for, or null
+// for everything. While it's set, roster and bounty changes are locked — picking
+// well would mean knowing who was just voted out.
+const spoilerCap = computed(() => spoiler.capFor(selectedSeasonId.value))
 const breakdownModalOpen = ref(false)
 const allContestants = ref<Contestant[]>([])
-const eliminatedEpisodeIdByContestant = ref<Record<string, string | null>>({})
+// As stored, then as this player may see it (eliminations past the spoiler cap
+// haven't happened yet).
+const storedElimByContestant = ref<Record<string, string | null>>({})
 const allEpisodes = ref<EpisodeInfo[]>([])
+const eliminatedEpisodeIdByContestant = computed<Record<string, string | null>>(() => {
+  const epNum = new Map(allEpisodes.value.map((e) => [e.id, e.number]))
+  return Object.fromEntries(
+    Object.entries(storedElimByContestant.value).map(([id, ep]) => [
+      id,
+      ep && aired(epNum.get(ep), spoilerCap.value) ? ep : null,
+    ]),
+  )
+})
 const existingTeam = ref<{
   id: string
   team_name: string | null
@@ -249,7 +268,11 @@ const rosterSorted = computed(() =>
 // Roster edits are only allowed with an upcoming episode, swaps remaining, and
 // before the season's permanent swap lock.
 const canManageRoster = computed(
-  () => !!nextUpcomingEpisode.value && !atMaxSwaps.value && !swapsLocked.value,
+  () =>
+    !!nextUpcomingEpisode.value &&
+    !atMaxSwaps.value &&
+    !swapsLocked.value &&
+    spoilerCap.value == null,
 )
 
 // Position-chip action menu (teleported so the card's overflow can't clip it).
@@ -485,7 +508,7 @@ async function loadContestants() {
     first_name: c.first_name,
     last_name: c.last_name ?? null,
     preferred_name: c.preferred_name ?? null,
-    tribe: currentTribe(c.contestant_tribe_assignments) ?? 'Unknown',
+    tribe: currentTribe(c.contestant_tribe_assignments, spoilerCap.value) ?? 'Unknown',
     photo_url: c.photo_url ?? null,
     alt_image: c.alt_image ?? null,
     video_url: c.video_url ?? null,
@@ -494,7 +517,7 @@ async function loadContestants() {
     hometown: c.hometown ?? null,
     occupation: c.occupation ?? null,
   }))
-  eliminatedEpisodeIdByContestant.value = Object.fromEntries(
+  storedElimByContestant.value = Object.fromEntries(
     (data ?? []).map((c: any) => [c.id, c.eliminated_episode_id ?? null]),
   )
 }
@@ -616,7 +639,7 @@ async function loadEpisodesAndBounty() {
     .eq('season_id', selectedSeasonId.value)
     .order('number')
 
-  allEpisodes.value = eps ?? []
+  allEpisodes.value = (eps ?? []).map((e) => rewindEpisode(e, spoilerCap.value))
 
   if (!existingTeam.value) {
     allBountyPicks.value = []
@@ -628,7 +651,9 @@ async function loadEpisodesAndBounty() {
     .select('contestant_id, effective_from_episode')
     .eq('team_id', existingTeam.value.id)
     .order('effective_from_episode', { ascending: true })
-  allBountyPicks.value = picks ?? []
+  allBountyPicks.value = (picks ?? []).filter((p) =>
+    committed(p.effective_from_episode, spoilerCap.value),
+  )
 
   newBountyContestantId.value = currentBountyPick.value?.contestant_id ?? null
 }
@@ -677,7 +702,12 @@ async function loadMyStanding() {
   secondScore.value = 0
   if (!selectedSeasonId.value || !existingTeam.value) return
   try {
-    const board = await computeLeaderboard(selectedSeasonId.value)
+    const board = await computeLeaderboard(
+      selectedSeasonId.value,
+      null,
+      null,
+      spoilerCap.value,
+    )
     totalTeams.value = board.length
     topScore.value = board[0]?.totalPoints ?? 0
     secondScore.value = board[1]?.totalPoints ?? 0
@@ -700,7 +730,11 @@ async function openBreakdown() {
   if (!selectedSeasonId.value || !existingTeam.value) return
   breakdownLoading.value = true
   try {
-    breakdown.value = await computeTeamBreakdown(selectedSeasonId.value, existingTeam.value.id)
+    breakdown.value = await computeTeamBreakdown(
+      selectedSeasonId.value,
+      existingTeam.value.id,
+      spoilerCap.value,
+    )
   } catch {
     breakdown.value = null
   } finally {
@@ -718,8 +752,9 @@ async function openContestantDetails(contestantId: string) {
   detailEvents.value = []
   detailEventsLoading.value = true
   try {
-    const epNumById = Object.fromEntries(allEpisodes.value.map((e) => [e.id, e.number]))
-    const episodeIds = allEpisodes.value.map((e) => e.id)
+    const visibleEps = allEpisodes.value.filter((e) => aired(e.number, spoilerCap.value))
+    const epNumById = Object.fromEntries(visibleEps.map((e) => [e.id, e.number]))
+    const episodeIds = visibleEps.map((e) => e.id)
     if (episodeIds.length === 0) return
     const { data } = await supabase
       .from('contestant_actions')
@@ -1001,6 +1036,9 @@ onUnmounted(() => {
       <template v-if="seasons.length > 0">
         <!-- Team, standing, roster, and bounty stacked with a single gap -->
         <div class="flex flex-col gap-4">
+          <!-- Spoiler Protection card (only while the latest episode is hidden). -->
+          <SpoilerBanner />
+
           <!-- Team header — team avatar beside the team name (primary identity) -->
           <div class="flex items-center gap-3">
             <TeamAvatar
@@ -1105,7 +1143,10 @@ onUnmounted(() => {
             <template #footer>
               <div class="space-y-0.5 border-t border-border-subtle bg-surface-subtle px-4 py-2">
                 <!-- Lock status (moved here from the header subtext). -->
-                <p v-if="!nextUpcomingEpisode" class="text-xs text-text-muted">
+                <p v-if="spoilerCap !== null" class="text-xs text-text-muted">
+                  Roster changes are paused until you reveal Episode {{ spoiler.latest?.number }}
+                </p>
+                <p v-else-if="!nextUpcomingEpisode" class="text-xs text-text-muted">
                   <template v-if="lockedAiringEpisode"
                     >Roster locked — Episode {{ lockedAiringEpisode.number }} in progress</template
                   >
@@ -1136,7 +1177,7 @@ onUnmounted(() => {
             details-interactive
             expand-names
             sepia-avatars
-            :pick-interactive="!!nextUpcomingEpisode"
+            :pick-interactive="!!nextUpcomingEpisode && spoilerCap === null"
             @open-details="openContestantDetails"
             @update-pick="openBountyModal"
             :empty-text="
@@ -1145,7 +1186,7 @@ onUnmounted(() => {
           >
             <template #header-actions>
               <BaseButton
-                v-if="nextUpcomingEpisode"
+                v-if="nextUpcomingEpisode && spoilerCap === null"
                 variant="secondary"
                 size="sm"
                 @click="openBountyModal"

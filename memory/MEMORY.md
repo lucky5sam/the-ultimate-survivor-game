@@ -8,4 +8,5 @@
 - [Git workflow](feedback_git_workflow.md) — Default to feature branch + PR (app has live players); direct-to-main only for genuine quick hotfixes
 - [RLS policies in repo](feedback_rls_policies_in_repo.md) — RLS policies are tracked in db/policies.sql (source of truth); mirror any Supabase policy change there
 - [Action volume per season](project_action_volume.md) — Seasons max ~450 contestant_actions rows, so the 1,000-row Supabase cap isn't a concern; don't re-raise paging
+- [Spoiler Protection](project_spoiler_protection.md) — Per-player episode cap (profiles columns + stores/spoiler.ts); new player-facing episode data MUST apply spoiler.capFor via utils/spoiler.ts
 - [League home dashboard](project_league_home_dashboard.md) — The league home/summary screen; current layout, data sources, and that it's released to all players (Popular Players hidden preseason)

@@ -12,6 +12,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../stores/auth'
+import { useSpoilerStore } from '../stores/spoiler'
 import BaseButton from '../components/base/BaseButton.vue'
 import BaseCard from '../components/base/BaseCard.vue'
 import TeamAvatar from '../components/TeamAvatar.vue'
@@ -31,6 +32,7 @@ import {
 import { loadTribeColors } from '../utils/tribeColors'
 import { formatPlace } from '../utils/place'
 import { currentTribe } from '../utils/tribe'
+import { aired, committed, rewindEpisode, rosterEnd } from '../utils/spoiler'
 import type { ContestantFull } from '../types/contestant'
 import type { BountyHistoryRow } from '../types/bounty'
 
@@ -71,6 +73,9 @@ const teamEmoji = ref<string | null>(null)
 const teamColor = ref<string | null>(null)
 const ownerName = ref('')
 const seasonId = ref('')
+// Spoiler protection: this team as the viewer may see it (see utils/spoiler.ts).
+const spoiler = useSpoilerStore()
+const spoilerCap = computed(() => spoiler.capFor(seasonId.value))
 const currentEpisodeId = ref<string | null>(null)
 
 const allContestants = ref<Contestant[]>([])
@@ -173,8 +178,9 @@ async function openContestantDetails(contestantId: string) {
   detailEvents.value = []
   detailEventsLoading.value = true
   try {
-    const epNumById = Object.fromEntries(allEpisodes.value.map((e) => [e.id, e.number]))
-    const episodeIds = allEpisodes.value.map((e) => e.id)
+    const visibleEps = allEpisodes.value.filter((e) => aired(e.number, spoilerCap.value))
+    const epNumById = Object.fromEntries(visibleEps.map((e) => [e.id, e.number]))
+    const episodeIds = visibleEps.map((e) => e.id)
     if (episodeIds.length === 0) return
     const { data } = await supabase
       .from('contestant_actions')
@@ -199,7 +205,7 @@ async function openBreakdown() {
   if (breakdown.value) return
   breakdownLoading.value = true
   try {
-    breakdown.value = await computeTeamBreakdown(seasonId.value, teamId.value)
+    breakdown.value = await computeTeamBreakdown(seasonId.value, teamId.value, spoilerCap.value)
   } catch {
     breakdown.value = null
   } finally {
@@ -290,8 +296,7 @@ async function load() {
         supabase
           .from('team_players')
           .select('contestant_id, role, effective_from_episode, effective_to_episode')
-          .eq('team_id', team.id)
-          .is('effective_to_episode', null),
+          .eq('team_id', team.id),
         supabase
           .from('bounty_picks')
           .select('contestant_id, effective_from_episode')
@@ -304,7 +309,7 @@ async function load() {
       first_name: c.first_name,
       last_name: c.last_name ?? null,
       preferred_name: c.preferred_name ?? null,
-      tribe: currentTribe(c.contestant_tribe_assignments) ?? 'Unknown',
+      tribe: currentTribe(c.contestant_tribe_assignments, spoilerCap.value) ?? 'Unknown',
       photo_url: c.photo_url ?? null,
       alt_image: c.alt_image ?? null,
       video_url: c.video_url ?? null,
@@ -313,20 +318,33 @@ async function load() {
       hometown: c.hometown ?? null,
       occupation: c.occupation ?? null,
     }))
+    // Rewound to the spoiler cap: later eliminations, swaps and picks don't show.
+    const cap = spoilerCap.value
+    const epNum = new Map((eps ?? []).map((e) => [e.id, e.number]))
     eliminatedEpisodeIdByContestant.value = Object.fromEntries(
-      (contestants ?? []).map((c: any) => [c.id, c.eliminated_episode_id ?? null]),
+      (contestants ?? []).map((c: any) => [
+        c.id,
+        c.eliminated_episode_id && aired(epNum.get(c.eliminated_episode_id), cap)
+          ? c.eliminated_episode_id
+          : null,
+      ]),
     )
-    allEpisodes.value = eps ?? []
-    activePlayers.value = (roster ?? []).map((p: any) => ({
+    allEpisodes.value = (eps ?? []).map((e) => rewindEpisode(e, cap))
+    // The roster in force: open-ended once rewound.
+    const current = (roster ?? []).filter(
+      (p: any) =>
+        committed(p.effective_from_episode, cap) && rosterEnd(p.effective_to_episode, cap) == null,
+    )
+    activePlayers.value = current.map((p: any) => ({
       contestant_id: p.contestant_id,
       role: p.role as 'mvp' | 'player',
       effective_from_episode: p.effective_from_episode,
     }))
-    allBountyPicks.value = picks ?? []
+    allBountyPicks.value = (picks ?? []).filter((p) => committed(p.effective_from_episode, cap))
 
     // Standing (rank + score + per-player points) from the shared leaderboard math.
     try {
-      const board = await computeLeaderboard(team.season_id)
+      const board = await computeLeaderboard(team.season_id, null, null, cap)
       totalTeams.value = board.length
       topScore.value = board[0]?.totalPoints ?? 0
       const idx = board.findIndex((r) => r.teamId === team.id)

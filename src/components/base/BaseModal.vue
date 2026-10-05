@@ -19,6 +19,8 @@ const props = withDefaults(
   defineProps<{
     show: boolean
     title?: string
+    // Optional Font Awesome icon shown before the title, e.g. 'fa-solid fa-eye-slash'.
+    titleIcon?: string
     subtitle?: string
     size?: 'sm' | 'md' | 'lg'
     hideClose?: boolean
@@ -27,8 +29,11 @@ const props = withDefaults(
     zIndex?: number
     // Ambient fire glow anchored flush to the bottom edge of the modal.
     fireGlow?: boolean
+    // Blur the page behind the backdrop (e.g. the spoiler prompt, so nothing
+    // underneath is readable).
+    blurBackdrop?: boolean
   }>(),
-  { size: 'sm', hideClose: false, fireGlow: false },
+  { size: 'sm', hideClose: false, fireGlow: false, blurBackdrop: false },
 )
 
 const emit = defineEmits<{ close: [] }>()
@@ -87,6 +92,9 @@ watch(
       unlockScroll()
     }
   },
+  // Immediate, so a modal that mounts already open (e.g. the spoiler prompt)
+  // still locks the page behind it.
+  { immediate: true },
 )
 
 onUnmounted(() => {
@@ -101,6 +109,7 @@ onUnmounted(() => {
       <div
         v-if="show"
         class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+        :class="blurBackdrop ? 'backdrop-blur-md' : ''"
         :style="zIndex != null ? { zIndex } : undefined"
         @click.self="emit('close')"
       >
@@ -126,7 +135,10 @@ onUnmounted(() => {
               <i class="fa-solid fa-xmark text-xl"></i>
             </button>
             <div v-if="title || subtitle" class="mb-3 pr-8">
-              <h2 v-if="title" class="text-lg font-bold text-text-default">{{ title }}</h2>
+              <h2 v-if="title" class="flex items-center gap-2 text-lg font-bold text-text-default">
+                <i v-if="titleIcon" :class="titleIcon" aria-hidden="true"></i>
+                {{ title }}
+              </h2>
               <p v-if="subtitle" class="text-sm text-text-subtle">{{ subtitle }}</p>
             </div>
             <slot />

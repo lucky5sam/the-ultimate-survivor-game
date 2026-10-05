@@ -36,7 +36,12 @@ create table profiles (
   payment_method text,                      -- '' | 'venmo' | 'zelle' | 'other'
   payment_handle text,                      -- SENSITIVE: never expose via public_profiles
   payment_note text,                        -- SENSITIVE
-  avatar_url text
+  avatar_url text,
+  -- Spoiler protection (stores/spoiler.ts): the latest episode the player
+  -- answered the "have you watched?" prompt for, and the latest they confirmed
+  -- watching. Written by the player via profiles_update_own.
+  spoiler_answered_episode_id uuid,         -- FK added below (references episodes)
+  spoiler_revealed_episode_id uuid          -- FK added below (references episodes)
 );
 
 create table seasons (
@@ -101,6 +106,16 @@ alter table seasons
 alter table episodes
   add constraint episodes_bounty_contestant_id_fkey
   foreign key (bounty_contestant_id) references contestants(id);
+
+-- Spoiler protection answers (added 2026-09-30). Deleting an episode clears
+-- them, which just means the player is asked again.
+alter table profiles
+  add constraint profiles_spoiler_answered_episode_fk
+  foreign key (spoiler_answered_episode_id) references episodes(id) on delete set null;
+
+alter table profiles
+  add constraint profiles_spoiler_revealed_episode_fk
+  foreign key (spoiler_revealed_episode_id) references episodes(id) on delete set null;
 
 
 -- ---------- Scoring configuration ---------------------------------------

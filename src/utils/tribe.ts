@@ -3,10 +3,19 @@
 // the latest effective_from_episode.
 type TribeAssignment = { tribe: string; effective_from_episode: number }
 
-export function currentTribe(assignments: TribeAssignment[] | null | undefined): string | null {
-  let latest: TribeAssignment | null = null
-  for (const a of assignments ?? []) {
-    if (!latest || a.effective_from_episode > latest.effective_from_episode) latest = a
+// `throughEpisode` (spoiler protection) ignores changes made in later episodes;
+// the earliest assignment always counts as the starting tribe.
+export function currentTribe(
+  assignments: TribeAssignment[] | null | undefined,
+  throughEpisode: number | null = null,
+): string | null {
+  const sorted = [...(assignments ?? [])].sort(
+    (a, b) => a.effective_from_episode - b.effective_from_episode,
+  )
+  let tribe = sorted[0]?.tribe ?? null
+  for (const a of sorted) {
+    if (throughEpisode != null && a.effective_from_episode > throughEpisode) break
+    tribe = a.tribe
   }
-  return latest?.tribe ?? null
+  return tribe
 }

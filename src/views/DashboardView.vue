@@ -14,9 +14,11 @@ import { useRoute } from 'vue-router'
 import { supabase } from '../lib/supabase'
 import { useSeasonStore } from '../stores/season'
 import { useAuthStore } from '../stores/auth'
+import { useSpoilerStore } from '../stores/spoiler'
 import { computeLeaderboardSnapshots, type LeaderboardRow } from '../composables/useLeaderboard'
 import { shortName } from '../utils/contestantName'
 import { currentTribe } from '../utils/tribe'
+import { aired, rewindEpisode } from '../utils/spoiler'
 import { formatPlace, formatPlaceShort } from '../utils/place'
 import BaseCard from '../components/base/BaseCard.vue'
 import LoadingState from '../components/LoadingState.vue'
@@ -26,6 +28,7 @@ import PlaceHistoryChart, { type PlacePoint } from '../components/PlaceHistoryCh
 import PlayerScoresTable, { type PlayerScoreRow } from '../components/PlayerScoresTable.vue'
 import PopularPlayersList, { type RosterShare } from '../components/PopularPlayersList.vue'
 import BaseModal from '../components/base/BaseModal.vue'
+import SpoilerBanner from '../components/SpoilerBanner.vue'
 import parchmentUrl from '../assets/survivor_decor_parchment.svg'
 import { loadTribeColors } from '../utils/tribeColors'
 
@@ -61,6 +64,7 @@ type ContestantRow = {
 
 const seasonStore = useSeasonStore()
 const auth = useAuthStore()
+const spoiler = useSpoilerStore()
 const route = useRoute()
 
 const loading = ref(false)
@@ -392,7 +396,11 @@ async function load() {
       .eq('season_id', seasonId)
       .order('number')
     if (epErr) throw new Error(epErr.message)
-    const episodes = (eps ?? []) as Episode[]
+    // Spoiler protection: episodes past the player's cap read as unfinished, so
+    // they drop out of every "completed" list below (chart, scores, bounty card).
+    const cap = spoiler.capFor(seasonId)
+    const episodes = ((eps ?? []) as Episode[]).map((e) => rewindEpisode(e, cap))
+    const epNumById = new Map(episodes.map((e) => [e.id, e.number]))
     const now = Date.now()
     seasonStarted.value = episodes.some(
       (e) =>
@@ -413,7 +421,7 @@ async function load() {
     const completedNums = completed.map((e) => e.number).sort((a, b) => a - b)
     const completedIds = completed.map((e) => e.id)
     const [snapshots, , contestantsRes, seasonRes, votesRes] = await Promise.all([
-      computeLeaderboardSnapshots(seasonId, completedNums, myUid),
+      computeLeaderboardSnapshots(seasonId, completedNums, myUid, cap),
       // The season's custom tribe colors, for the photo rings.
       loadTribeColors(seasonId),
       supabase
@@ -455,7 +463,12 @@ async function load() {
       : []
 
     // Episodes that voted someone out — tells us which episodes resolved a bounty.
-    const contestants = (contestantsRes.data ?? []) as ContestantRow[]
+    // An elimination past the cap hasn't happened yet for this player.
+    const contestants = ((contestantsRes.data ?? []) as ContestantRow[]).map((c) =>
+      c.eliminated_episode_id && !aired(epNumById.get(c.eliminated_episode_id), cap)
+        ? { ...c, eliminated_episode_id: null }
+        : c,
+    )
     const epsWithElim = new Set<string>()
     const photoById = new Map<string, string | null>()
     for (const c of contestants) {
@@ -466,7 +479,6 @@ async function load() {
     // ── Player scores ──
     // Every contestant's own points per completed episode, sorted by season
     // total. Their row stops after the episode they were voted out in.
-    const epNumById = new Map(episodes.map((e) => [e.id, e.number]))
     scoreEpisodes.value = completedNums
     remainingPlayers.value = contestants.filter((c) => !c.eliminated_episode_id).length
     playerScores.value = contestants
@@ -479,7 +491,7 @@ async function load() {
           name: shortName(c),
           photoUrl: c.photo_url ?? null,
           // Current tribe, matching the roster and leaderboard views.
-          tribe: currentTribe(c.contestant_tribe_assignments),
+          tribe: currentTribe(c.contestant_tribe_assignments, cap),
           eliminatedEp: c.eliminated_episode_id
             ? (epNumById.get(c.eliminated_episode_id) ?? null)
             : null,
@@ -553,6 +565,7 @@ onMounted(() => {
 
 <template>
   <div class="mx-auto w-full max-w-6xl px-4 py-4 sm:px-6 sm:py-6">
+    <SpoilerBanner class="mb-6" />
     <h2 class="mb-6 text-2xl font-bold text-text-default">League Home</h2>
 
     <p v-if="errorMsg" class="mb-4 text-sm text-status-error">{{ errorMsg }}</p>

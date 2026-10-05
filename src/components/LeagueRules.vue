@@ -163,6 +163,12 @@ const showScoringModal = ref(false)
             of the Commissioner.</strong
           >
         </li>
+        <li>
+          Watching later? When a new episode starts, the app asks whether you've seen it. Choose
+          <strong>Keep Spoiler Protection on</strong> and it stays frozen at the previous episode —
+          scores, standings and who was voted out — until you tap <strong>I've Watched</strong> on
+          My Team. Swaps and bounty picks unlock once you do.
+        </li>
       </ul>
     </div>
 

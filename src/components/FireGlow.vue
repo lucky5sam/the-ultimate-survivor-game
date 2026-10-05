@@ -13,6 +13,8 @@
 // as you scroll; `absolute` pins it to the nearest positioned ancestor, letting
 // you scope the glow to a single section (give that section `relative`).
 import { computed } from 'vue'
+import { useSpoilerStore } from '../stores/spoiler'
+import { useSeasonStore } from '../stores/season'
 
 const props = withDefaults(
   defineProps<{
@@ -29,6 +31,12 @@ const props = withDefaults(
   // never intercepts input no matter how high it stacks.
   { height: 120, maxWidth: 600, position: 'fixed', zIndex: 9999, embers: true, emberCount: 12 },
 )
+
+// Spoiler Protection: while the latest episode is hidden for this player, the
+// fire turns to ice — the app is "frozen" at the previous episode.
+const spoiler = useSpoilerStore()
+const seasonStore = useSeasonStore()
+const frozen = computed(() => spoiler.capFor(seasonStore.selectedSeasonId) !== null)
 
 // Randomized once at mount (Math.random is fine in browser runtime). Each ember
 // carries its own spread, size, drift, rise height, speed, and start delay via
@@ -55,6 +63,7 @@ const embers = computed(() => {
   <div
     aria-hidden="true"
     class="fire-glow-root pointer-events-none select-none"
+    :class="{ frozen }"
     :style="{
       position,
       zIndex,
@@ -91,16 +100,44 @@ const embers = computed(() => {
   right: 0;
   bottom: 0;
   /* overflow visible so embers can rise past the band's top edge */
+
+  /* Palette, swapped wholesale by .frozen below. Shadow colors are RGB
+     channels so each keyframe can set its own alpha. */
+  --glow-core: #ffc04d;
+  --glow-mid: #ff5500;
+  --glow-edge: #4a0000;
+  --glow-hot: 255 95 0;
+  --glow-warm: 255 165 0;
+  --ember-core: #ffd98a;
+  --ember-mid: #ff7a1a;
+  --ember-fade: rgb(255 120 0 / 0);
+}
+
+/* Ice: pale-cyan core, sky-blue body, deep-navy edge; embers become frost. */
+.fire-glow-root.frozen {
+  --glow-core: #e0f7ff;
+  --glow-mid: #38a8f0;
+  --glow-edge: #0b2545;
+  --glow-hot: 70 170 255;
+  --glow-warm: 160 220 255;
+  --ember-core: #ffffff;
+  --ember-mid: #8fd8ff;
+  --ember-fade: rgb(140 210 255 / 0);
 }
 
 .fire-glow {
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle at bottom, #ffc04d 10%, #ff5500 60%, #4a0000 100%);
+  background: radial-gradient(
+    circle at bottom,
+    var(--glow-core) 10%,
+    var(--glow-mid) 60%,
+    var(--glow-edge) 100%
+  );
   filter: blur(120px);
   box-shadow:
-    0 -20px 60px 25px rgba(255, 90, 0, 0.4),
-    0 -40px 110px 50px rgba(255, 160, 0, 0.25);
+    0 -20px 60px 25px rgb(var(--glow-hot) / 0.4),
+    0 -40px 110px 50px rgb(var(--glow-warm) / 0.25);
   transform-origin: bottom center;
   /* A fast, non-alternating loop gives a continuous, campfire-like flicker. */
   animation: fire-glow-flicker 3.4s infinite ease-in-out;
@@ -117,7 +154,12 @@ const embers = computed(() => {
   width: var(--size);
   height: var(--size);
   border-radius: 9999px;
-  background: radial-gradient(circle, #ffd98a 0%, #ff7a1a 55%, rgba(255, 120, 0, 0) 72%);
+  background: radial-gradient(
+    circle,
+    var(--ember-core) 0%,
+    var(--ember-mid) 55%,
+    var(--ember-fade) 72%
+  );
   filter: blur(0.6px);
   opacity: 0;
   will-change: transform, opacity;
@@ -138,8 +180,8 @@ const embers = computed(() => {
     border-radius: 40% 25% 15% 10% / 55% 45% 15% 10%; /* left side reaches up */
     opacity: 0.3;
     box-shadow:
-      0 -25px 70px 30px rgba(255, 100, 0, 0.42),
-      0 -45px 125px 55px rgba(255, 170, 0, 0.28);
+      0 -25px 70px 30px rgb(var(--glow-hot) / 0.42),
+      0 -45px 125px 55px rgb(var(--glow-warm) / 0.28);
   }
   40% {
     transform: scale(0.96, 1.02) skewX(1deg) translateX(2px);
@@ -151,8 +193,8 @@ const embers = computed(() => {
     border-radius: 30% 30% 12% 8% / 35% 35% 12% 8%; /* squashes slightly */
     opacity: 0.48;
     box-shadow:
-      0 -22px 65px 28px rgba(255, 95, 0, 0.4),
-      0 -42px 115px 52px rgba(255, 165, 0, 0.26);
+      0 -22px 65px 28px rgb(var(--glow-hot) / 0.4),
+      0 -42px 115px 52px rgb(var(--glow-warm) / 0.26);
   }
   85% {
     transform: scale(0.98, 1.06) skewX(3deg) translateX(5px);
