@@ -8,6 +8,8 @@ import { useAuthStore } from '../stores/auth'
 import { useSeasonStore } from '../stores/season'
 import { useUiStore } from '../stores/ui'
 import SeasonSelectModal from '../components/SeasonSelectModal.vue'
+import SpoilerPrompt from '../components/SpoilerPrompt.vue'
+import { useSpoilerStore } from '../stores/spoiler'
 
 const auth = useAuthStore()
 const route = useRoute()
@@ -15,6 +17,7 @@ const router = useRouter()
 
 const seasonStore = useSeasonStore()
 const ui = useUiStore()
+const spoiler = useSpoilerStore()
 seasonStore.load()
 
 // Track whether the user has a team for the selected season. Without one they
@@ -333,11 +336,17 @@ async function handleSignOut() {
       <div v-if="menuOpen" class="fixed inset-0 z-20" @click="menuOpen = false"></div>
     </div>
 
+    <!-- Pages wait for the spoiler check, and remount when the player's cap
+         changes (e.g. they reveal an episode) so every view reloads its data. -->
     <main class="flex flex-1 flex-col">
-      <RouterView />
+      <RouterView v-if="spoiler.ready" :key="String(spoiler.cap)" />
     </main>
 
     <!-- Season picker modal, launched from the profile menu -->
     <SeasonSelectModal :show="seasonModalOpen" @close="seasonModalOpen = false" />
+
+    <!-- Spoiler protection: blocks the app until they answer for a new episode.
+         Team-less players are in the team wizard and see no results. -->
+    <SpoilerPrompt v-if="showTabs" />
   </div>
 </template>

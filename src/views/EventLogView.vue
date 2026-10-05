@@ -9,6 +9,8 @@ import { loadTribeColors } from '../utils/tribeColors'
 import { shortName } from '../utils/contestantName'
 import { currentTribe } from '../utils/tribe'
 import { useSeasonStore } from '../stores/season'
+import { useSpoilerStore } from '../stores/spoiler'
+import { aired } from '../utils/spoiler'
 import BaseCard from '../components/base/BaseCard.vue'
 import BaseModal from '../components/base/BaseModal.vue'
 import BaseButton from '../components/base/BaseButton.vue'
@@ -18,6 +20,7 @@ import ContestantDetailModal, {
 } from '../components/ContestantDetailModal.vue'
 import TribeBadge from '../components/TribeBadge.vue'
 import FireGlow from '../components/FireGlow.vue'
+import SpoilerBanner from '../components/SpoilerBanner.vue'
 import LoadingState from '../components/LoadingState.vue'
 import type { ContestantFull } from '../types/contestant'
 
@@ -43,6 +46,7 @@ type EventRow = {
 type TribeAssignment = { tribe: string; effective_from_episode: number }
 
 const seasonStore = useSeasonStore()
+const spoiler = useSpoilerStore()
 const showScoringModal = ref(false)
 const episodes = ref<EpisodeInfo[]>([])
 const events = ref<EventRow[]>([])
@@ -161,7 +165,10 @@ async function loadEvents() {
       .eq('season_id', seasonId)
       .order('number')
     if (epsErr) throw new Error(epsErr.message)
-    const epList = (eps ?? []) as EpisodeInfo[]
+    // Spoiler protection: episodes past the player's cap are left out entirely,
+    // which also keeps their events (and the detail modal's) from loading.
+    const cap = spoiler.capFor(seasonId)
+    const epList = ((eps ?? []) as EpisodeInfo[]).filter((e) => aired(e.number, cap))
 
     const episodeIds = epList.map((e) => e.id)
     if (episodeIds.length === 0) {
@@ -198,7 +205,7 @@ async function loadEvents() {
         first_name: c.first_name,
         last_name: c.last_name ?? null,
         preferred_name: c.preferred_name ?? null,
-        tribe: currentTribe(assignments) ?? 'Unknown',
+        tribe: currentTribe(assignments, cap) ?? 'Unknown',
         photo_url: c.photo_url ?? null,
         alt_image: c.alt_image ?? null,
         video_url: c.video_url ?? null,
@@ -263,6 +270,7 @@ onMounted(() => seasonStore.load())
   <div class="mx-auto w-full max-w-3xl px-4 py-4 sm:px-6 sm:py-6">
     <!-- Ambient Survivor fire glow along the bottom edge (decorative, over content) -->
     <FireGlow />
+    <SpoilerBanner class="mb-6" />
     <div class="mb-6 flex items-center justify-between gap-3">
       <h2 class="text-2xl font-bold text-text-default">Event Log</h2>
       <BaseButton

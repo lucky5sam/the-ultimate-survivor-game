@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase'
 import { displayName, shortName } from '../utils/contestantName'
 import { currentTribe } from '../utils/tribe'
+import { aired, committed, rewindEpisode, rosterEnd, type VisibleThrough } from '../utils/spoiler'
 
 // Shared client-side scoring. Used by the leaderboard and the Team page so the
 // two never drift. Throws on query error; caller handles messaging.
@@ -75,8 +76,11 @@ export async function computeLeaderboard(
   // The owner id whose own not-yet-locked bounty pick should be revealed
   // (pendingBountyName). Everyone else's un-committed pick stays hidden.
   revealPendingOwnerId: string | null = null,
+  // Spoiler protection: the season as this player may see it (see
+  // utils/spoiler.ts). null shows everything.
+  visibleThrough: VisibleThrough = null,
 ): Promise<LeaderboardRow[]> {
-  const data = await fetchLeaderboardData(seasonId)
+  const data = await fetchLeaderboardData(seasonId, visibleThrough)
   return data ? scoreLeaderboard(data, throughEpisode, revealPendingOwnerId) : []
 }
 
@@ -88,6 +92,7 @@ export async function computeLeaderboardSnapshots(
   seasonId: string,
   throughEpisodes: number[],
   revealPendingOwnerId: string | null = null,
+  visibleThrough: VisibleThrough = null,
 ): Promise<{
   current: LeaderboardRow[]
   byEpisode: Record<number, LeaderboardRow[]>
@@ -95,7 +100,7 @@ export async function computeLeaderboardSnapshots(
   // not tied to any team): contestant_id → episode_number → points.
   contestantEpisodePoints: Record<string, Record<number, number>>
 }> {
-  const data = await fetchLeaderboardData(seasonId)
+  const data = await fetchLeaderboardData(seasonId, visibleThrough)
   const byEpisode: Record<number, LeaderboardRow[]> = {}
   if (!data) return { current: [], byEpisode, contestantEpisodePoints: {} }
   for (const n of throughEpisodes) byEpisode[n] = scoreLeaderboard(data, n, null)
@@ -106,8 +111,10 @@ export async function computeLeaderboardSnapshots(
   }
 }
 
-// Everything scoring needs, fetched once per season. Nothing here depends on an
-// episode cap — capping happens in scoreLeaderboard.
+// Everything scoring needs, fetched once per season. The scoring cap
+// (throughEpisode) is applied later in scoreLeaderboard; only the spoiler cap
+// (visibleThrough) is applied here, rewinding the raw rows to what the player
+// may see so nothing downstream can leak past it.
 type EpisodeRecord = {
   id: string
   number: number
@@ -143,7 +150,10 @@ type LeaderboardData = {
   contestantTribeMap: Record<string, string>
 }
 
-async function fetchLeaderboardData(seasonId: string): Promise<LeaderboardData | null> {
+async function fetchLeaderboardData(
+  seasonId: string,
+  cap: VisibleThrough,
+): Promise<LeaderboardData | null> {
   // ── Phase 1: everything keyed only on the season id, fetched in parallel ──
   const [seasonRes, epsRes, elimRes, teamsRes, bountyRes] = await Promise.all([
     supabase
@@ -176,7 +186,7 @@ async function fetchLeaderboardData(seasonId: string): Promise<LeaderboardData |
 
   const config = seasonRes.data as SeasonConfig
 
-  const allEpisodes = (epsRes.data ?? []) as EpisodeRecord[]
+  const allEpisodes = ((epsRes.data ?? []) as EpisodeRecord[]).map((e) => rewindEpisode(e, cap))
   const episodeIds = allEpisodes.map((e) => e.id)
   const epNumById: Record<string, number> = {}
   for (const ep of allEpisodes) epNumById[ep.id] = ep.number
@@ -185,7 +195,7 @@ async function fetchLeaderboardData(seasonId: string): Promise<LeaderboardData |
   const eliminatedByEpisode: Record<string, Set<string>> = {}
   const eliminatedContestants = new Set<string>()
   for (const c of elimRes.data ?? []) {
-    if (c.eliminated_episode_id) {
+    if (c.eliminated_episode_id && aired(epNumById[c.eliminated_episode_id], cap)) {
       ;(eliminatedByEpisode[c.eliminated_episode_id] ??= new Set()).add(c.id)
       eliminatedContestants.add(c.id)
     }
@@ -200,6 +210,7 @@ async function fetchLeaderboardData(seasonId: string): Promise<LeaderboardData |
   const picksByTeam: Record<string, { contestant_id: string; effective_from_episode: number }[]> =
     {}
   for (const pick of bountyRes.data ?? []) {
+    if (!committed(pick.effective_from_episode, cap)) continue
     if (!picksByTeam[pick.team_id]) picksByTeam[pick.team_id] = []
     picksByTeam[pick.team_id]!.push(pick)
   }
@@ -232,7 +243,7 @@ async function fetchLeaderboardData(seasonId: string): Promise<LeaderboardData |
   for (const a of actionsRes.data ?? []) {
     const pts = (a.action_types as unknown as { points: number } | null)?.points ?? 0
     const epNum = epNumById[a.episode_id]
-    if (epNum === undefined) continue
+    if (epNum === undefined || !aired(epNum, cap)) continue
     if (!epActsByContestant[a.contestant_id]) epActsByContestant[a.contestant_id] = {}
     epActsByContestant[a.contestant_id]![epNum] =
       (epActsByContestant[a.contestant_id]![epNum] ?? 0) + pts * a.count
@@ -245,13 +256,16 @@ async function fetchLeaderboardData(seasonId: string): Promise<LeaderboardData |
     ownerNameMap[p.id] = `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim()
   }
 
-  const allTeamPlayers = (tpRes.data ?? []) as TeamPlayerRecord[]
+  const allTeamPlayers = ((tpRes.data ?? []) as TeamPlayerRecord[])
+    .filter((p) => committed(p.effective_from_episode, cap))
+    .map((p) => ({ ...p, effective_to_episode: rosterEnd(p.effective_to_episode, cap) }))
 
   // Swaps per team, with the episode each took effect from (so an "as of
   // episode N" snapshot only counts swaps made by then). penalty_points is stored
   // as a negative value, so it subtracts directly — do NOT negate it.
   const swapsByTeam: Record<string, { penalty: number; fromEpisode: number }[]> = {}
   for (const s of swapsRes.data ?? []) {
+    if (!committed(s.effective_from_episode, cap)) continue
     ;(swapsByTeam[s.team_id] ??= []).push({
       penalty: s.penalty_points,
       fromEpisode: s.effective_from_episode,
@@ -262,7 +276,7 @@ async function fetchLeaderboardData(seasonId: string): Promise<LeaderboardData |
   const contestantIds = [
     ...new Set([
       ...allTeamPlayers.map((p) => p.contestant_id),
-      ...(bountyRes.data ?? []).map((p) => p.contestant_id),
+      ...Object.values(picksByTeam).flatMap((picks) => picks.map((p) => p.contestant_id)),
     ]),
   ]
   // Condensed (preferred/first) names for the tight player + bounty columns.
@@ -283,6 +297,7 @@ async function fetchLeaderboardData(seasonId: string): Promise<LeaderboardData |
       contestantTribeMap[c.id] =
         currentTribe(
           c.contestant_tribe_assignments as { tribe: string; effective_from_episode: number }[],
+          cap,
         ) ?? 'Unknown'
     }
   }
@@ -586,6 +601,8 @@ export type TeamBreakdown = {
 export async function computeTeamBreakdown(
   seasonId: string,
   teamId: string,
+  // Spoiler protection — same rewind as fetchLeaderboardData.
+  cap: VisibleThrough = null,
 ): Promise<TeamBreakdown> {
   // ── Phase 1: season/episodes/eliminations + this team's rows, all in parallel ──
   const [seasonRes, epsRes, elimRes, tpRes, picksRes, swapsRes] = await Promise.all([
@@ -623,7 +640,7 @@ export async function computeTeamBreakdown(
 
   const config = seasonRes.data as SeasonConfig
 
-  const episodes = epsRes.data ?? []
+  const episodes = (epsRes.data ?? []).map((e) => rewindEpisode(e, cap))
   const episodeIds = episodes.map((e) => e.id)
   const epNumById: Record<string, number> = {}
   for (const ep of episodes) epNumById[ep.id] = ep.number
@@ -632,13 +649,15 @@ export async function computeTeamBreakdown(
   // Eliminations are the source of truth for regular-episode bounties.
   const eliminatedByEpisode: Record<string, Set<string>> = {}
   for (const c of elimRes.data ?? []) {
-    if (c.eliminated_episode_id)
+    if (c.eliminated_episode_id && aired(epNumById[c.eliminated_episode_id], cap))
       (eliminatedByEpisode[c.eliminated_episode_id] ??= new Set()).add(c.id)
   }
 
-  const teamPlayers = (tpRes.data ?? []) as Omit<TeamPlayerRecord, 'team_id'>[]
-  const teamPicks = picksRes.data ?? []
-  const teamSwaps = swapsRes.data ?? []
+  const teamPlayers = ((tpRes.data ?? []) as Omit<TeamPlayerRecord, 'team_id'>[])
+    .filter((p) => committed(p.effective_from_episode, cap))
+    .map((p) => ({ ...p, effective_to_episode: rosterEnd(p.effective_to_episode, cap) }))
+  const teamPicks = (picksRes.data ?? []).filter((p) => committed(p.effective_from_episode, cap))
+  const teamSwaps = (swapsRes.data ?? []).filter((s) => committed(s.effective_from_episode, cap))
 
   // ── Phase 2: action points (depends on episodeIds from phase 1) ──
   const epActsByContestant: Record<string, Record<number, number>> = {}
@@ -651,7 +670,7 @@ export async function computeTeamBreakdown(
     for (const a of actions ?? []) {
       const pts = (a.action_types as unknown as { points: number } | null)?.points ?? 0
       const epNum = epNumById[a.episode_id]
-      if (epNum === undefined) continue
+      if (epNum === undefined || !aired(epNum, cap)) continue
       if (!epActsByContestant[a.contestant_id]) epActsByContestant[a.contestant_id] = {}
       epActsByContestant[a.contestant_id]![epNum] =
         (epActsByContestant[a.contestant_id]![epNum] ?? 0) + pts * a.count

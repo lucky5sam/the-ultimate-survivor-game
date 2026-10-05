@@ -6,6 +6,8 @@ import { supabase } from '../lib/supabase'
 import parchmentUrl from '../assets/survivor_decor_parchment.svg'
 import { formatPlace } from '../utils/place'
 import type { ContestantFull } from '../types/contestant'
+import { useSpoilerStore } from '../stores/spoiler'
+import { aired, committed, rewindEpisode, rosterEnd } from '../utils/spoiler'
 
 // One scored action for the Scoring tab. `points` is the per-action value and
 // `count` how many times it happened that episode; the line total is points×count.
@@ -34,6 +36,10 @@ const props = withDefaults(
 )
 
 const emit = defineEmits<{ close: [] }>()
+
+// Spoiler protection: everything below is limited to what this player may see
+// for the contestant's season (see utils/spoiler.ts).
+const spoiler = useSpoilerStore()
 
 const colors = computed(() => (props.contestant ? getTribeColors(props.contestant.tribe) : null))
 
@@ -83,6 +89,7 @@ async function loadVotes() {
   votesLoading.value = true
   votes.value = []
   try {
+    const cap = spoiler.capFor(await fetchSeasonId(c.id))
     const { data } = await supabase
       .from('episode_votes')
       .select(
@@ -96,7 +103,7 @@ async function loadVotes() {
     const byEp = new Map<number, VoteEpisode>()
     for (const row of (data ?? []) as any[]) {
       const num = row.episode?.number
-      if (num == null) continue
+      if (num == null || !aired(num, cap)) continue
       if (!byEp.has(num)) byEp.set(num, { episodeNumber: num, votedFor: [], votedBy: [] })
       const group = byEp.get(num)!
       if (row.voter_contestant_id === c.id && row.target) {
@@ -110,6 +117,8 @@ async function loadVotes() {
       }
     }
     votes.value = [...byEp.values()].sort((a, b) => b.episodeNumber - a.episodeNumber)
+  } catch {
+    // Leave the tab empty rather than risk showing unprotected votes.
   } finally {
     votesLoading.value = false
   }
@@ -171,6 +180,9 @@ function cached<T>(store: Map<string, Promise<T>>, key: string, load: () => Prom
   return p
 }
 const seasonIdCache = new Map<string, Promise<string | null>>()
+// Season data caches are keyed by season AND the player's spoiler cap, so a
+// reveal never serves the earlier, rewound copy.
+const seasonKey = (seasonId: string) => `${seasonId}:${spoiler.capFor(seasonId)}`
 const baseCache = new Map<string, Promise<SeasonBase>>()
 const totalsCache = new Map<string, Promise<Map<string, number>>>()
 const rostersCache = new Map<string, Promise<{ contestant_id: string; role: string }[]>>()
@@ -190,7 +202,7 @@ function fetchSeasonId(contestantId: string) {
 
 // The season's episodes, cast, and (non-test, like the leaderboard) teams.
 function fetchBase(seasonId: string) {
-  return cached(baseCache, seasonId, async () => {
+  return cached(baseCache, seasonKey(seasonId), async () => {
     const [epsRes, castRes, teamsRes] = await Promise.all([
       supabase
         .from('episodes')
@@ -201,27 +213,41 @@ function fetchBase(seasonId: string) {
     ])
     if (epsRes.error || castRes.error || teamsRes.error)
       throw epsRes.error ?? castRes.error ?? teamsRes.error
+    // Rewound to the cap: later episodes read as unfinished, and their
+    // eliminations haven't happened yet.
+    const cap = spoiler.capFor(seasonId)
+    const eps = ((epsRes.data ?? []) as SeasonEpisode[]).map((e) => rewindEpisode(e, cap))
+    const epNum = new Map(eps.map((e) => [e.id, e.number]))
     return {
-      eps: (epsRes.data ?? []) as SeasonEpisode[],
-      cast: (castRes.data ?? []) as SeasonCastaway[],
+      eps,
+      cast: ((castRes.data ?? []) as SeasonCastaway[]).map((c) =>
+        c.eliminated_episode_id && !aired(epNum.get(c.eliminated_episode_id), cap)
+          ? { ...c, eliminated_episode_id: null }
+          : c,
+      ),
       teamIds: (teamsRes.data ?? []).map((t) => t.id as string),
     }
   })
 }
 
 // Every contestant's season points (starting at 0, so castaways with none rank).
-function fetchTotals(seasonId: string, cast: SeasonCastaway[]) {
-  return cached(totalsCache, seasonId, async () => {
+function fetchTotals(seasonId: string, { eps, cast }: SeasonBase) {
+  return cached(totalsCache, seasonKey(seasonId), async () => {
+    const cap = spoiler.capFor(seasonId)
+    const epNum = new Map(eps.map((e) => [e.id, e.number]))
     const totals = new Map<string, number>(cast.map((c) => [c.id, 0]))
     for (let from = 0; ; from += PAGE) {
       const { data: page, error } = await supabase
         .from('contestant_actions')
-        .select('contestant_id, count, action_types(points), contestants!inner(season_id)')
+        .select(
+          'contestant_id, episode_id, count, action_types(points), contestants!inner(season_id)',
+        )
         .eq('contestants.season_id', seasonId)
         .order('id')
         .range(from, from + PAGE - 1)
       if (error) throw error
       for (const a of page ?? []) {
+        if (!aired(epNum.get(a.episode_id), cap)) continue
         const pts = (a.action_types as unknown as { points: number } | null)?.points ?? 0
         totals.set(a.contestant_id, (totals.get(a.contestant_id) ?? 0) + pts * a.count)
       }
@@ -231,22 +257,29 @@ function fetchTotals(seasonId: string, cast: SeasonCastaway[]) {
   })
 }
 
-// Current rosters only (an open-ended record), so it reflects swaps.
+// Current rosters only (an open-ended record), so it reflects swaps — as of
+// the spoiler cap, so swaps made after a hidden episode don't show.
 function fetchRosters(seasonId: string, teamIds: string[]) {
-  return cached(rostersCache, seasonId, async () => {
-    const { data, error } = await supabase
+  return cached(rostersCache, seasonKey(seasonId), async () => {
+    const cap = spoiler.capFor(seasonId)
+    let query = supabase
       .from('team_players')
-      .select('contestant_id, role')
+      .select('contestant_id, role, effective_from_episode, effective_to_episode')
       .in('team_id', teamIds)
-      .is('effective_to_episode', null)
+    if (cap == null) query = query.is('effective_to_episode', null)
+    const { data, error } = await query
     if (error) throw error
-    return data ?? []
+    return (data ?? []).filter(
+      (r) =>
+        committed(r.effective_from_episode, cap) && rosterEnd(r.effective_to_episode, cap) == null,
+    )
   })
 }
 
 // Every league team's bounty picks, grouped per team.
 function fetchPicks(seasonId: string, teamIds: string[]) {
-  return cached(picksCache, seasonId, async () => {
+  return cached(picksCache, seasonKey(seasonId), async () => {
+    const cap = spoiler.capFor(seasonId)
     const inLeague = new Set(teamIds)
     const byTeam = new Map<string, BountyPick[]>()
     for (let from = 0; ; from += PAGE) {
@@ -258,7 +291,7 @@ function fetchPicks(seasonId: string, teamIds: string[]) {
         .range(from, from + PAGE - 1)
       if (error) throw error
       for (const p of page ?? []) {
-        if (!inLeague.has(p.team_id)) continue
+        if (!inLeague.has(p.team_id) || !committed(p.effective_from_episode, cap)) continue
         const list = byTeam.get(p.team_id) ?? []
         list.push(p)
         byTeam.set(p.team_id, list)
@@ -366,8 +399,8 @@ async function loadStanding() {
   try {
     const seasonId = await fetchSeasonId(forId)
     if (!seasonId) return
-    const { cast } = await fetchBase(seasonId)
-    const totals = await fetchTotals(seasonId, cast)
+    const base = await fetchBase(seasonId)
+    const totals = await fetchTotals(seasonId, base)
     if (props.contestant?.id !== forId) return
     const mine = totals.get(forId) ?? 0
     seasonStats.value = { total: mine, ...rankOf(mine, [...totals.values()]) }

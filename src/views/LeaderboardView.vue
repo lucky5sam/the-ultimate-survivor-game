@@ -6,11 +6,13 @@ import { computeLeaderboard, type LeaderboardRow } from '../composables/useLeade
 import { formatPlaceShort } from '../utils/place'
 import { useSeasonStore } from '../stores/season'
 import { useAuthStore } from '../stores/auth'
+import { useSpoilerStore } from '../stores/spoiler'
 import BaseCard from '../components/base/BaseCard.vue'
 import BaseButton from '../components/base/BaseButton.vue'
 import ContestantAvatar from '../components/ContestantAvatar.vue'
 import TeamAvatar from '../components/TeamAvatar.vue'
 import FireGlow from '../components/FireGlow.vue'
+import SpoilerBanner from '../components/SpoilerBanner.vue'
 import LoadingState from '../components/LoadingState.vue'
 import { loadTribeColors } from '../utils/tribeColors'
 import parchmentUrl from '../assets/survivor_decor_parchment.svg'
@@ -18,6 +20,7 @@ import parchmentUrl from '../assets/survivor_decor_parchment.svg'
 const router = useRouter()
 const seasonStore = useSeasonStore()
 const auth = useAuthStore()
+const spoiler = useSpoilerStore()
 const rows = ref<LeaderboardRow[]>([])
 const loading = ref(false)
 const errorMsg = ref('')
@@ -38,7 +41,12 @@ async function loadLeaderboard() {
   try {
     await loadTribeColors(seasonStore.selectedSeasonId)
     const [result, places] = await Promise.all([
-      computeLeaderboard(seasonStore.selectedSeasonId, null, auth.user?.id ?? null),
+      computeLeaderboard(
+        seasonStore.selectedSeasonId,
+        null,
+        auth.user?.id ?? null,
+        spoiler.capFor(seasonStore.selectedSeasonId),
+      ),
       fetchPaidPlaces(seasonStore.selectedSeasonId),
     ])
     if (seq !== loadSeq) return
@@ -130,6 +138,7 @@ onMounted(() => seasonStore.load())
          non-interactive). -->
     <FireGlow position="fixed" :z-index="20" />
     <div class="relative z-10">
+    <SpoilerBanner class="mb-4" />
     <div class="mb-4 ml-1 flex items-start justify-between gap-3">
       <div class="flex-col">
         <h2 class="text-2xl font-bold text-text-default">Leaderboard</h2>

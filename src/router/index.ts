@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { watch } from 'vue'
 import LoginView from '../views/LoginView.vue'
 import { useAuthStore } from '../stores/auth'
+import { useSpoilerStore } from '../stores/spoiler'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -93,6 +94,10 @@ router.beforeEach(async (to) => {
   await waitForReady(auth)
   if (to.meta.requiresAuth && !auth.isLoggedIn()) return { path: '/login' }
   if (to.meta.requiresAdmin && !auth.isAdmin) return { path: '/' }
+  // Spoiler protection: re-check for a newly started episode before any
+  // player page loads data, so its results can't slip through. Admin pages
+  // always show everything.
+  if (to.meta.requiresAuth && !to.path.startsWith('/admin')) await useSpoilerStore().refresh()
 })
 
 export default router
