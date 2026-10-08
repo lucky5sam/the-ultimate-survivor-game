@@ -3,6 +3,10 @@
 // 1st place is at the top, so climbing the leaderboard reads as the line going
 // up. Hover (or drag a finger) to see the episode, place, and points.
 //
+// An optional `projected` point adds the upcoming episode at the team's place
+// right now, drawn dashed. Swaps paid between episodes move the current place
+// away from the last episode's, and this shows where the team heads in from.
+//
 // Plain SVG sized to its container (measured with a ResizeObserver) so text and
 // dots never stretch. Colors come from the theme tokens, so dark mode just works.
 import { ref, computed, onMounted, onUnmounted } from 'vue'
@@ -16,7 +20,16 @@ const props = defineProps<{
   // The lowest place that pays out (e.g. 3 when the top 3 are paid). Draws the
   // in-the-money line just below it. null/undefined hides the line.
   moneyCutoff?: number | null
+  // The upcoming episode at the current place. null/undefined hides it.
+  projected?: PlacePoint | null
 }>()
+
+// Every point on the x-axis: the completed episodes, then the projection.
+const points = computed(() =>
+  props.projected ? [...props.history, props.projected] : props.history,
+)
+// Index of the projected point in `points` (-1 when there isn't one).
+const projectedIndex = computed(() => (props.projected ? props.history.length : -1))
 
 // ── Size ──
 const wrap = ref<HTMLDivElement | null>(null)
@@ -43,7 +56,7 @@ const plotH = computed(() => Math.max(0, height.value - pad.top - pad.bottom))
 // so the line shows where this team sits in the full field.
 const yDomain = computed<[number, number]>(() => [1, Math.max(props.teamCount, 2)])
 function x(i: number) {
-  const n = props.history.length
+  const n = points.value.length
   return pad.left + (n <= 1 ? plotW.value / 2 : (i / (n - 1)) * plotW.value)
 }
 function y(rank: number) {
@@ -63,7 +76,7 @@ const yTicks = computed(() => {
 })
 // Thin out episode labels when there are too many to fit.
 const xLabelEvery = computed(() => {
-  const n = props.history.length
+  const n = points.value.length
   const fit = Math.max(1, Math.floor(plotW.value / 28))
   return Math.max(1, Math.ceil(n / fit))
 })
@@ -79,28 +92,38 @@ const moneyY = computed(() => {
   return at > lo && at < hi ? y(at) : null
 })
 
-// With a single episode there's no movement yet, so draw a flat line across the
-// whole plot at that place (the point sits in the middle, over its E1 label).
+// With a single episode (and no projection) there's no movement yet, so draw a
+// flat line across the whole plot at that place (the point sits in the middle,
+// over its E1 label).
 const linePath = computed(() => {
   const h = props.history
-  if (h.length === 1) {
+  if (h.length === 1 && !props.projected) {
     const yy = y(h[0]!.rank)
     return `M${pad.left},${yy} L${pad.left + plotW.value},${yy}`
   }
   return h.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i)},${y(p.rank)}`).join(' ')
 })
 
+// Dashed segment from the last completed episode to the projection.
+const projectedPath = computed(() => {
+  const last = props.history[props.history.length - 1]
+  const p = props.projected
+  if (!last || !p) return ''
+  const i = props.history.length
+  return `M${x(i - 1)},${y(last.rank)} L${x(i)},${y(p.rank)}`
+})
+
 // ── Hover ──
 const hoverIndex = ref<number | null>(null)
 function onPointer(e: PointerEvent) {
-  const n = props.history.length
+  const n = points.value.length
   if (!n || !wrap.value) return
   const px = e.clientX - wrap.value.getBoundingClientRect().left
   const i = n <= 1 ? 0 : Math.round(((px - pad.left) / plotW.value) * (n - 1))
   hoverIndex.value = Math.min(n - 1, Math.max(0, i))
 }
 const hovered = computed(() =>
-  hoverIndex.value === null ? null : (props.history[hoverIndex.value] ?? null),
+  hoverIndex.value === null ? null : (points.value[hoverIndex.value] ?? null),
 )
 // Keep the tooltip inside the chart near the edges.
 const tooltipStyle = computed(() => {
@@ -172,13 +195,14 @@ const tooltipStyle = computed(() => {
 
       <!-- Episode labels -->
       <text
-        v-for="(p, i) in history"
-        v-show="i % xLabelEvery === 0 || i === history.length - 1"
+        v-for="(p, i) in points"
+        v-show="i % xLabelEvery === 0 || i === points.length - 1"
         :key="p.episode"
         :x="x(i)"
         :y="height - 6"
         text-anchor="middle"
         class="fill-text-muted text-[10px]"
+        :class="{ italic: i === projectedIndex }"
       >
         E{{ p.episode }}
       </text>
@@ -205,6 +229,18 @@ const tooltipStyle = computed(() => {
         stroke-linecap="round"
       />
 
+      <!-- Projection: dashed and lighter, so it reads as "not played yet" -->
+      <path
+        v-if="projectedPath"
+        :d="projectedPath"
+        fill="none"
+        stroke="var(--color-survivor-sand)"
+        stroke-opacity="0.7"
+        stroke-width="2"
+        stroke-dasharray="5 4"
+        stroke-linecap="round"
+      />
+
       <!-- Points: a 2px surface ring keeps them crisp where they sit on the line.
            The hovered point grows. -->
       <circle
@@ -217,6 +253,16 @@ const tooltipStyle = computed(() => {
         stroke="var(--color-surface-default)"
         stroke-width="2"
       />
+      <!-- The projected point is hollow -->
+      <circle
+        v-if="projected"
+        :cx="x(projectedIndex)"
+        :cy="y(projected.rank)"
+        :r="projectedIndex === hoverIndex ? 6 : 4"
+        fill="var(--color-surface-default)"
+        stroke="var(--color-survivor-sand)"
+        stroke-width="2"
+      />
     </svg>
 
     <!-- Tooltip -->
@@ -225,7 +271,9 @@ const tooltipStyle = computed(() => {
       class="pointer-events-none absolute -translate-x-1/2 whitespace-nowrap rounded-md border border-border-default bg-surface-default px-2 py-1 text-xs shadow-sm"
       :style="tooltipStyle"
     >
-      <span class="font-semibold text-text-default">Ep {{ hovered.episode }}</span>
+      <span class="font-semibold text-text-default"
+        >{{ hoverIndex === projectedIndex ? 'Entering Ep' : 'Ep' }} {{ hovered.episode }}</span
+      >
       <span class="text-text-muted"> · </span>
       <span class="text-text-default">{{ formatPlace(hovered.rank, hovered.tied) }}</span>
       <span class="text-text-muted"> · {{ hovered.points.toFixed(1) }} pts</span>

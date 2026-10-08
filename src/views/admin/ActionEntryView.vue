@@ -7,7 +7,8 @@ import { useAuthStore } from '../../stores/auth'
 import { displayName } from '../../utils/contestantName'
 
 type NameFields = { first_name: string; last_name: string | null; preferred_name: string | null }
-type Contestant = { id: string; tribe: string } & NameFields
+// `out` = eliminated in an earlier episode (someone voted out this episode still played it)
+type Contestant = { id: string; tribe: string; out: boolean } & NameFields
 type ActionType = { id: string; type: string; category: string; points: number }
 type ActionEntry = {
   id: string
@@ -75,7 +76,19 @@ const byType = computed(() => {
   return map
 })
 
-const tribes = computed(() => [...new Set(contestants.value.map((c) => c.tribe))].sort())
+// Tribe Quick Add only targets contestants still in the game, so the
+// eliminated can't slip into an episode they weren't part of.
+const activeByTribe = computed(() => {
+  const map: Record<string, Contestant[]> = {}
+  for (const c of contestants.value) {
+    if (c.out) continue
+    if (!map[c.tribe]) map[c.tribe] = []
+    map[c.tribe]!.push(c)
+  }
+  return map
+})
+
+const tribes = computed(() => Object.keys(activeByTribe.value).sort())
 
 const selectedContestantNames = computed(() =>
   form.value.contestantIds.map((id) => {
@@ -142,10 +155,10 @@ async function loadContestants() {
   if (!episode.value) return
   const epNum = episode.value.number
 
-  const [{ data: cData }, { data: tData }] = await Promise.all([
+  const [{ data: cData }, { data: tData }, { data: eData }] = await Promise.all([
     supabase
       .from('contestants')
-      .select('id, first_name, last_name, preferred_name')
+      .select('id, first_name, last_name, preferred_name, eliminated_episode_id')
       .eq('season_id', episode.value.season_id)
       .order('first_name'),
     supabase
@@ -153,10 +166,19 @@ async function loadContestants() {
       .select('contestant_id, tribe')
       .lte('effective_from_episode', epNum)
       .or(`effective_to_episode.is.null,effective_to_episode.gte.${epNum}`),
+    supabase.from('episodes').select('id, number').eq('season_id', episode.value.season_id),
   ])
 
   const tribeMap = Object.fromEntries((tData ?? []).map((t) => [t.contestant_id, t.tribe]))
-  contestants.value = (cData ?? []).map((c) => ({ ...c, tribe: tribeMap[c.id] ?? 'Unknown' }))
+  const epNumById = Object.fromEntries((eData ?? []).map((e) => [e.id, e.number]))
+  contestants.value = (cData ?? []).map(({ eliminated_episode_id, ...c }) => {
+    const elimNum = eliminated_episode_id ? epNumById[eliminated_episode_id] : undefined
+    return {
+      ...c,
+      tribe: tribeMap[c.id] ?? 'Unknown',
+      out: elimNum !== undefined && elimNum < epNum,
+    }
+  })
 }
 
 async function loadActionTypes() {
@@ -216,7 +238,7 @@ async function addEntry() {
 }
 
 async function bulkAddByTribe() {
-  const members = byTribe.value[bulkForm.value.tribe] ?? []
+  const members = activeByTribe.value[bulkForm.value.tribe] ?? []
   if (!members.length || !bulkForm.value.actionTypeId) return
   saving.value = true
   errorMsg.value = ''
@@ -282,7 +304,8 @@ onMounted(async () => {
       <div class="bg-white rounded-xl shadow p-5 mb-4">
         <h2 class="text-sm font-semibold text-gray-700 mb-1">Tribe Quick Add</h2>
         <p class="text-xs text-gray-400 mb-4">
-          Add one action for every contestant currently on a tribe.
+          Add one action for every contestant currently on a tribe. Contestants eliminated in an
+          earlier episode are skipped.
         </p>
         <div class="flex flex-wrap gap-3 items-end">
           <div>
@@ -293,7 +316,7 @@ onMounted(async () => {
             >
               <option value="" disabled>Select…</option>
               <option v-for="tribe in tribes" :key="tribe" :value="tribe">
-                {{ tribe }} ({{ byTribe[tribe]?.length ?? 0 }})
+                {{ tribe }} ({{ activeByTribe[tribe]?.length ?? 0 }})
               </option>
             </select>
           </div>

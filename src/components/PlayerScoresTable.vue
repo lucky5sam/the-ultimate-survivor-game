@@ -12,6 +12,9 @@
 // columns pinned on the left. Both have fixed widths so the Total column knows
 // where to pin (left-40). Episode columns cap at 120px via a trailing spacer
 // column that takes the spare width (table cells ignore max-width).
+//
+// Clicking a player's photo or name emits `select` with their id, so the parent
+// can open the player details modal.
 import { computed } from 'vue'
 import ContestantAvatar from './ContestantAvatar.vue'
 
@@ -30,6 +33,8 @@ const props = defineProps<{
   rows: PlayerScoreRow[] // already sorted
   episodes: number[] // ascending
 }>()
+
+const emit = defineEmits<{ select: [contestantId: string] }>()
 
 // The biggest single-episode swing either way sets the shading scale, so the
 // deepest shade always means "the best (or worst) episode anyone had".
@@ -96,7 +101,11 @@ function fmt(n: number) {
             scope="row"
             class="sticky left-0 z-10 w-40 min-w-40 max-w-40 border-t border-border-subtle bg-surface-default py-1.5 pl-6 pr-3 text-left font-normal"
           >
-            <div class="flex min-w-0 items-center gap-2">
+            <button
+              type="button"
+              class="group flex w-full min-w-0 items-center gap-2 text-left"
+              @click="emit('select', r.id)"
+            >
               <ContestantAvatar
                 :photo-url="r.photoUrl"
                 :name="r.name"
@@ -105,11 +114,11 @@ function fmt(n: number) {
                 :size="24"
               />
               <span
-                class="min-w-0 truncate font-semibold"
+                class="min-w-0 truncate font-semibold group-hover:underline"
                 :class="r.eliminatedEp != null ? 'text-text-muted' : 'text-text-default'"
                 >{{ r.name }}</span
               >
-            </div>
+            </button>
           </th>
           <!-- Pinned season total, right beside the player -->
           <td

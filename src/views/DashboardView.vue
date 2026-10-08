@@ -26,6 +26,10 @@ import TeamAvatar from '../components/TeamAvatar.vue'
 import ContestantAvatar from '../components/ContestantAvatar.vue'
 import PlaceHistoryChart, { type PlacePoint } from '../components/PlaceHistoryChart.vue'
 import PlayerScoresTable, { type PlayerScoreRow } from '../components/PlayerScoresTable.vue'
+import ContestantDetailModal, {
+  type ContestantEventItem,
+} from '../components/ContestantDetailModal.vue'
+import type { ContestantFull } from '../types/contestant'
 import PopularPlayersList, { type RosterShare } from '../components/PopularPlayersList.vue'
 import BaseModal from '../components/base/BaseModal.vue'
 import SpoilerBanner from '../components/SpoilerBanner.vue'
@@ -58,6 +62,12 @@ type ContestantRow = {
   last_name: string | null
   preferred_name: string | null
   photo_url: string | null
+  alt_image: string | null
+  video_url: string | null
+  bio: string | null
+  age: number | null
+  hometown: string | null
+  occupation: string | null
   eliminated_episode_id: string | null
   contestant_tribe_assignments: { tribe: string; effective_from_episode: number }[] | null
 }
@@ -86,6 +96,9 @@ const popularPicks = ref<PopularPick[]>([])
 const bountyTargets = ref<{ id: string; name: string; votes: number }[]>([])
 // The viewer's place after each completed episode (the team card's line chart).
 const placeHistory = ref<PlacePoint[]>([])
+// The upcoming episode at the viewer's current place — drawn dashed after the
+// history, so swap penalties paid since the last episode show as a move.
+const projectedPlace = ref<PlacePoint | null>(null)
 // The lowest place that pays out; the chart draws the in-the-money line below it.
 const moneyCutoff = ref<number | null>(null)
 // Every contestant's points by episode, for the Player Scores table.
@@ -94,6 +107,48 @@ const playerScores = ref<PlayerScoreRow[]>([])
 const scoreEpisodes = ref<number[]>([])
 // Contestants still in the game (not yet voted out) — Most Popular Players subtitle.
 const remainingPlayers = ref(0)
+
+// Player details modal, opened from a name or photo in Player Scores (same
+// modal the Event Log and team pages use).
+const contestantsById = ref<Record<string, ContestantFull>>({})
+// Completed episodes — the only ones whose actions the modal's Scoring tab shows.
+const completedEpisodes = ref<{ id: string; number: number }[]>([])
+const detailContestant = ref<ContestantFull | null>(null)
+const detailEvents = ref<ContestantEventItem[]>([])
+const detailEventsLoading = ref(false)
+
+async function openContestantDetails(contestantId: string) {
+  const c = contestantsById.value[contestantId] ?? null
+  if (!c) return
+  detailContestant.value = c
+  detailEvents.value = []
+  detailEventsLoading.value = true
+  try {
+    const epNumById = Object.fromEntries(completedEpisodes.value.map((e) => [e.id, e.number]))
+    const episodeIds = completedEpisodes.value.map((e) => e.id)
+    if (episodeIds.length === 0) return
+    const { data } = await supabase
+      .from('contestant_actions')
+      .select('episode_id, count, action_types(category, points)')
+      .eq('contestant_id', contestantId)
+      .in('episode_id', episodeIds)
+    type ActionRow = {
+      episode_id: string
+      count: number | null
+      action_types: { category: string; points: number } | null
+    }
+    detailEvents.value = ((data ?? []) as unknown as ActionRow[]).map((a) => ({
+      episodeNumber: epNumById[a.episode_id] ?? 0,
+      label: a.action_types?.category ?? 'Action',
+      points: a.action_types?.points ?? 0,
+      count: a.count ?? 1,
+    }))
+  } catch {
+    detailEvents.value = []
+  } finally {
+    detailEventsLoading.value = false
+  }
+}
 
 // Drop stale responses if the season changes mid-fetch.
 let loadSeq = 0
@@ -186,9 +241,12 @@ function reset() {
   popularPicks.value = []
   bountyTargets.value = []
   placeHistory.value = []
+  projectedPlace.value = null
   moneyCutoff.value = null
   playerScores.value = []
   scoreEpisodes.value = []
+  contestantsById.value = {}
+  completedEpisodes.value = []
   remainingPlayers.value = 0
   seasonStarted.value = false
 }
@@ -360,6 +418,8 @@ function loadMock() {
     { episode: 4, rank: 3, tied: false, points: 77 },
     { episode: 5, rank: 3, tied: false, points: 98.5 },
   ]
+  // Paid for a swap after Ep 5, so they head into Ep 6 a place lower.
+  projectedPlace.value = { episode: 6, rank: 4, tied: false, points: 95.5 }
 
   loading.value = false
   errorMsg.value = ''
@@ -427,7 +487,7 @@ async function load() {
       supabase
         .from('contestants')
         .select(
-          'id, first_name, last_name, preferred_name, photo_url, eliminated_episode_id, contestant_tribe_assignments(tribe, effective_from_episode)',
+          'id, first_name, last_name, preferred_name, photo_url, alt_image, video_url, bio, age, hometown, occupation, eliminated_episode_id, contestant_tribe_assignments(tribe, effective_from_episode)',
         )
         .eq('season_id', seasonId),
       // Payouts, for the chart's in-the-money line (same source as the Leaderboard).
@@ -462,6 +522,20 @@ async function load() {
         })
       : []
 
+    // The next unfinished episode at the viewer's current place (which already
+    // counts swaps that take effect then). None once the season's over.
+    const lastDone = completedNums[completedNums.length - 1] ?? 0
+    const upcoming = episodes.find((e) => e.number > lastDone && e.status !== 'completed')
+    projectedPlace.value =
+      myRow.value && upcoming && placeHistory.value.length
+        ? {
+            episode: upcoming.number,
+            rank: myRow.value.rank,
+            tied: myRow.value.tied,
+            points: myRow.value.totalPoints,
+          }
+        : null
+
     // Episodes that voted someone out — tells us which episodes resolved a bounty.
     // An elimination past the cap hasn't happened yet for this player.
     const contestants = ((contestantsRes.data ?? []) as ContestantRow[]).map((c) =>
@@ -475,6 +549,28 @@ async function load() {
       photoById.set(c.id, c.photo_url ?? null)
       if (c.eliminated_episode_id) epsWithElim.add(c.eliminated_episode_id)
     }
+
+    // Full records for the player details modal.
+    completedEpisodes.value = completed.map((e) => ({ id: e.id, number: e.number }))
+    contestantsById.value = Object.fromEntries(
+      contestants.map((c) => [
+        c.id,
+        {
+          id: c.id,
+          first_name: c.first_name,
+          last_name: c.last_name ?? null,
+          preferred_name: c.preferred_name ?? null,
+          tribe: currentTribe(c.contestant_tribe_assignments, cap) ?? 'Unknown',
+          photo_url: c.photo_url ?? null,
+          alt_image: c.alt_image ?? null,
+          video_url: c.video_url ?? null,
+          bio: c.bio ?? null,
+          age: c.age ?? null,
+          hometown: c.hometown ?? null,
+          occupation: c.occupation ?? null,
+        },
+      ]),
+    )
 
     // ── Player scores ──
     // Every contestant's own points per completed episode, sorted by season
@@ -618,6 +714,7 @@ onMounted(() => {
                 <PlaceHistoryChart
                   v-if="placeHistory.length"
                   :history="placeHistory"
+                  :projected="projectedPlace"
                   :team-count="rows.length"
                   :money-cutoff="moneyCutoff"
                   class="flex-1"
@@ -917,10 +1014,24 @@ onMounted(() => {
             </div>
           </div>
           <div class="py-3">
-            <PlayerScoresTable :rows="playerScores" :episodes="scoreEpisodes" />
+            <PlayerScoresTable
+              :rows="playerScores"
+              :episodes="scoreEpisodes"
+              @select="openContestantDetails"
+            />
           </div>
         </BaseCard>
       </section>
+
+      <ContestantDetailModal
+        :contestant="detailContestant"
+        :show="!!detailContestant"
+        show-event-log
+        show-votes
+        :events="detailEvents"
+        :events-loading="detailEventsLoading"
+        @close="detailContestant = null"
+      />
     </div>
   </div>
 </template>
