@@ -3,7 +3,7 @@ import { watch } from 'vue'
 import LoginView from '../views/LoginView.vue'
 import { useAuthStore } from '../stores/auth'
 import { useSpoilerStore } from '../stores/spoiler'
-import { CHAT_RELEASED } from '../stores/chat'
+import { useChatStore } from '../stores/chat'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -20,7 +20,8 @@ const router = createRouter({
         { path: 'dashboard', component: () => import('../views/DashboardView.vue') },
         { path: 'leaderboard', component: () => import('../views/LeaderboardView.vue') },
         { path: 'event-log', component: () => import('../views/EventLogView.vue') },
-        // League Chat: admin-only until released (see CHAT_RELEASED).
+        // League Chat: admins and testers until released (CHAT_RELEASED and
+        // CHAT_TESTERS in stores/chat.ts).
         { path: 'chat', component: () => import('../views/ChatView.vue'), meta: { chat: true } },
         {
           path: 'chat/:threadId',
@@ -104,7 +105,7 @@ router.beforeEach(async (to) => {
   await waitForReady(auth)
   if (to.meta.requiresAuth && !auth.isLoggedIn()) return { path: '/login' }
   if (to.meta.requiresAdmin && !auth.isAdmin) return { path: '/' }
-  if (to.meta.chat && !CHAT_RELEASED && !auth.isAdmin) return { path: '/' }
+  if (to.meta.chat && !useChatStore().enabled) return { path: '/' }
   // Spoiler protection: re-check for a newly started episode before any
   // player page loads data, so its results can't slip through. Admin pages
   // always show everything.

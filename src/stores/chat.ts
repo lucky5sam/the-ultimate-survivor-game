@@ -46,6 +46,10 @@ export type ThreadEntry = {
 // loaded for them. Flip to true to open it to every player.
 export const CHAT_RELEASED = false
 
+// Non-admin accounts that can use chat before it's released (testers).
+// Lowercase sign-in emails. Empty this list once chat ships to everyone.
+const CHAT_TESTERS = ['nickcittadino21@gmail.com']
+
 const SEEN_KEY = 'chat:lastSeen'
 
 function readSeen(): Record<string, string> {
@@ -79,8 +83,11 @@ export const useChatStore = defineStore('chat', () => {
 
   let channel: RealtimeChannel | null = null
 
-  // Whether this user can use chat at all (see CHAT_RELEASED).
-  const enabled = computed(() => CHAT_RELEASED || auth.isAdmin)
+  // Whether this user can use chat at all (see CHAT_RELEASED, CHAT_TESTERS).
+  const enabled = computed(
+    () =>
+      CHAT_RELEASED || auth.isAdmin || CHAT_TESTERS.includes(auth.user?.email?.toLowerCase() ?? ''),
+  )
 
   const episodesById = computed(() => Object.fromEntries(episodes.value.map((e) => [e.id, e])))
 
