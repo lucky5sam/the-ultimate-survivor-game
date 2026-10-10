@@ -63,6 +63,9 @@ alter table team_swaps                    enable row level security;
 alter table teams                         enable row level security;
 alter table transactions                  enable row level security;
 alter table tribes                        enable row level security;
+alter table chat_threads                  enable row level security;
+alter table chat_messages                 enable row level security;
+alter table chat_mutes                    enable row level security;
 
 
 -- ---------- action_types ------------------------------------------------
@@ -96,8 +99,10 @@ create policy "bounties_write_own" on bounties
 drop policy if exists "Users manage own bounty picks" on bounty_picks;
 drop policy if exists "Authenticated read bounty picks" on bounty_picks;
 
+drop policy if exists "bounty_picks_read" on bounty_picks;
 create policy "bounty_picks_read" on bounty_picks
   for select to authenticated using (true);
+drop policy if exists "bounty_picks_write_own" on bounty_picks;
 create policy "bounty_picks_write_own" on bounty_picks
   for all to authenticated
   using (team_id in (select id from teams where user_id = auth.uid()))
@@ -110,8 +115,10 @@ drop policy if exists "ca_admin" on contestant_actions;
 drop policy if exists "ca_read" on contestant_actions;
 drop policy if exists "Authenticated users can read contestant_actions" on contestant_actions;
 
+drop policy if exists "contestant_actions_read" on contestant_actions;
 create policy "contestant_actions_read" on contestant_actions
   for select to authenticated using (true);
+drop policy if exists "contestant_actions_admin" on contestant_actions;
 create policy "contestant_actions_admin" on contestant_actions
   for all to authenticated using (is_admin()) with check (is_admin());
 
@@ -142,8 +149,10 @@ create policy "contestants_admin" on contestants
 drop policy if exists "episode_votes admin write" on episode_votes;
 drop policy if exists "episode_votes read" on episode_votes;
 
+drop policy if exists "episode_votes_read" on episode_votes;
 create policy "episode_votes_read" on episode_votes
   for select to authenticated using (true);
+drop policy if exists "episode_votes_admin" on episode_votes;
 create policy "episode_votes_admin" on episode_votes
   for all to authenticated using (is_admin()) with check (is_admin());
 
@@ -165,6 +174,7 @@ create policy "episodes_admin" on episodes
 -- must never be readable via the API. No non-admin read policy — intentional.
 drop policy if exists "admins_manage_league_settings" on league_settings;
 
+drop policy if exists "league_settings_admin" on league_settings;
 create policy "league_settings_admin" on league_settings
   for all to authenticated using (is_admin()) with check (is_admin());
 
@@ -187,6 +197,7 @@ create policy "profiles_admin_all" on profiles
   for all to authenticated using (is_admin()) with check (is_admin());
 create policy "profiles_read_own" on profiles
   for select to authenticated using (id = auth.uid());
+drop policy if exists "profiles_insert_own" on profiles;
 create policy "profiles_insert_own" on profiles
   for insert to authenticated with check (id = auth.uid());
 create policy "profiles_update_own" on profiles
@@ -197,8 +208,10 @@ create policy "profiles_update_own" on profiles
 drop policy if exists "admin write" on season_action_types;
 drop policy if exists "authenticated read" on season_action_types;
 
+drop policy if exists "season_action_types_read" on season_action_types;
 create policy "season_action_types_read" on season_action_types
   for select to authenticated using (true);
+drop policy if exists "season_action_types_admin" on season_action_types;
 create policy "season_action_types_admin" on season_action_types
   for all to authenticated using (is_admin()) with check (is_admin());
 
@@ -223,10 +236,13 @@ drop policy if exists "leaderboard_read_team_players" on team_players;
 drop policy if exists "Users can read own team_players" on team_players;
 drop policy if exists "Users update own team players" on team_players;
 
+drop policy if exists "team_players_read" on team_players;
 create policy "team_players_read" on team_players
   for select to authenticated using (true);
+drop policy if exists "team_players_admin" on team_players;
 create policy "team_players_admin" on team_players
   for all to authenticated using (is_admin()) with check (is_admin());
+drop policy if exists "team_players_write_own" on team_players;
 create policy "team_players_write_own" on team_players
   for all to authenticated
   using (exists (select 1 from teams t where t.id = team_players.team_id and t.user_id = auth.uid()))
@@ -238,8 +254,10 @@ create policy "team_players_write_own" on team_players
 drop policy if exists "Users insert own swaps" on team_swaps;
 drop policy if exists "Authenticated read all swaps" on team_swaps;
 
+drop policy if exists "team_swaps_read" on team_swaps;
 create policy "team_swaps_read" on team_swaps
   for select to authenticated using (true);
+drop policy if exists "team_swaps_insert_own" on team_swaps;
 create policy "team_swaps_insert_own" on team_swaps
   for insert to authenticated
   with check (team_id in (select id from teams where user_id = auth.uid()));
@@ -278,9 +296,52 @@ create policy "tx_read_own" on transactions
 drop policy if exists "tribes_admin_write" on tribes;
 drop policy if exists "tribes_select" on tribes;
 
+drop policy if exists "tribes_read" on tribes;
 create policy "tribes_read" on tribes
   for select to authenticated using (true);
+drop policy if exists "tribes_admin" on tribes;
 create policy "tribes_admin" on tribes
+  for all to authenticated using (is_admin()) with check (is_admin());
+
+
+-- ---------- League Chat -------------------------------------------------
+-- (Tables come from db/chat.sql — run that first.) Threads are admin-made;
+-- players read everything and post replies. Spoiler gating is client-side,
+-- like the rest of the app's episode data.
+drop policy if exists "chat_threads_read" on chat_threads;
+drop policy if exists "chat_threads_admin" on chat_threads;
+drop policy if exists "chat_messages_read" on chat_messages;
+drop policy if exists "chat_messages_insert_own" on chat_messages;
+drop policy if exists "chat_messages_delete_own" on chat_messages;
+drop policy if exists "chat_messages_admin" on chat_messages;
+drop policy if exists "chat_mutes_read_own" on chat_mutes;
+drop policy if exists "chat_mutes_admin" on chat_mutes;
+
+create policy "chat_threads_read" on chat_threads
+  for select to authenticated using (true);
+create policy "chat_threads_admin" on chat_threads
+  for all to authenticated using (is_admin()) with check (is_admin());
+
+create policy "chat_messages_read" on chat_messages
+  for select to authenticated using (true);
+-- Post as yourself, unless muted or the thread is locked. No update policy:
+-- messages can't be edited.
+create policy "chat_messages_insert_own" on chat_messages
+  for insert to authenticated
+  with check (
+    user_id = auth.uid()
+    and not exists (select 1 from chat_mutes m where m.user_id = auth.uid())
+    and exists (select 1 from chat_threads t where t.id = chat_messages.thread_id and not t.is_locked)
+  );
+create policy "chat_messages_delete_own" on chat_messages
+  for delete to authenticated using (user_id = auth.uid());
+create policy "chat_messages_admin" on chat_messages
+  for all to authenticated using (is_admin()) with check (is_admin());
+
+-- A player can see whether they're muted; only admins manage mutes.
+create policy "chat_mutes_read_own" on chat_mutes
+  for select to authenticated using (user_id = auth.uid());
+create policy "chat_mutes_admin" on chat_mutes
   for all to authenticated using (is_admin()) with check (is_admin());
 
 

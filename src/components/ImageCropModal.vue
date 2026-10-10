@@ -1,20 +1,26 @@
 <script setup lang="ts">
-// Simple square image cropper. Given a picked File, it shows the image on a
-// square stage the user can drag to reposition and a zoom slider to scale.
-// Confirm renders the framed square to an output canvas and emits it as a webp
+// Simple image cropper. Given a picked File, it shows the image on a stage the
+// user can drag to reposition and a zoom slider to scale. The stage is square
+// for avatars/team photos, or a 2:1 banner for 'cover' images (chat threads).
+// Confirm renders the framed area to an output canvas and emits it as a webp
 // File — which the caller then uploads. No external dependencies.
 import { ref, watch, nextTick } from 'vue'
 import BaseModal from './base/BaseModal.vue'
 import BaseButton from './base/BaseButton.vue'
 
 const props = withDefaults(
-  defineProps<{ show: boolean; file: File | null; shape?: 'circle' | 'square' }>(),
+  defineProps<{ show: boolean; file: File | null; shape?: 'circle' | 'square' | 'cover' }>(),
   { shape: 'circle' },
 )
 const emit = defineEmits<{ crop: [file: File]; cancel: [] }>()
 
-const STAGE = 288 // on-screen crop square, in CSS px
-const OUTPUT = 512 // exported square, in px (matches uploadImage's max)
+// On-screen crop stage and exported size, in px. Square output matches
+// uploadImage's default max; covers are 2:1 and larger so they stay sharp wide.
+const isCover = () => props.shape === 'cover'
+const stageW = () => (isCover() ? 320 : 288)
+const stageH = () => (isCover() ? 160 : 288)
+const outW = () => (isCover() ? 1200 : 512)
+const outH = () => (isCover() ? 600 : 512)
 const MAX_ZOOM = 3
 
 const canvasEl = ref<HTMLCanvasElement | null>(null)
@@ -32,8 +38,8 @@ let offsetY = 0
 function clampOffsets() {
   const iw = (img.value?.width ?? 0) * scale
   const ih = (img.value?.height ?? 0) * scale
-  offsetX = Math.min(0, Math.max(STAGE - iw, offsetX))
-  offsetY = Math.min(0, Math.max(STAGE - ih, offsetY))
+  offsetX = Math.min(0, Math.max(stageW() - iw, offsetX))
+  offsetY = Math.min(0, Math.max(stageH() - ih, offsetY))
 }
 
 function draw() {
@@ -41,14 +47,14 @@ function draw() {
   const image = img.value
   if (!canvas || !image) return
   const dpr = window.devicePixelRatio || 1
-  canvas.width = STAGE * dpr
-  canvas.height = STAGE * dpr
-  canvas.style.width = `${STAGE}px`
-  canvas.style.height = `${STAGE}px`
+  canvas.width = stageW() * dpr
+  canvas.height = stageH() * dpr
+  canvas.style.width = `${stageW()}px`
+  canvas.style.height = `${stageH()}px`
   const ctx = canvas.getContext('2d')
   if (!ctx) return
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-  ctx.clearRect(0, 0, STAGE, STAGE)
+  ctx.clearRect(0, 0, stageW(), stageH())
   ctx.drawImage(image, offsetX, offsetY, image.width * scale, image.height * scale)
 }
 
@@ -58,11 +64,11 @@ function loadFile(file: File) {
     const image = new Image()
     image.onload = () => {
       img.value = image
-      minScale = Math.max(STAGE / image.width, STAGE / image.height)
+      minScale = Math.max(stageW() / image.width, stageH() / image.height)
       zoom.value = 1
       scale = minScale
-      offsetX = (STAGE - image.width * scale) / 2
-      offsetY = (STAGE - image.height * scale) / 2
+      offsetX = (stageW() - image.width * scale) / 2
+      offsetY = (stageH() - image.height * scale) / 2
       nextTick(draw)
     }
     image.src = reader.result as string
@@ -83,11 +89,11 @@ function onZoom() {
   const image = img.value
   if (!image) return
   const newScale = minScale * zoom.value
-  const cx = (STAGE / 2 - offsetX) / scale
-  const cy = (STAGE / 2 - offsetY) / scale
+  const cx = (stageW() / 2 - offsetX) / scale
+  const cy = (stageH() / 2 - offsetY) / scale
   scale = newScale
-  offsetX = STAGE / 2 - cx * newScale
-  offsetY = STAGE / 2 - cy * newScale
+  offsetX = stageW() / 2 - cx * newScale
+  offsetY = stageH() / 2 - cy * newScale
   clampOffsets()
   draw()
 }
@@ -120,10 +126,10 @@ async function confirm() {
   if (!image) return
   busy.value = true
   try {
-    const ratio = OUTPUT / STAGE
+    const ratio = outW() / stageW()
     const out = document.createElement('canvas')
-    out.width = OUTPUT
-    out.height = OUTPUT
+    out.width = outW()
+    out.height = outH()
     const ctx = out.getContext('2d')
     if (!ctx) throw new Error('Could not process the image.')
     ctx.drawImage(
@@ -151,8 +157,10 @@ async function confirm() {
            overlay ring shows how it appears when displayed as a circle. -->
       <div
         class="relative touch-none overflow-hidden bg-surface-strong"
-        :class="shape === 'circle' ? 'rounded-lg' : 'rounded-2xl'"
-        :style="{ width: '288px', height: '288px' }"
+        :class="
+          shape === 'circle' ? 'rounded-lg' : shape === 'cover' ? 'rounded-xl' : 'rounded-2xl'
+        "
+        :style="{ width: `${stageW()}px`, height: `${stageH()}px` }"
       >
         <canvas
           ref="canvasEl"
@@ -171,7 +179,8 @@ async function confirm() {
         ></div>
         <div
           v-else
-          class="pointer-events-none absolute inset-0 rounded-2xl ring-2 ring-white/70"
+          class="pointer-events-none absolute inset-0 ring-2 ring-white/70"
+          :class="shape === 'cover' ? 'rounded-xl' : 'rounded-2xl'"
         ></div>
       </div>
 

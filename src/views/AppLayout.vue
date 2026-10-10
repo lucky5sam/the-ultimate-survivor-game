@@ -10,6 +10,7 @@ import { useUiStore } from '../stores/ui'
 import SeasonSelectModal from '../components/SeasonSelectModal.vue'
 import SpoilerPrompt from '../components/SpoilerPrompt.vue'
 import { useSpoilerStore } from '../stores/spoiler'
+import { useChatStore } from '../stores/chat'
 
 const auth = useAuthStore()
 const route = useRoute()
@@ -18,7 +19,14 @@ const router = useRouter()
 const seasonStore = useSeasonStore()
 const ui = useUiStore()
 const spoiler = useSpoilerStore()
+const chat = useChatStore()
 seasonStore.load()
+
+// Chat threads feed the unread badge on the Chat tab. Re-runs once the admin
+// flag is known, since chat is admin-only until released.
+watch([() => seasonStore.selectedSeasonId, () => chat.enabled], ([sid]) => chat.load(sid), {
+  immediate: true,
+})
 
 // Track whether the user has a team for the selected season. Without one they
 // get no tabs and no invite banner (league code) — only the season selector and
@@ -88,14 +96,20 @@ watchEffect(() => {
   }
 })
 
-const tabs = [
+// Chat is admin-only until released (stores/chat.ts CHAT_RELEASED).
+const tabs = computed(() => [
   { label: 'Home', to: '/dashboard' },
   { label: 'My Team', to: '/my-team' },
   { label: 'Leaderboard', to: '/leaderboard' },
   { label: 'Event Log', to: '/event-log' },
-]
+  ...(chat.enabled ? [{ label: 'Chat', to: '/chat' }] : []),
+])
 
-const activeTab = computed(() => tabs.find((t) => t.to === route.path) ?? tabs[0]!)
+// A tab stays active on its sub-pages too (e.g. a chat thread under /chat).
+function isActive(to: string) {
+  return route.path === to || route.path.startsWith(`${to}/`)
+}
+const activeTab = computed(() => tabs.value.find((t) => isActive(t.to)) ?? tabs.value[0]!)
 const menuOpen = ref(false)
 const userMenuOpen = ref(false)
 const seasonModalOpen = ref(false)
@@ -292,13 +306,16 @@ async function handleSignOut() {
         :key="t.to"
         :to="t.to"
         class="relative mr-4 py-3 text-sm font-semibold transition-colors"
-        :class="
-          route.path === t.to ? 'text-text-default' : 'text-text-subtle hover:text-text-default'
-        "
+        :class="isActive(t.to) ? 'text-text-default' : 'text-text-subtle hover:text-text-default'"
       >
         {{ t.label }}
         <span
-          v-if="route.path === t.to"
+          v-if="t.to === '/chat' && chat.unreadCount > 0"
+          class="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-interactive-accent px-1.5 text-xs font-bold text-text-on-accent"
+          >{{ chat.unreadCount }}</span
+        >
+        <span
+          v-if="isActive(t.to)"
           class="absolute inset-x-0 -bottom-px h-0.5 bg-interactive-accent"
         ></span>
       </RouterLink>
@@ -312,6 +329,11 @@ async function handleSignOut() {
       >
         <i class="fa-solid fa-bars shrink-0 text-lg text-icon-subtle"></i>
         <span class="flex-1 truncate font-semibold">{{ activeTab.label }}</span>
+        <span
+          v-if="chat.unreadCount > 0 && activeTab.to !== '/chat'"
+          class="h-2 w-2 shrink-0 rounded-full bg-interactive-accent"
+          aria-label="Unread chat messages"
+        ></span>
         <i
           class="fa-solid fa-chevron-down shrink-0 text-sm text-icon-default transition-transform"
           :class="menuOpen ? 'rotate-180' : ''"
@@ -327,9 +349,14 @@ async function handleSignOut() {
           :key="t.to"
           @click="goTo(t.to)"
           class="block w-full px-4 py-2.5 text-left text-base hover:bg-surface-subtle"
-          :class="route.path === t.to ? 'font-medium text-text-default' : 'text-text-subtle'"
+          :class="isActive(t.to) ? 'font-medium text-text-default' : 'text-text-subtle'"
         >
           {{ t.label }}
+          <span
+            v-if="t.to === '/chat' && chat.unreadCount > 0"
+            class="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-interactive-accent px-1.5 text-xs font-bold text-text-on-accent"
+            >{{ chat.unreadCount }}</span
+          >
         </button>
       </div>
       <!-- click-away -->

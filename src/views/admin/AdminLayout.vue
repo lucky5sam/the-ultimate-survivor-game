@@ -53,6 +53,13 @@ async function handleSignOut() {
           Settings
         </RouterLink>
         <RouterLink
+          to="/admin/chat"
+          class="block px-3 py-2 rounded-lg text-sm hover:bg-gray-700"
+          active-class="bg-gray-700"
+        >
+          Chat
+        </RouterLink>
+        <RouterLink
           to="/admin/export"
           class="block px-3 py-2 rounded-lg text-sm hover:bg-gray-700"
           active-class="bg-gray-700"
