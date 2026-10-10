@@ -234,7 +234,7 @@ async function send() {
     .single()
   sending.value = false
   if (error) {
-    errorMsg.value = "Couldn't send — the thread may be closed or you may be muted."
+    errorMsg.value = sendErrorMessage(error.message)
     return
   }
   draft.value = ''
@@ -250,6 +250,15 @@ watch(draft, async () => {
   el.style.height = 'auto'
   el.style.height = `${el.scrollHeight}px`
 })
+
+// The anti-spam trigger (db/chat.sql) rejects a reply with one of these codes.
+function sendErrorMessage(msg: string) {
+  if (msg.includes('chat_rate_limit')) return 'Slow down a bit — try again in a few seconds.'
+  if (msg.includes('chat_daily_limit'))
+    return "You've hit today's reply limit (200). You can post again tomorrow."
+  if (msg.includes('chat_thread_full')) return "This thread is full and can't take more replies."
+  return "Couldn't send — the thread may be closed or you may be muted."
+}
 
 // Enter sends; Shift+Enter adds a new line.
 function onKeydown(e: KeyboardEvent) {

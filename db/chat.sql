@@ -103,6 +103,41 @@ create trigger chat_messages_stamp
   before insert on chat_messages
   for each row execute function chat_messages_stamp();
 
+-- Anti-spam limits (added 2026-10-10). Rejected inserts raise an exception
+-- whose message the app maps to a friendly note:
+--   chat_thread_full  — a thread holds at most 5,000 messages (backstop)
+--   chat_rate_limit   — at most 5 messages per person in any 30 seconds
+--   chat_daily_limit  — at most 200 messages per person in any 24 hours
+-- Admins skip the per-person limits.
+create index if not exists chat_messages_user_created
+  on chat_messages (user_id, created_at);
+
+create or replace function chat_messages_limit() returns trigger
+  language plpgsql set search_path = public as $$
+begin
+  if (select message_count from chat_threads where id = new.thread_id) >= 5000 then
+    raise exception 'chat_thread_full';
+  end if;
+  if is_admin() then
+    return new;
+  end if;
+  if (select count(*) from chat_messages
+       where user_id = new.user_id and created_at > now() - interval '30 seconds') >= 5 then
+    raise exception 'chat_rate_limit';
+  end if;
+  if (select count(*) from chat_messages
+       where user_id = new.user_id and created_at > now() - interval '24 hours') >= 200 then
+    raise exception 'chat_daily_limit';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists chat_messages_limit on chat_messages;
+create trigger chat_messages_limit
+  before insert on chat_messages
+  for each row execute function chat_messages_limit();
+
 drop trigger if exists chat_messages_touch_thread on chat_messages;
 create trigger chat_messages_touch_thread
   after insert on chat_messages
