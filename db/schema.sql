@@ -295,6 +295,15 @@ create table chat_messages (
   created_at timestamptz not null default now()
 );
 
+create table chat_reactions (
+  message_id uuid not null references chat_messages(id) on delete cascade,
+  user_id uuid not null references profiles(id) on delete cascade,
+  emoji text not null check (emoji in ('👍', '❤️', '😂', '😮', '😢', '🔥')),
+  thread_id uuid not null references chat_threads(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (message_id, user_id, emoji)
+);
+
 -- Players muted from posting (admin-only; not a profiles column because
 -- players can update their own profile row).
 create table chat_mutes (

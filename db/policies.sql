@@ -66,6 +66,7 @@ alter table tribes                        enable row level security;
 alter table chat_threads                  enable row level security;
 alter table chat_messages                 enable row level security;
 alter table chat_mutes                    enable row level security;
+alter table chat_reactions                enable row level security;
 
 
 -- ---------- action_types ------------------------------------------------
@@ -316,6 +317,10 @@ drop policy if exists "chat_messages_delete_own" on chat_messages;
 drop policy if exists "chat_messages_admin" on chat_messages;
 drop policy if exists "chat_mutes_read_own" on chat_mutes;
 drop policy if exists "chat_mutes_admin" on chat_mutes;
+drop policy if exists "chat_reactions_read" on chat_reactions;
+drop policy if exists "chat_reactions_insert_own" on chat_reactions;
+drop policy if exists "chat_reactions_delete_own" on chat_reactions;
+drop policy if exists "chat_reactions_admin" on chat_reactions;
 
 create policy "chat_threads_read" on chat_threads
   for select to authenticated using (true);
@@ -342,6 +347,26 @@ create policy "chat_messages_admin" on chat_messages
 create policy "chat_mutes_read_own" on chat_mutes
   for select to authenticated using (user_id = auth.uid());
 create policy "chat_mutes_admin" on chat_mutes
+  for all to authenticated using (is_admin()) with check (is_admin());
+
+-- Reactions: everyone reads; react as yourself, unless muted or the thread is
+-- closed; remove only your own.
+create policy "chat_reactions_read" on chat_reactions
+  for select to authenticated using (true);
+create policy "chat_reactions_insert_own" on chat_reactions
+  for insert to authenticated
+  with check (
+    user_id = auth.uid()
+    and not exists (select 1 from chat_mutes m where m.user_id = auth.uid())
+    and exists (
+      select 1 from chat_messages msg
+      join chat_threads t on t.id = msg.thread_id
+      where msg.id = chat_reactions.message_id and not t.is_locked
+    )
+  );
+create policy "chat_reactions_delete_own" on chat_reactions
+  for delete to authenticated using (user_id = auth.uid());
+create policy "chat_reactions_admin" on chat_reactions
   for all to authenticated using (is_admin()) with check (is_admin());
 
 
