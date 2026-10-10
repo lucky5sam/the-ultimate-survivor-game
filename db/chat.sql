@@ -59,6 +59,32 @@ create table if not exists chat_mutes (
   created_at timestamptz not null default now()
 );
 
+-- Reactions (added 2026-10-10): one row per person, per emoji, per message,
+-- from a fixed set. thread_id and created_at are filled in by the trigger
+-- below (thread_id lets the app filter live updates to the open thread).
+create table if not exists chat_reactions (
+  message_id uuid not null references chat_messages(id) on delete cascade,
+  user_id uuid not null references profiles(id) on delete cascade,
+  emoji text not null check (emoji in ('👍', '❤️', '😂', '😮', '😢', '🔥')),
+  thread_id uuid not null references chat_threads(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (message_id, user_id, emoji)
+);
+
+create or replace function chat_reactions_fill() returns trigger
+  language plpgsql set search_path = public as $$
+begin
+  new.thread_id := (select thread_id from chat_messages where id = new.message_id);
+  new.created_at := now();
+  return new;
+end;
+$$;
+
+drop trigger if exists chat_reactions_fill on chat_reactions;
+create trigger chat_reactions_fill
+  before insert on chat_reactions
+  for each row execute function chat_reactions_fill();
+
 -- Every new episode gets its thread automatically.
 create or replace function chat_create_episode_thread() returns trigger
   language plpgsql security definer set search_path = public as $$
@@ -181,6 +207,10 @@ begin
   if not exists (select 1 from pg_publication_tables
                  where pubname = 'supabase_realtime' and tablename = 'chat_messages') then
     alter publication supabase_realtime add table chat_messages;
+  end if;
+  if not exists (select 1 from pg_publication_tables
+                 where pubname = 'supabase_realtime' and tablename = 'chat_reactions') then
+    alter publication supabase_realtime add table chat_reactions;
   end if;
 end;
 $$;

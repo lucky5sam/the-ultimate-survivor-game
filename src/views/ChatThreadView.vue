@@ -5,6 +5,10 @@
 // pinned to the bottom of the screen. New and
 // deleted messages stream in live via Supabase Realtime. A thread tied to an
 // episode the player hasn't watched stays locked (Spoiler Protection).
+//
+// Reactions: a fixed set of emoji (matches the check in db/chat.sql). Each
+// message has a row of chips — tap one to add/remove your reaction — plus a
+// smiley chip that opens a pop-up to pick an emoji and see who reacted.
 import { ref, computed, watch, nextTick, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { RealtimeChannel } from '@supabase/supabase-js'
@@ -13,9 +17,15 @@ import { useAuthStore } from '../stores/auth'
 import { useChatStore } from '../stores/chat'
 import BaseButton from '../components/base/BaseButton.vue'
 import LoadingState from '../components/LoadingState.vue'
+import BaseModal from '../components/base/BaseModal.vue'
 
 type Message = { id: string; thread_id: string; user_id: string; body: string; created_at: string }
 type Author = { name: string; avatar: string | null; initials: string }
+type Reaction = { message_id: string; user_id: string; emoji: string }
+type ReactionGroup = { emoji: string; users: string[]; mine: boolean }
+
+// Must match the emoji check on chat_reactions (db/chat.sql), in display order.
+const REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🔥']
 
 const MAX_LEN = 500
 // Messages per page: the newest PAGE_SIZE load first; "Load older messages"
@@ -34,6 +44,9 @@ const draft = ref('')
 const sending = ref(false)
 const errorMsg = ref('')
 const replyBox = ref<HTMLTextAreaElement | null>(null)
+const reactions = ref<Reaction[]>([])
+// The message whose Reactions pop-up is open.
+const reactingTo = ref<Message | null>(null)
 let channel: RealtimeChannel | null = null
 
 const threadId = computed(() => String(route.params.threadId ?? ''))
@@ -42,6 +55,149 @@ const entry = computed(() => chat.entries.find((e) => e.thread.id === threadId.v
 const canPost = computed(
   () => !!entry.value && !entry.value.gated && !entry.value.thread.is_locked && !chat.muted,
 )
+
+// Same rules as posting: not while muted or in a closed thread.
+const canReact = canPost
+
+// Reactions on one message, grouped by emoji in REACTIONS order.
+const reactionsByMessage = computed(() => {
+  const map: Record<string, Record<string, string[]>> = {}
+  for (const r of reactions.value) ((map[r.message_id] ??= {})[r.emoji] ??= []).push(r.user_id)
+  return map
+})
+function groupsFor(messageId: string): ReactionGroup[] {
+  const byEmoji = reactionsByMessage.value[messageId] ?? {}
+  const uid = auth.user?.id
+  return REACTIONS.filter((e) => byEmoji[e]?.length).map((e) => ({
+    emoji: e,
+    users: byEmoji[e]!,
+    mine: !!uid && byEmoji[e]!.includes(uid),
+  }))
+}
+function namesFor(users: string[]) {
+  return users.map((u) => authors.value[u]?.name ?? 'Player').join(', ')
+}
+function iReacted(messageId: string, emoji: string) {
+  const uid = auth.user?.id
+  return reactions.value.some(
+    (r) => r.message_id === messageId && r.emoji === emoji && r.user_id === uid,
+  )
+}
+
+function sameReaction(a: Reaction, b: Reaction) {
+  return a.message_id === b.message_id && a.user_id === b.user_id && a.emoji === b.emoji
+}
+function addReaction(r: Reaction) {
+  if (!messages.value.some((m) => m.id === r.message_id)) return
+  if (reactions.value.some((x) => sameReaction(x, r))) return
+  reactions.value = [...reactions.value, r]
+  loadAuthors([r.user_id])
+}
+function dropReaction(r: Reaction) {
+  reactions.value = reactions.value.filter((x) => !sameReaction(x, r))
+}
+
+// Reactions for a set of loaded messages (a page holds at most PAGE_SIZE).
+// Fetched in batches, since Supabase returns at most 1,000 rows per request.
+const REACTION_BATCH = 1000
+async function loadReactions(messageIds: string[]) {
+  if (!messageIds.length) return
+  const rows: Reaction[] = []
+  for (let from = 0; ; from += REACTION_BATCH) {
+    const { data } = await supabase
+      .from('chat_reactions')
+      .select('message_id, user_id, emoji')
+      .in('message_id', messageIds)
+      .order('created_at')
+      .range(from, from + REACTION_BATCH - 1)
+    const batch = (data ?? []) as Reaction[]
+    rows.push(...batch)
+    if (batch.length < REACTION_BATCH) break
+  }
+  const fresh = rows.filter((r) => !reactions.value.some((x) => sameReaction(x, r)))
+  reactions.value = [...reactions.value, ...fresh]
+  await loadAuthors(rows.map((r) => r.user_id))
+}
+
+// Add or remove your reaction. Updates on screen right away, then saves;
+// undone with a note if the save fails.
+// Chips with a save in flight; taps on them are ignored until it finishes, so
+// a quick double tap can't send "remove" before "add" has landed.
+const saving = new Set<string>()
+
+async function toggleReaction(m: Message, emoji: string) {
+  const uid = auth.user?.id
+  if (!uid || !canReact.value) return
+  const key = `${m.id}|${emoji}`
+  if (saving.has(key)) return
+  saving.add(key)
+  try {
+    await saveReaction(m, emoji, uid)
+  } finally {
+    saving.delete(key)
+  }
+}
+
+async function saveReaction(m: Message, emoji: string, uid: string) {
+  const r: Reaction = { message_id: m.id, user_id: uid, emoji }
+  errorMsg.value = ''
+  if (iReacted(m.id, emoji)) {
+    dropReaction(r)
+    const { error } = await supabase
+      .from('chat_reactions')
+      .delete()
+      .eq('message_id', m.id)
+      .eq('user_id', uid)
+      .eq('emoji', emoji)
+    if (error) {
+      addReaction(r)
+      errorMsg.value = "Couldn't remove that reaction."
+    }
+  } else {
+    addReaction(r)
+    const { error } = await supabase.from('chat_reactions').insert(r)
+    // A duplicate means it's already saved (e.g. a double tap) — keep it.
+    if (error && error.code !== '23505') {
+      dropReaction(r)
+      errorMsg.value = "Couldn't add that reaction."
+    }
+  }
+}
+
+// Long-press a reaction chip (~half a second) to open the Reactions pop-up and
+// see who reacted; a regular tap toggles your reaction. Scrolling cancels the
+// press (pointercancel), and the click that follows a long press is ignored.
+const LONG_PRESS_MS = 500
+let pressTimer: ReturnType<typeof setTimeout> | undefined
+let longPressed = false
+function pressStart(m: Message) {
+  longPressed = false
+  clearTimeout(pressTimer)
+  pressTimer = setTimeout(() => {
+    longPressed = true
+    reactingTo.value = m
+    navigator.vibrate?.(10)
+  }, LONG_PRESS_MS)
+}
+function pressEnd() {
+  clearTimeout(pressTimer)
+}
+function onChipClick(m: Message, emoji: string) {
+  if (longPressed) {
+    longPressed = false
+    return
+  }
+  toggleReaction(m, emoji)
+}
+onBeforeUnmount(() => clearTimeout(pressTimer))
+
+// Picking an emoji in the Reactions pop-up toggles it and closes the pop-up,
+// back to the thread.
+function pickFromPopup(emoji: string) {
+  const m = reactingTo.value
+  reactingTo.value = null
+  if (m) toggleReaction(m, emoji)
+}
 
 // Gated threads don't reveal their title or image.
 const image = computed(() =>
@@ -149,7 +305,10 @@ async function loadOlder() {
   try {
     const { page, more } = await fetchPage(id, oldest.created_at)
     if (seq !== loadSeq) return
-    await loadAuthors(page.map((m) => m.user_id))
+    await Promise.all([
+      loadAuthors(page.map((m) => m.user_id)),
+      loadReactions(page.map((m) => m.id)),
+    ])
     // Keep the reader's place: grow the page above them by exactly what was added.
     const before = document.documentElement.scrollHeight
     messages.value = [...page, ...messages.value]
@@ -167,6 +326,8 @@ async function loadThread(id: string) {
   const seq = ++loadSeq
   unsubscribe()
   messages.value = []
+  reactions.value = []
+  reactingTo.value = null
   hasOlder.value = false
   errorMsg.value = ''
   if (!id || !entry.value || entry.value.gated) {
@@ -185,7 +346,10 @@ async function loadThread(id: string) {
   } finally {
     if (seq === loadSeq) loadingMessages.value = false
   }
-  await loadAuthors(messages.value.map((m) => m.user_id))
+  await Promise.all([
+    loadAuthors(messages.value.map((m) => m.user_id)),
+    loadReactions(messages.value.map((m) => m.id)),
+  ])
   if (seq !== loadSeq) return
   chat.markSeen(id)
   await scrollToBottom()
@@ -207,7 +371,18 @@ async function loadThread(id: string) {
     .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'chat_messages' }, (p) => {
       const gone = (p.old as { id?: string }).id
       messages.value = messages.value.filter((m) => m.id !== gone)
+      reactions.value = reactions.value.filter((r) => r.message_id !== gone)
+      if (reactingTo.value?.id === gone) reactingTo.value = null
     })
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'chat_reactions', filter: `thread_id=eq.${id}` },
+      (p) => addReaction(p.new as Reaction),
+    )
+    // Delete events can't be filtered either; the old row's key identifies it.
+    .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'chat_reactions' }, (p) =>
+      dropReaction(p.old as Reaction),
+    )
     .subscribe()
 }
 
@@ -272,7 +447,11 @@ async function remove(m: Message) {
   if (!confirm('Delete this message?')) return
   const { error } = await supabase.from('chat_messages').delete().eq('id', m.id)
   if (error) errorMsg.value = error.message
-  else messages.value = messages.value.filter((x) => x.id !== m.id)
+  else {
+    messages.value = messages.value.filter((x) => x.id !== m.id)
+    reactions.value = reactions.value.filter((r) => r.message_id !== m.id)
+    if (reactingTo.value?.id === m.id) reactingTo.value = null
+  }
 }
 
 function canDelete(m: Message) {
@@ -427,6 +606,46 @@ function fmtTime(iso: string) {
               <p class="whitespace-pre-wrap break-words text-base text-text-default">
                 {{ m.body }}
               </p>
+              <!-- Reactions: a chip per emoji used (tap to add/remove yours;
+                   hover lists who), then the smiley chip for the pop-up -->
+              <div class="mt-1 flex flex-wrap items-center gap-1.5">
+                <button
+                  v-for="g in groupsFor(m.id)"
+                  :key="g.emoji"
+                  type="button"
+                  :aria-disabled="!canReact"
+                  :title="namesFor(g.users)"
+                  :aria-label="`${g.emoji} ${g.users.length}: ${namesFor(g.users)}`"
+                  :aria-pressed="g.mine"
+                  class="inline-flex h-7 select-none items-center gap-1 rounded-full border px-2 text-sm transition-colors [-webkit-touch-callout:none]"
+                  :class="[
+                    g.mine
+                      ? 'border-border-accent bg-surface-accent'
+                      : 'border-border-subtle bg-surface-default',
+                    canReact ? (g.mine ? '' : 'hover:border-border-default') : 'cursor-default',
+                  ]"
+                  @click="onChipClick(m, g.emoji)"
+                  @pointerdown="pressStart(m)"
+                  @pointerup="pressEnd"
+                  @pointerleave="pressEnd"
+                  @pointercancel="pressEnd"
+                  @contextmenu.prevent
+                >
+                  <span>{{ g.emoji }}</span>
+                  <span class="text-xs font-semibold tabular-nums text-text-subtle">
+                    {{ g.users.length }}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  class="inline-flex h-7 items-center gap-0.5 rounded-full border border-border-subtle px-2 text-sm text-text-muted transition-colors hover:border-border-default hover:text-text-default"
+                  aria-label="Reactions"
+                  @click="reactingTo = m"
+                >
+                  <i class="fa-regular fa-face-smile"></i>
+                  <i class="fa-solid fa-plus text-[9px]"></i>
+                </button>
+              </div>
             </div>
             <button
               v-if="canDelete(m)"
@@ -482,5 +701,54 @@ function fmtTime(iso: string) {
         </div>
       </template>
     </div>
+
+    <!-- Reactions pop-up: pick an emoji, and see who reacted with each -->
+    <BaseModal :show="!!reactingTo" title="Reactions" @close="reactingTo = null">
+      <template v-if="reactingTo">
+        <div v-if="canReact" class="mb-5 grid grid-cols-6 gap-2">
+          <button
+            v-for="e in REACTIONS"
+            :key="e"
+            type="button"
+            :aria-pressed="iReacted(reactingTo.id, e)"
+            class="flex h-11 items-center justify-center rounded-lg border text-2xl transition-colors"
+            :class="
+              iReacted(reactingTo.id, e)
+                ? 'border-border-accent bg-surface-accent'
+                : 'border-border-subtle hover:bg-surface-subtle'
+            "
+            @click="pickFromPopup(e)"
+          >
+            {{ e }}
+          </button>
+        </div>
+        <p v-if="!groupsFor(reactingTo.id).length" class="text-sm text-text-muted">
+          No reactions yet.
+        </p>
+        <div v-else class="space-y-4">
+          <div v-for="g in groupsFor(reactingTo.id)" :key="g.emoji">
+            <p class="mb-2 flex items-center gap-1.5 text-sm font-semibold text-text-default">
+              <span class="text-lg">{{ g.emoji }}</span> {{ g.users.length }}
+            </p>
+            <ul class="space-y-2">
+              <li v-for="u in g.users" :key="u" class="flex items-center gap-2">
+                <span
+                  class="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface-subtle text-[10px] font-semibold text-text-subtle"
+                >
+                  <img
+                    v-if="authors[u]?.avatar"
+                    :src="authors[u]!.avatar!"
+                    alt=""
+                    class="h-full w-full object-cover object-top"
+                  />
+                  <template v-else>{{ authors[u]?.initials ?? '' }}</template>
+                </span>
+                <span class="text-sm text-text-default">{{ authors[u]?.name ?? 'Player' }}</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </template>
+    </BaseModal>
   </div>
 </template>
