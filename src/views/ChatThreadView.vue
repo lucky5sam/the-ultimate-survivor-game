@@ -18,9 +18,9 @@ type Message = { id: string; thread_id: string; user_id: string; body: string; c
 type Author = { name: string; avatar: string | null; initials: string }
 
 const MAX_LEN = 500
-// Newest messages loaded per thread — Supabase's per-request row cap. Replies
-// are capped at 500 characters, so even a full page is a small download.
-const PAGE_SIZE = 1000
+// Messages per page: the newest PAGE_SIZE load first; "Load older messages"
+// fetches the next PAGE_SIZE before the oldest one shown.
+const PAGE_SIZE = 100
 
 const auth = useAuthStore()
 const chat = useChatStore()
@@ -121,10 +121,53 @@ function unsubscribe() {
 // watcher can fire twice in quick succession) quietly bows out.
 let loadSeq = 0
 
+// Whether older messages exist beyond what's loaded (drives the button).
+const hasOlder = ref(false)
+const loadingOlder = ref(false)
+
+// One page of messages older than `before` (or the newest page), oldest-first.
+// Asks for one extra row to learn whether anything older is left.
+async function fetchPage(id: string, before?: string) {
+  let q = supabase
+    .from('chat_messages')
+    .select('id, thread_id, user_id, body, created_at')
+    .eq('thread_id', id)
+  if (before) q = q.lt('created_at', before)
+  const { data, error } = await q.order('created_at', { ascending: false }).limit(PAGE_SIZE + 1)
+  if (error) throw error
+  const rows = (data ?? []) as Message[]
+  return { page: rows.slice(0, PAGE_SIZE).reverse(), more: rows.length > PAGE_SIZE }
+}
+
+async function loadOlder() {
+  const id = threadId.value
+  const oldest = messages.value[0]
+  if (!oldest || loadingOlder.value) return
+  const seq = loadSeq
+  loadingOlder.value = true
+  errorMsg.value = ''
+  try {
+    const { page, more } = await fetchPage(id, oldest.created_at)
+    if (seq !== loadSeq) return
+    await loadAuthors(page.map((m) => m.user_id))
+    // Keep the reader's place: grow the page above them by exactly what was added.
+    const before = document.documentElement.scrollHeight
+    messages.value = [...page, ...messages.value]
+    hasOlder.value = more
+    await nextTick()
+    window.scrollBy(0, document.documentElement.scrollHeight - before)
+  } catch (e) {
+    errorMsg.value = e instanceof Error ? e.message : "Couldn't load older messages."
+  } finally {
+    loadingOlder.value = false
+  }
+}
+
 async function loadThread(id: string) {
   const seq = ++loadSeq
   unsubscribe()
   messages.value = []
+  hasOlder.value = false
   errorMsg.value = ''
   if (!id || !entry.value || entry.value.gated) {
     loadingMessages.value = false
@@ -132,16 +175,10 @@ async function loadThread(id: string) {
   }
   loadingMessages.value = true
   try {
-    // Newest PAGE_SIZE messages, shown oldest-first.
-    const { data, error } = await supabase
-      .from('chat_messages')
-      .select('id, thread_id, user_id, body, created_at')
-      .eq('thread_id', id)
-      .order('created_at', { ascending: false })
-      .limit(PAGE_SIZE)
+    const { page, more } = await fetchPage(id)
     if (seq !== loadSeq) return
-    if (error) throw error
-    messages.value = ((data ?? []) as Message[]).reverse()
+    messages.value = page
+    hasOlder.value = more
   } catch (e) {
     errorMsg.value = e instanceof Error ? e.message : "Couldn't load this thread."
     return
@@ -345,6 +382,11 @@ function fmtTime(iso: string) {
           <p v-else-if="messages.length === 0" class="py-8 text-center text-sm text-text-muted">
             No messages yet. Start the conversation!
           </p>
+          <div v-else-if="hasOlder" class="mb-4 flex justify-center">
+            <BaseButton variant="secondary" size="sm" :loading="loadingOlder" @click="loadOlder">
+              Load older messages
+            </BaseButton>
+          </div>
           <div
             v-for="(m, i) in messages"
             :key="m.id"
