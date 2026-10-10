@@ -33,6 +33,8 @@ import type { ContestantFull } from '../types/contestant'
 import PopularPlayersList, { type RosterShare } from '../components/PopularPlayersList.vue'
 import BaseModal from '../components/base/BaseModal.vue'
 import SpoilerBanner from '../components/SpoilerBanner.vue'
+import ChatThreadCard from '../components/ChatThreadCard.vue'
+import { useChatStore } from '../stores/chat'
 import parchmentUrl from '../assets/survivor_decor_parchment.svg'
 import { loadTribeColors } from '../utils/tribeColors'
 
@@ -156,6 +158,18 @@ let loadSeq = 0
 // Card-header buttons (Leaders → Leaderboard, Bounty Breakdown → Update). They
 // navigate, so they're RouterLinks styled as BaseButton's small secondary
 // variant — real links keep cmd-click / open-in-new-tab working.
+// League Chat highlight: the admin-highlighted thread, if the player can read
+// it. The chat store (loaded by AppLayout) already drops threads whose
+// episode hasn't started and flags ones past the player's spoiler cap as
+// gated, so filtering out gated ones keeps Spoiler Protection intact.
+const chat = useChatStore()
+// One highlight per season (the admin page enforces it); entries are newest
+// first, so any leftover from before that rule loses to the newest.
+// Admin-only until chat is released (the store loads nothing for others).
+const chatHighlight = computed(() =>
+  chat.enabled ? (chat.entries.find((e) => e.thread.is_highlight && !e.gated) ?? null) : null,
+)
+
 const headerButtonClass =
   'inline-flex shrink-0 items-center justify-center rounded-md border border-border-default bg-interactive-neutral px-3 py-1.5 text-sm font-semibold text-text-default transition hover:bg-interactive-neutral-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-accent focus-visible:ring-offset-2'
 
@@ -728,6 +742,13 @@ onMounted(() => {
               </div>
             </BaseCard>
           </RouterLink>
+        </section>
+
+        <!-- ── Chat highlight: the highlighted thread, between the team card and
+             Season Leaders. Phones/tablets only (where this row stacks); hidden
+             when there's no highlight the player can read. ── -->
+        <section v-if="chatHighlight" class="lg:hidden">
+          <ChatThreadCard :entry="chatHighlight" />
         </section>
 
         <!-- ── 3. Standings preview ──────────────────────────────────────────── -->

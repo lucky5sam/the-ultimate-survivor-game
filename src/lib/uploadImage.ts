@@ -1,5 +1,6 @@
 // Shared image-upload helper for the single public `uploads` Storage bucket.
-// Used for team images (prefix `teams`) and user avatars (prefix `avatars`).
+// Used for team images (prefix `teams`), user avatars (prefix `avatars`), and
+// chat thread images (prefix `chat`).
 //
 // Every upload is downscaled + re-encoded to webp client-side (keeps files
 // small, normalizes format) and written to a unique UUID path — a fresh path
@@ -7,15 +8,18 @@
 import { supabase } from './supabase'
 
 const BUCKET = 'uploads'
-const MAX_DIMENSION = 512 // longest edge, in px, after downscale
+// Longest edge, in px, after downscale. Chat cover images are wide banners
+// (cropped to 1200×600), so they keep more pixels than square photos.
+const MAX_DIMENSION = 512
+const MAX_DIMENSION_BY_PREFIX: Partial<Record<UploadPrefix, number>> = { chat: 1200 }
 const WEBP_QUALITY = 0.85
 const MAX_INPUT_BYTES = 8 * 1024 * 1024 // reject huge files before decoding
 
-export type UploadPrefix = 'teams' | 'avatars'
+export type UploadPrefix = 'teams' | 'avatars' | 'chat'
 
 // Decode the file, downscale so the longest edge is <= MAX_DIMENSION (never
 // upscaling), and re-encode as webp. Returns the encoded Blob.
-async function downscaleToWebp(file: File): Promise<Blob> {
+async function downscaleToWebp(file: File, maxDimension: number): Promise<Blob> {
   const dataUrl = await new Promise<string>((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = () => resolve(reader.result as string)
@@ -30,7 +34,7 @@ async function downscaleToWebp(file: File): Promise<Blob> {
     el.src = dataUrl
   })
 
-  const scale = Math.min(1, MAX_DIMENSION / Math.max(img.width, img.height))
+  const scale = Math.min(1, maxDimension / Math.max(img.width, img.height))
   const width = Math.round(img.width * scale)
   const height = Math.round(img.height * scale)
 
@@ -58,7 +62,7 @@ export async function uploadImage(file: File, prefix: UploadPrefix): Promise<str
     throw new Error('That image is too large (max 8MB).')
   }
 
-  const blob = await downscaleToWebp(file)
+  const blob = await downscaleToWebp(file, MAX_DIMENSION_BY_PREFIX[prefix] ?? MAX_DIMENSION)
   const path = `${prefix}/${crypto.randomUUID()}.webp`
 
   const { error } = await supabase.storage

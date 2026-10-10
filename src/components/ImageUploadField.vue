@@ -12,8 +12,9 @@ const props = withDefaults(
   defineProps<{
     modelValue: string | null // currently-persisted image URL
     label?: string
-    shape?: 'circle' | 'square'
-    size?: number // preview size in px
+    // 'cover' is a 2:1 banner (chat threads); its preview is size×2 wide.
+    shape?: 'circle' | 'square' | 'cover'
+    size?: number // preview size (height) in px
     // Reject source files larger than this (MB) before the crop step. Defaults
     // to 8 to match uploadImage's own upload-time cap.
     maxSizeMb?: number
@@ -95,18 +96,22 @@ onUnmounted(revokeLocal)
       <!-- Preview / placeholder -->
       <div
         class="shrink-0 overflow-hidden border border-border-default bg-surface-subtle"
-        :class="shape === 'circle' ? 'rounded-full' : 'rounded-2xl'"
-        :style="{ width: `${size}px`, height: `${size}px` }"
+        :class="
+          shape === 'circle' ? 'rounded-full' : shape === 'cover' ? 'rounded-lg' : 'rounded-2xl'
+        "
+        :style="{ width: `${shape === 'cover' ? size * 2 : size}px`, height: `${size}px` }"
       >
         <img
           v-if="hasImage"
           :src="previewUrl!"
           alt=""
-          class="h-full w-full object-cover object-top"
+          class="h-full w-full object-cover"
+          :class="shape === 'cover' ? '' : 'object-top'"
         />
         <div v-else class="flex h-full w-full items-center justify-center">
           <i
-            class="fa-solid fa-user text-icon-subtle"
+            class="fa-solid text-icon-subtle"
+            :class="shape === 'cover' ? 'fa-image' : 'fa-user'"
             :style="{ fontSize: `${size * 0.5}px` }"
           ></i>
         </div>
@@ -125,7 +130,8 @@ onUnmounted(revokeLocal)
           @click="remove"
           class="h-9"
         >
-          <i class="fa-solid fa-trash-can text-status-error"></i><span class="text-status-error">Remove</span>
+          <i class="fa-solid fa-trash-can text-status-error"></i
+          ><span class="text-status-error">Remove</span>
         </BaseButton>
       </div>
 

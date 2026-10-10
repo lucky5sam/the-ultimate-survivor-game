@@ -266,6 +266,43 @@ create table transactions (
 );
 
 
+-- ---------- League Chat --------------------------------------------------
+-- Added 2026-10-06 via db/chat.sql, which also defines the triggers that
+-- auto-create episode threads and keep last_message_at current.
+
+-- episode_id ties a thread to an episode for Spoiler Protection; null means a
+-- general thread. One kind='episode' thread per episode (partial unique index).
+create table chat_threads (
+  id uuid primary key default gen_random_uuid(),
+  season_id uuid not null references seasons(id) on delete cascade,
+  episode_id uuid references episodes(id) on delete cascade,
+  kind text not null default 'custom' check (kind in ('episode', 'custom')),
+  title text,
+  description text,
+  image_url text,
+  is_locked boolean not null default false,
+  last_message_at timestamptz,
+  message_count integer not null default 0,
+  is_highlight boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+create table chat_messages (
+  id uuid primary key default gen_random_uuid(),
+  thread_id uuid not null references chat_threads(id) on delete cascade,
+  user_id uuid not null references profiles(id) on delete cascade,
+  body text not null check (char_length(body) between 1 and 500),
+  created_at timestamptz not null default now()
+);
+
+-- Players muted from posting (admin-only; not a profiles column because
+-- players can update their own profile row).
+create table chat_mutes (
+  user_id uuid primary key references profiles(id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+
+
 -- ---------- League config & ops -----------------------------------------
 
 -- Singleton row (id = 1). registration_code is the league join code — kept
