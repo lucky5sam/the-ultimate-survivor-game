@@ -305,13 +305,13 @@ async function handleSignOut() {
         v-for="t in tabs"
         :key="t.to"
         :to="t.to"
-        class="relative mr-4 py-3 text-sm font-semibold transition-colors"
+        class="relative mr-4 flex items-center py-3 text-sm font-semibold transition-colors"
         :class="isActive(t.to) ? 'text-text-default' : 'text-text-subtle hover:text-text-default'"
       >
         {{ t.label }}
         <span
           v-if="t.to === '/chat' && chat.unreadCount > 0"
-          class="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-interactive-accent px-1.5 text-xs font-bold text-text-on-accent"
+          class="ml-2 inline-flex h-5 min-w-7 items-center justify-center rounded-full bg-interactive-accent px-2.5 text-xs font-bold text-text-on-accent"
           >{{ chat.unreadCount }}</span
         >
         <span
@@ -331,9 +331,10 @@ async function handleSignOut() {
         <span class="flex-1 truncate font-semibold">{{ activeTab.label }}</span>
         <span
           v-if="chat.unreadCount > 0 && activeTab.to !== '/chat'"
-          class="h-2 w-2 shrink-0 rounded-full bg-interactive-accent"
-          aria-label="Unread chat messages"
-        ></span>
+          class="inline-flex h-5 min-w-7 shrink-0 items-center justify-center rounded-full bg-interactive-accent px-2.5 text-xs font-bold text-text-on-accent"
+          :aria-label="`${chat.unreadCount} unread chat ${chat.unreadCount === 1 ? 'thread' : 'threads'}`"
+          >{{ chat.unreadCount }}</span
+        >
         <i
           class="fa-solid fa-chevron-down shrink-0 text-sm text-icon-default transition-transform"
           :class="menuOpen ? 'rotate-180' : ''"
@@ -342,19 +343,19 @@ async function handleSignOut() {
 
       <div
         v-if="menuOpen"
-        class="absolute inset-x-0 top-full z-30 overflow-hidden border-b border-border-subtle bg-surface-overlay shadow-lg"
+        class="absolute inset-x-0 top-full z-30 overflow-hidden border-b border-border-subtle bg-surface-overlay pb-2 shadow-lg"
       >
         <button
           v-for="t in tabs"
           :key="t.to"
           @click="goTo(t.to)"
-          class="block w-full px-4 py-2.5 text-left text-base hover:bg-surface-subtle"
+          class="flex w-full items-center px-4 py-2.5 text-left text-base hover:bg-surface-subtle"
           :class="isActive(t.to) ? 'font-medium text-text-default' : 'text-text-subtle'"
         >
           {{ t.label }}
           <span
             v-if="t.to === '/chat' && chat.unreadCount > 0"
-            class="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-interactive-accent px-1.5 text-xs font-bold text-text-on-accent"
+            class="ml-2 inline-flex h-5 min-w-7 items-center justify-center rounded-full bg-interactive-accent px-2.5 text-xs font-bold text-text-on-accent"
             >{{ chat.unreadCount }}</span
           >
         </button>
