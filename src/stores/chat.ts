@@ -41,14 +41,15 @@ export type ThreadEntry = {
   unread: boolean
 }
 
-// League Chat is admin-only until it's released: non-admins get no Chat tab,
-// no /chat pages (router guard), no League Home highlight, and no chat data is
-// loaded for them. Flip to true to open it to every player.
-export const CHAT_RELEASED = false
+// League Chat release switch. Released to every player 2026-10-13. Setting it
+// back to false hides chat from everyone but admins and CHAT_TESTERS: no Chat
+// tab, no /chat pages (router guard), no League Home highlight, and no chat
+// data loaded for them.
+export const CHAT_RELEASED = true
 
-// Non-admin accounts that can use chat before it's released (testers).
-// Lowercase sign-in emails. Empty this list once chat ships to everyone.
-const CHAT_TESTERS = ['nickcittadino21@gmail.com']
+// Non-admin accounts that can use chat while it's unreleased (testers).
+// Lowercase sign-in emails. Unused while CHAT_RELEASED is true.
+const CHAT_TESTERS: string[] = []
 
 const SEEN_KEY = 'chat:lastSeen'
 

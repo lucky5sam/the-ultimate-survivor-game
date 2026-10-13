@@ -23,7 +23,7 @@ const chat = useChatStore()
 seasonStore.load()
 
 // Chat threads feed the unread badge on the Chat tab. Re-runs once the admin
-// flag is known, since chat is admin-only until released.
+// flag is known (matters only if CHAT_RELEASED is switched back off).
 watch([() => seasonStore.selectedSeasonId, () => chat.enabled], ([sid]) => chat.load(sid), {
   immediate: true,
 })
@@ -96,7 +96,7 @@ watchEffect(() => {
   }
 })
 
-// Chat is admin-only until released (stores/chat.ts CHAT_RELEASED).
+// The Chat tab follows the chat store's `enabled` (stores/chat.ts CHAT_RELEASED).
 const tabs = computed(() => [
   { label: 'Home', to: '/dashboard' },
   { label: 'My Team', to: '/my-team' },
