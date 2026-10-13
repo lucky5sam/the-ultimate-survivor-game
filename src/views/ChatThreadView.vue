@@ -1,6 +1,7 @@
 <script setup lang="ts">
-// One League Chat thread, opened from the feed (ChatView). Full width, Slack
-// style (rows highlight on hover). The page itself scrolls, under the same sticky back bar as the public team page ("‹ Chat",
+// One League Chat thread, opened from the feed (ChatView). Slack style: bars,
+// borders and hover highlights run full width, while the title, messages and
+// reply box sit in a centered max-w-2xl column (the cover image's width). The page itself scrolls, under the same sticky back bar as the public team page ("‹ Chat",
 // revealing the thread title as a breadcrumb on scroll), with the reply box
 // pinned to the bottom of the screen. New and
 // deleted messages stream in live via Supabase Realtime. A thread tied to an
@@ -525,13 +526,13 @@ function fmtTime(iso: string) {
              fills the full-width strip. -->
         <div
           v-if="image"
-          class="relative overflow-hidden border-b border-border-subtle bg-surface-subtle sm:py-6"
+          class="relative overflow-hidden border-b border-border-subtle bg-surface-page sm:py-6"
         >
           <img
             :src="image"
             alt=""
             aria-hidden="true"
-            class="absolute inset-0 h-full w-full scale-125 object-cover opacity-70 blur-2xl"
+            class="absolute inset-0 h-full w-full scale-125 object-cover opacity-40 blur-2xl"
           />
           <img
             :src="image"
@@ -540,10 +541,12 @@ function fmtTime(iso: string) {
           />
         </div>
         <div class="px-4 py-4 sm:px-6">
-          <h2 class="text-lg font-bold text-text-default">{{ title }}</h2>
-          <p v-if="!entry.gated && entry.thread.description" class="text-sm text-text-subtle">
-            {{ entry.thread.description }}
-          </p>
+          <div class="mx-auto max-w-2xl">
+            <h2 class="text-lg font-bold text-text-default">{{ title }}</h2>
+            <p v-if="!entry.gated && entry.thread.description" class="text-sm text-text-subtle">
+              {{ entry.thread.description }}
+            </p>
+          </div>
         </div>
       </div>
 
@@ -555,7 +558,7 @@ function fmtTime(iso: string) {
 
       <div
         v-else-if="entry.gated"
-        class="my-6 flex items-start gap-3 rounded-xl border border-border-subtle bg-status-info/10 px-4 py-4"
+        class="mx-auto my-6 flex w-full max-w-2xl items-start gap-3 rounded-xl border border-border-subtle bg-status-info/10 px-4 py-4"
       >
         <i class="fa-solid fa-eye-slash mt-1 text-text-subtle"></i>
         <p class="text-sm text-text-default">
@@ -578,84 +581,86 @@ function fmtTime(iso: string) {
           <div
             v-for="(m, i) in messages"
             :key="m.id"
-            class="group -mx-4 flex gap-3 px-4 py-0.5 hover:bg-surface-subtle sm:-mx-6 sm:px-6"
+            class="group -mx-4 px-4 py-0.5 hover:bg-surface-subtle sm:-mx-6 sm:px-6"
             :class="showHeader(i) ? 'mt-3 pt-1.5 first:mt-0' : ''"
           >
-            <!-- Circular avatar on the first message of a run; spacer after -->
-            <div class="w-8 shrink-0">
-              <span
-                v-if="showHeader(i)"
-                class="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-surface-subtle text-xs font-semibold text-text-subtle"
-              >
-                <img
-                  v-if="authors[m.user_id]?.avatar"
-                  :src="authors[m.user_id]!.avatar!"
-                  :alt="authors[m.user_id]?.name"
-                  class="h-full w-full object-cover object-top"
-                />
-                <template v-else>{{ authors[m.user_id]?.initials ?? '' }}</template>
-              </span>
-            </div>
-            <div class="min-w-0 flex-1">
-              <p v-if="showHeader(i)" class="flex items-baseline gap-2">
-                <span class="text-base font-semibold text-text-default">
-                  {{ authors[m.user_id]?.name ?? '…' }}
+            <div class="mx-auto flex max-w-2xl gap-3">
+              <!-- Circular avatar on the first message of a run; spacer after -->
+              <div class="w-8 shrink-0">
+                <span
+                  v-if="showHeader(i)"
+                  class="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-surface-subtle text-xs font-semibold text-text-subtle"
+                >
+                  <img
+                    v-if="authors[m.user_id]?.avatar"
+                    :src="authors[m.user_id]!.avatar!"
+                    :alt="authors[m.user_id]?.name"
+                    class="h-full w-full object-cover object-top"
+                  />
+                  <template v-else>{{ authors[m.user_id]?.initials ?? '' }}</template>
                 </span>
-                <span class="text-xs text-text-muted">{{ fmtTime(m.created_at) }}</span>
-              </p>
-              <p class="whitespace-pre-wrap break-words text-base text-text-default">
-                {{ m.body }}
-              </p>
-              <!-- Reactions: a chip per emoji used (tap to add/remove yours;
-                   hover lists who), then the smiley chip for the pop-up -->
-              <div class="mt-1 flex flex-wrap items-center gap-1.5">
-                <button
-                  v-for="g in groupsFor(m.id)"
-                  :key="g.emoji"
-                  type="button"
-                  :aria-disabled="!canReact"
-                  :title="namesFor(g.users)"
-                  :aria-label="`${g.emoji} ${g.users.length}: ${namesFor(g.users)}`"
-                  :aria-pressed="g.mine"
-                  class="inline-flex h-7 select-none items-center gap-1 rounded-full border px-2 text-sm transition-colors [-webkit-touch-callout:none]"
-                  :class="[
-                    g.mine
-                      ? 'border-border-accent bg-surface-accent'
-                      : 'border-border-subtle bg-surface-default',
-                    canReact ? (g.mine ? '' : 'hover:border-border-default') : 'cursor-default',
-                  ]"
-                  @click="onChipClick(m, g.emoji)"
-                  @pointerdown="pressStart(m)"
-                  @pointerup="pressEnd"
-                  @pointerleave="pressEnd"
-                  @pointercancel="pressEnd"
-                  @contextmenu.prevent
-                >
-                  <span>{{ g.emoji }}</span>
-                  <span class="text-xs font-semibold tabular-nums text-text-subtle">
-                    {{ g.users.length }}
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  class="inline-flex h-7 items-center gap-0.5 rounded-full border border-border-subtle px-2 text-sm text-text-muted transition-colors hover:border-border-default hover:text-text-default"
-                  aria-label="Reactions"
-                  @click="reactingTo = m"
-                >
-                  <i class="fa-regular fa-face-smile"></i>
-                  <i class="fa-solid fa-plus text-[9px]"></i>
-                </button>
               </div>
+              <div class="min-w-0 flex-1">
+                <p v-if="showHeader(i)" class="flex items-baseline gap-2">
+                  <span class="text-base font-semibold text-text-default">
+                    {{ authors[m.user_id]?.name ?? '…' }}
+                  </span>
+                  <span class="text-xs text-text-muted">{{ fmtTime(m.created_at) }}</span>
+                </p>
+                <p class="whitespace-pre-wrap break-words text-base text-text-default">
+                  {{ m.body }}
+                </p>
+                <!-- Reactions: a chip per emoji used (tap to add/remove yours;
+                   hover lists who), then the smiley chip for the pop-up -->
+                <div class="mt-1 flex flex-wrap items-center gap-1.5">
+                  <button
+                    v-for="g in groupsFor(m.id)"
+                    :key="g.emoji"
+                    type="button"
+                    :aria-disabled="!canReact"
+                    :title="namesFor(g.users)"
+                    :aria-label="`${g.emoji} ${g.users.length}: ${namesFor(g.users)}`"
+                    :aria-pressed="g.mine"
+                    class="inline-flex h-7 select-none items-center gap-1 rounded-full border px-2 text-sm transition-colors [-webkit-touch-callout:none]"
+                    :class="[
+                      g.mine
+                        ? 'border-border-accent bg-surface-accent'
+                        : 'border-border-subtle bg-surface-default',
+                      canReact ? (g.mine ? '' : 'hover:border-border-default') : 'cursor-default',
+                    ]"
+                    @click="onChipClick(m, g.emoji)"
+                    @pointerdown="pressStart(m)"
+                    @pointerup="pressEnd"
+                    @pointerleave="pressEnd"
+                    @pointercancel="pressEnd"
+                    @contextmenu.prevent
+                  >
+                    <span>{{ g.emoji }}</span>
+                    <span class="text-xs font-semibold tabular-nums text-text-subtle">
+                      {{ g.users.length }}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    class="inline-flex h-7 items-center gap-0.5 rounded-full border border-border-subtle px-2 text-sm text-text-muted transition-colors hover:border-border-default hover:text-text-default"
+                    aria-label="Reactions"
+                    @click="reactingTo = m"
+                  >
+                    <i class="fa-regular fa-face-smile"></i>
+                    <i class="fa-solid fa-plus text-[9px]"></i>
+                  </button>
+                </div>
+              </div>
+              <button
+                v-if="canDelete(m)"
+                type="button"
+                class="flex h-7 w-7 shrink-0 items-center justify-center self-start rounded-md border border-border-default bg-surface-default text-xs text-text-subtle transition-colors hover:border-status-error hover:text-status-error focus:outline-none focus-visible:ring-2 focus-visible:ring-border-accent sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
+                aria-label="Delete message"
+                @click="remove(m)"
+              >
+                <i class="fa-solid fa-trash-can"></i>
+              </button>
             </div>
-            <button
-              v-if="canDelete(m)"
-              type="button"
-              class="flex h-7 w-7 shrink-0 items-center justify-center self-start rounded-md border border-border-default bg-surface-default text-xs text-text-subtle transition-colors hover:border-status-error hover:text-status-error focus:outline-none focus-visible:ring-2 focus-visible:ring-border-accent sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
-              aria-label="Delete message"
-              @click="remove(m)"
-            >
-              <i class="fa-solid fa-trash-can"></i>
-            </button>
           </div>
         </div>
 
@@ -663,41 +668,43 @@ function fmtTime(iso: string) {
         <div
           class="sticky bottom-0 -mx-4 border-t border-border-subtle bg-surface-page px-4 py-3 sm:-mx-6 sm:px-6"
         >
-          <p v-if="errorMsg" class="mb-2 text-sm text-status-error">{{ errorMsg }}</p>
-          <p v-if="chat.muted" class="text-sm text-text-subtle">
-            <i class="fa-solid fa-volume-xmark mr-1"></i> You've been muted from posting in chat.
-          </p>
-          <p v-else-if="entry.thread.is_locked" class="text-sm text-text-subtle">
-            <i class="fa-solid fa-lock mr-1"></i> This thread is closed to new replies.
-          </p>
-          <!-- One bordered box holding the input and Send. The box's p-1.5 is
+          <div class="mx-auto max-w-2xl">
+            <p v-if="errorMsg" class="mb-2 text-sm text-status-error">{{ errorMsg }}</p>
+            <p v-if="chat.muted" class="text-sm text-text-subtle">
+              <i class="fa-solid fa-volume-xmark mr-1"></i> You've been muted from posting in chat.
+            </p>
+            <p v-else-if="entry.thread.is_locked" class="text-sm text-text-subtle">
+              <i class="fa-solid fa-lock mr-1"></i> This thread is closed to new replies.
+            </p>
+            <!-- One bordered box holding the input and Send. The box's p-1.5 is
                the gap on every side of the button; the one-line textarea is the
                button's height, so the gap is even until the text grows. -->
-          <form
-            v-else
-            class="flex items-end gap-2 rounded-md border border-border-default bg-surface-default p-1.5 focus-within:ring-2 focus-within:ring-border-accent"
-            @submit.prevent="send"
-          >
-            <textarea
-              ref="replyBox"
-              v-model="draft"
-              rows="1"
-              :maxlength="MAX_LEN"
-              placeholder="Write a reply…"
-              class="max-h-36 flex-1 resize-none bg-transparent px-1.5 py-2 text-sm text-text-default focus:outline-none"
-              @keydown="onKeydown"
-            ></textarea>
-            <BaseButton
-              type="submit"
-              size="md"
-              :loading="sending"
-              :disabled="!draft.trim() || !canPost"
-              aria-label="Send"
+            <form
+              v-else
+              class="flex items-end gap-2 rounded-md border border-border-default bg-surface-default p-1.5 focus-within:ring-2 focus-within:ring-border-accent"
+              @submit.prevent="send"
             >
-              <!-- Font Awesome's plane points up-right; turn it to point right -->
-              <i class="fa-solid fa-paper-plane rotate-45"></i>
-            </BaseButton>
-          </form>
+              <textarea
+                ref="replyBox"
+                v-model="draft"
+                rows="1"
+                :maxlength="MAX_LEN"
+                placeholder="Write a reply…"
+                class="max-h-36 flex-1 resize-none bg-transparent px-1.5 py-2 text-sm text-text-default focus:outline-none"
+                @keydown="onKeydown"
+              ></textarea>
+              <BaseButton
+                type="submit"
+                size="md"
+                :loading="sending"
+                :disabled="!draft.trim() || !canPost"
+                aria-label="Send"
+              >
+                <!-- Font Awesome's plane points up-right; turn it to point right -->
+                <i class="fa-solid fa-paper-plane rotate-45"></i>
+              </BaseButton>
+            </form>
+          </div>
         </div>
       </template>
     </div>
