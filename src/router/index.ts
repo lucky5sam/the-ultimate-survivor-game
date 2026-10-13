@@ -20,8 +20,8 @@ const router = createRouter({
         { path: 'dashboard', component: () => import('../views/DashboardView.vue') },
         { path: 'leaderboard', component: () => import('../views/LeaderboardView.vue') },
         { path: 'event-log', component: () => import('../views/EventLogView.vue') },
-        // League Chat: admins and testers until released (CHAT_RELEASED and
-        // CHAT_TESTERS in stores/chat.ts).
+        // League Chat: open to whoever the chat store's `enabled` allows
+        // (everyone once CHAT_RELEASED; see stores/chat.ts).
         { path: 'chat', component: () => import('../views/ChatView.vue'), meta: { chat: true } },
         {
           path: 'chat/:threadId',

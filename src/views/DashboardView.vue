@@ -165,7 +165,7 @@ let loadSeq = 0
 const chat = useChatStore()
 // One highlight per season (the admin page enforces it); entries are newest
 // first, so any leftover from before that rule loses to the newest.
-// Admin-only until chat is released (the store loads nothing for others).
+// Follows the chat release switch (the store loads nothing when chat is off).
 const chatHighlight = computed(() =>
   chat.enabled ? (chat.entries.find((e) => e.thread.is_highlight && !e.gated) ?? null) : null,
 )
