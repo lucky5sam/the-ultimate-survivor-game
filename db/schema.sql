@@ -254,6 +254,15 @@ create table episode_votes (
   created_at timestamptz not null default now()
 );
 
+-- Admin lock on one season's team (added 2026-10-14), e.g. "Venmo payment
+-- overdue". While a row exists, the owner's My Team page shows the message
+-- instead of the team. Its own admin-only table so players can't clear it.
+create table team_locks (
+  team_id uuid primary key references teams(id) on delete cascade,
+  message text not null check (char_length(message) between 1 and 500),
+  created_at timestamptz not null default now()
+);
+
 -- Per-team penalty/adjustment ledger.
 create table transactions (
   id uuid primary key default gen_random_uuid(),

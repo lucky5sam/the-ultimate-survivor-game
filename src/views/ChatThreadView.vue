@@ -607,9 +607,11 @@ function fmtTime(iso: string) {
                   </span>
                   <span class="text-xs text-text-muted">{{ fmtTime(m.created_at) }}</span>
                 </p>
-                <p class="whitespace-pre-wrap break-words text-base text-text-default">
-                  {{ m.body }}
-                </p>
+                <!-- v-text: no template whitespace leaks into the pre-wrap text -->
+                <p
+                  class="whitespace-pre-wrap break-words text-base text-text-default"
+                  v-text="m.body"
+                ></p>
                 <!-- Reactions: a chip per emoji used (tap to add/remove yours;
                    hover lists who), then the smiley chip for the pop-up -->
                 <div class="mt-1 flex flex-wrap items-center gap-1.5">
