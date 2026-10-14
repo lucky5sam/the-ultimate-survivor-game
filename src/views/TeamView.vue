@@ -129,6 +129,8 @@ const existingTeam = ref<{
   team_color: string | null
 } | null>(null)
 const activePlayers = ref<ActivePlayer[]>([])
+// Admin lock on this season's team (team_locks): its message replaces the page.
+const teamLock = ref<{ message: string; created_at: string } | null>(null)
 const loading = ref(true)
 const saving = ref(false)
 const errorMsg = ref('')
@@ -158,7 +160,6 @@ const detailEventsLoading = ref(false)
 function fmtPts(n: number) {
   return n.toFixed(1)
 }
-
 
 // A ticking clock so date-based locks flip automatically without a reload.
 const now = ref(Date.now())
@@ -322,7 +323,10 @@ const roleChangeCost = computed(() =>
 const swapsChip = computed<{ label: string; class: string } | null>(() => {
   if (!nextUpcomingEpisode.value) return null
   if (swapsLocked.value)
-    return { label: 'Swaps locked', class: 'border border-border-subtle bg-surface-default text-text-muted' }
+    return {
+      label: 'Swaps locked',
+      class: 'border border-border-subtle bg-surface-default text-text-muted',
+    }
   if (isGracePeriod.value)
     return { label: 'Free swaps', class: 'bg-status-success-surface text-status-success' }
   // Paid period. With no cap set there's nothing to count.
@@ -382,6 +386,12 @@ const mergeEpNumber = computed(() => allEpisodes.value.find((e) => e.is_merge)?.
 // Episodes that have at least one recorded elimination (bounty is resolved).
 const episodesWithEliminations = computed(
   () => new Set(Object.values(eliminatedEpisodeIdByContestant.value).filter(Boolean) as string[]),
+)
+
+// Locked team (team_locks): just the pick that's still in play — the upcoming
+// episode's, plus one for an episode that's airing — shown read-only.
+const pendingBountyRows = computed(() =>
+  bountyHistory.value.filter((r) => r.state.kind === 'upcoming' || r.state.kind === 'locked'),
 )
 
 // Per-episode bounty history: the locked-in pick and whether it hit, newest first.
@@ -541,6 +551,12 @@ async function loadMyTeam() {
       team_emoji: data.team_emoji,
       team_color: data.team_color,
     }
+    const { data: lock } = await supabase
+      .from('team_locks')
+      .select('message, created_at')
+      .eq('team_id', data.id)
+      .maybeSingle()
+    teamLock.value = lock ?? null
     const allTp = data.team_players as TeamPlayer[]
     const currentTp = allTp.filter((p) => p.effective_to_episode === null)
     activePlayers.value = currentTp.map((p) => ({
@@ -551,6 +567,7 @@ async function loadMyTeam() {
   } else {
     existingTeam.value = null
     activePlayers.value = []
+    teamLock.value = null
   }
   // Keep the global membership flag (tabs + invite banner gating) in sync.
   uiStore.hasTeam = existingTeam.value !== null
@@ -702,12 +719,7 @@ async function loadMyStanding() {
   secondScore.value = 0
   if (!selectedSeasonId.value || !existingTeam.value) return
   try {
-    const board = await computeLeaderboard(
-      selectedSeasonId.value,
-      null,
-      null,
-      spoilerCap.value,
-    )
+    const board = await computeLeaderboard(selectedSeasonId.value, null, null, spoilerCap.value)
     totalTeams.value = board.length
     topScore.value = board[0]?.totalPoints ?? 0
     secondScore.value = board[1]?.totalPoints ?? 0
@@ -1027,6 +1039,47 @@ onUnmounted(() => {
       <BaseButton variant="secondary" class="mt-6" @click="router.push('/leaderboard')">
         View Leaderboard
       </BaseButton>
+    </div>
+
+    <!-- Locked by the admin: their message replaces the team page (and with
+         it swaps, bounty picks and edits) until the admin unlocks it. The
+         roster and pending bounty pick still show, read-only. -->
+    <div v-else-if="teamLock" class="mx-auto w-full max-w-xl space-y-6 px-4 py-10 sm:px-6">
+      <div class="text-center">
+        <div
+          class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-status-error-surface"
+        >
+          <i class="fa-solid fa-lock text-2xl text-status-error"></i>
+        </div>
+        <h2 class="text-xl font-bold text-text-default">Your team is locked</h2>
+        <p
+          class="mt-4 whitespace-pre-wrap break-words rounded-lg border border-status-error bg-status-error-surface px-4 py-3 text-left text-sm text-text-default"
+          v-text="teamLock.message"
+        ></p>
+        <p class="mt-4 text-sm text-text-muted">
+          Reach out to the league admin to unlock it. Until then you can't change your roster or
+          bounty pick, but you can still follow along everywhere else.
+        </p>
+      </div>
+
+      <TeamRosterList
+        title="My Roster"
+        :players="activePlayers"
+        :contestants="allContestants"
+        :eliminated-episode-id-by-contestant="eliminatedEpisodeIdByContestant"
+        :episodes="allEpisodes"
+        :points-by-id="myPlayerPoints"
+        expand-names
+      />
+
+      <BountyHistoryList
+        :rows="pendingBountyRows"
+        :contestants="allContestants"
+        show-tribe
+        expand-names
+        sepia-avatars
+        empty-text="No upcoming bounty pick"
+      />
     </div>
 
     <!-- Constrained team management view when team exists -->

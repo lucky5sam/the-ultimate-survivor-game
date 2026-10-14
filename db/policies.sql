@@ -67,6 +67,7 @@ alter table chat_threads                  enable row level security;
 alter table chat_messages                 enable row level security;
 alter table chat_mutes                    enable row level security;
 alter table chat_reactions                enable row level security;
+alter table team_locks                    enable row level security;
 
 
 -- ---------- action_types ------------------------------------------------
@@ -367,6 +368,18 @@ create policy "chat_reactions_insert_own" on chat_reactions
 create policy "chat_reactions_delete_own" on chat_reactions
   for delete to authenticated using (user_id = auth.uid());
 create policy "chat_reactions_admin" on chat_reactions
+  for all to authenticated using (is_admin()) with check (is_admin());
+
+
+-- ---------- team_locks --------------------------------------------------
+-- A player can read their own team's lock (to show it); only admins manage.
+drop policy if exists "team_locks_read_own" on team_locks;
+drop policy if exists "team_locks_admin" on team_locks;
+
+create policy "team_locks_read_own" on team_locks
+  for select to authenticated
+  using (exists (select 1 from teams t where t.id = team_locks.team_id and t.user_id = auth.uid()));
+create policy "team_locks_admin" on team_locks
   for all to authenticated using (is_admin()) with check (is_admin());
 
 

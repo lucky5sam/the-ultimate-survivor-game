@@ -68,6 +68,7 @@ const router = createRouter({
         { path: 'action-types', component: () => import('../views/admin/ActionTypesView.vue') },
         { path: 'settings', component: () => import('../views/admin/SettingsView.vue') },
         { path: 'chat', component: () => import('../views/admin/ChatAdminView.vue') },
+        { path: 'team-locks', component: () => import('../views/admin/TeamLocksView.vue') },
         { path: 'export', component: () => import('../views/admin/ExportView.vue') },
         {
           path: 'transactions',
