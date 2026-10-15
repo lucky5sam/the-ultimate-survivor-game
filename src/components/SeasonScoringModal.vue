@@ -71,11 +71,7 @@ watch(
       No scoring actions have been set for this season yet.
     </p>
     <ul v-else class="max-h-[60vh] divide-y divide-border-subtle overflow-y-auto pr-1">
-      <li
-        v-for="a in actions"
-        :key="a.id"
-        class="flex items-center justify-between gap-4 py-2.5"
-      >
+      <li v-for="a in actions" :key="a.id" class="flex items-center justify-between gap-4 py-2.5">
         <div class="min-w-0">
           <p class="text-sm font-semibold text-text-default">{{ a.category }}</p>
           <p v-if="a.category" class="text-xs text-text-subtle">{{ a.type }}</p>

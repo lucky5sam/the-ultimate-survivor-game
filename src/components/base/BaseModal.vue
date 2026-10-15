@@ -123,7 +123,13 @@ onUnmounted(() => {
           aria-modal="true"
         >
           <!-- Ambient glow flush to the bottom edge, behind the content (z-10). -->
-          <FireGlow v-if="fireGlow" position="absolute" :z-index="0" :height="90" :ember-count="8" />
+          <FireGlow
+            v-if="fireGlow"
+            position="absolute"
+            :z-index="0"
+            :height="90"
+            :ember-count="8"
+          />
           <div class="relative z-10 p-6">
             <button
               v-if="!hideClose"

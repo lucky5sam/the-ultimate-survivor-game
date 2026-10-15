@@ -17,9 +17,9 @@ const showScoringModal = ref(false)
 <template>
   <div class="space-y-6 text-sm leading-relaxed text-text-subtle">
     <p>
-      This is a for-fun fantasy game built around <em>Survivor</em>. It's a made-up game with made-up
-      rules, run by Sam as the <strong>Commissioner and sole proprietor</strong> of the league. Where
-      the rules are unclear or something unexpected comes up,
+      This is a for-fun fantasy game built around <em>Survivor</em>. It's a made-up game with
+      made-up rules, run by Sam as the <strong>Commissioner and sole proprietor</strong> of the
+      league. Where the rules are unclear or something unexpected comes up,
       <strong class="text-text-default"
         >all decisions are finalized by the Commissioner based on his best judgment.</strong
       >
@@ -45,11 +45,13 @@ const showScoringModal = ref(false)
           <strong>1.5× multiplier</strong>; your other 3 score at 1×.
         </li>
         <li>
-          You can edit your team and MVP as much as you like for Episodes 1 and 2 at no cost. Starting with Episode 3, penalties apply.
+          You can edit your team and MVP as much as you like for Episodes 1 and 2 at no cost.
+          Starting with Episode 3, penalties apply.
         </li>
         <li>
-          Rosters lock at the beginning of each episode and remain locked until scoring has been finalized.
-        </li>  
+          Rosters lock at the beginning of each episode and remain locked until scoring has been
+          finalized.
+        </li>
       </ul>
     </div>
 
@@ -86,7 +88,8 @@ const showScoringModal = ref(false)
       <h3 class="mb-1 text-base font-bold text-text-default">Bounty Picks</h3>
       <ul class="list-disc space-y-1 pl-5">
         <li>
-          Each week, pick <strong>one contestant you think will get voted out</strong> — your bounty.
+          Each week, pick <strong>one contestant you think will get voted out</strong> — your
+          bounty.
         </li>
         <li>
           A correct pick earns <strong>5 points pre-merge</strong>, <strong>10 post-merge</strong>,
@@ -122,9 +125,9 @@ const showScoringModal = ref(false)
           it.
         </li>
         <li>
-          Later in the season swaps <strong>lock permanently</strong>. Once the swap deadline passes,
-          your roster and MVP are set for the rest of the season — watch your team page for the
-          cutoff.
+          Later in the season swaps <strong>lock permanently</strong>. Once the swap deadline
+          passes, your roster and MVP are set for the rest of the season — watch your team page for
+          the cutoff.
         </li>
       </ul>
     </div>

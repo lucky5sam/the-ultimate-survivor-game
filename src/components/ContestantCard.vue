@@ -164,7 +164,9 @@ const cardStyle = computed(() => ({
 
     <!-- Bottom info: name + tribe + subtext, hidden once this is the bounty pick -->
     <div v-if="!isBountyPick" class="absolute bottom-0 left-0 right-0 p-3 z-10">
-      <p class="flex items-center gap-1.5 font-bold text-white text-sm leading-tight drop-shadow-sm">
+      <p
+        class="flex items-center gap-1.5 font-bold text-white text-sm leading-tight drop-shadow-sm"
+      >
         <span class="sm:hidden">{{ shortName(contestant) }}</span>
         <span class="hidden sm:inline">{{ displayName(contestant) }}</span>
         <span

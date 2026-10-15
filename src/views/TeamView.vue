@@ -132,7 +132,6 @@ const activePlayers = ref<ActivePlayer[]>([])
 // Admin lock on this season's team (team_locks): its message replaces the page.
 const teamLock = ref<{ message: string; created_at: string } | null>(null)
 const loading = ref(true)
-const saving = ref(false)
 const errorMsg = ref('')
 
 // My standing on the leaderboard (rank + score)
@@ -142,12 +141,6 @@ const myTied = ref(false)
 const myScore = ref<number | null>(null)
 const totalTeams = ref(0)
 const topScore = ref(0)
-const secondScore = ref(0)
-
-// Points separating this team from 1st place (0 when leading).
-const pointsFromFirst = computed(() => Math.max(0, topScore.value - (myScore.value ?? 0)))
-// When leading, the margin over 2nd place.
-const pointsAheadOfSecond = computed(() => Math.max(0, (myScore.value ?? 0) - secondScore.value))
 const myPlayerPoints = ref<Record<string, number>>({})
 const breakdown = ref<TeamBreakdown | null>(null)
 const breakdownLoading = ref(false)
@@ -513,7 +506,7 @@ async function loadContestants() {
     )
     .eq('season_id', selectedSeasonId.value)
     .order('first_name')
-  allContestants.value = (data ?? []).map((c: any) => ({
+  allContestants.value = (data ?? []).map((c) => ({
     id: c.id,
     first_name: c.first_name,
     last_name: c.last_name ?? null,
@@ -528,7 +521,7 @@ async function loadContestants() {
     occupation: c.occupation ?? null,
   }))
   storedElimByContestant.value = Object.fromEntries(
-    (data ?? []).map((c: any) => [c.id, c.eliminated_episode_id ?? null]),
+    (data ?? []).map((c) => [c.id, c.eliminated_episode_id ?? null]),
   )
 }
 
@@ -716,13 +709,11 @@ async function loadMyStanding() {
   myPlayerPoints.value = {}
   totalTeams.value = 0
   topScore.value = 0
-  secondScore.value = 0
   if (!selectedSeasonId.value || !existingTeam.value) return
   try {
     const board = await computeLeaderboard(selectedSeasonId.value, null, null, spoilerCap.value)
     totalTeams.value = board.length
     topScore.value = board[0]?.totalPoints ?? 0
-    secondScore.value = board[1]?.totalPoints ?? 0
     const idx = board.findIndex((r) => r.teamId === existingTeam.value!.id)
     if (idx >= 0) {
       myRank.value = board[idx]!.rank
@@ -773,10 +764,17 @@ async function openContestantDetails(contestantId: string) {
       .select('episode_id, count, action_types(category, points)')
       .eq('contestant_id', contestantId)
       .in('episode_id', episodeIds)
-    detailEvents.value = (data ?? []).map((a: any) => ({
+    // action_types is a single row at runtime (many-to-one), though the
+    // untyped client infers an array, hence the cast.
+    type ActionRow = {
+      episode_id: string
+      count: number | null
+      action_types: { category: string; points: number } | null
+    }
+    detailEvents.value = ((data ?? []) as unknown as ActionRow[]).map((a) => ({
       episodeNumber: epNumById[a.episode_id] ?? 0,
-      label: (a.action_types as { category: string } | null)?.category ?? 'Action',
-      points: (a.action_types as { points: number } | null)?.points ?? 0,
+      label: a.action_types?.category ?? 'Action',
+      points: a.action_types?.points ?? 0,
       count: a.count ?? 1,
     }))
   } catch {
