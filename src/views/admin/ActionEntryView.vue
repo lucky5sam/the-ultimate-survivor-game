@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase'
 import LoadingState from '../../components/LoadingState.vue'
 import { useAuthStore } from '../../stores/auth'
 import { displayName } from '../../utils/contestantName'
+import { currentTribe } from '../../utils/tribe'
 
 type NameFields = { first_name: string; last_name: string | null; preferred_name: string | null }
 // `out` = eliminated in an earlier episode (someone voted out this episode still played it)
@@ -155,30 +156,35 @@ async function loadContestants() {
   if (!episode.value) return
   const epNum = episode.value.number
 
-  const [{ data: cData }, { data: tData }, { data: eData }] = await Promise.all([
+  // Tribe at this episode = the latest assignment that has started (tribe
+  // swaps are new rows; earlier rows are never closed off), via the same
+  // currentTribe helper the rest of the app uses.
+  const [{ data: cData }, { data: eData }] = await Promise.all([
     supabase
       .from('contestants')
-      .select('id, first_name, last_name, preferred_name, eliminated_episode_id')
+      .select(
+        'id, first_name, last_name, preferred_name, eliminated_episode_id, contestant_tribe_assignments(tribe, effective_from_episode)',
+      )
       .eq('season_id', episode.value.season_id)
       .order('first_name'),
-    supabase
-      .from('contestant_tribe_assignments')
-      .select('contestant_id, tribe')
-      .lte('effective_from_episode', epNum)
-      .or(`effective_to_episode.is.null,effective_to_episode.gte.${epNum}`),
     supabase.from('episodes').select('id, number').eq('season_id', episode.value.season_id),
   ])
 
-  const tribeMap = Object.fromEntries((tData ?? []).map((t) => [t.contestant_id, t.tribe]))
   const epNumById = Object.fromEntries((eData ?? []).map((e) => [e.id, e.number]))
-  contestants.value = (cData ?? []).map(({ eliminated_episode_id, ...c }) => {
-    const elimNum = eliminated_episode_id ? epNumById[eliminated_episode_id] : undefined
-    return {
-      ...c,
-      tribe: tribeMap[c.id] ?? 'Unknown',
-      out: elimNum !== undefined && elimNum < epNum,
-    }
-  })
+  contestants.value = (cData ?? []).map(
+    ({ eliminated_episode_id, contestant_tribe_assignments, ...c }) => {
+      const elimNum = eliminated_episode_id ? epNumById[eliminated_episode_id] : undefined
+      // Only assignments in force by this episode count.
+      const started = (contestant_tribe_assignments ?? []).filter(
+        (a) => a.effective_from_episode <= epNum,
+      )
+      return {
+        ...c,
+        tribe: currentTribe(started, epNum) ?? 'Unknown',
+        out: elimNum !== undefined && elimNum < epNum,
+      }
+    },
+  )
 }
 
 async function loadActionTypes() {
