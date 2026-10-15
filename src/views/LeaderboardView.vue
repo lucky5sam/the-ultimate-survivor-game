@@ -299,7 +299,7 @@ onMounted(() => seasonStore.load())
                 >
                   <div class="flex items-center gap-3">
                     <span
-                      class="min-w-5 shrink-0 text-center font-bold tabular-nums text-text-subtle"
+                      class="min-w-8 shrink-0 text-center font-bold tabular-nums text-text-subtle"
                       >{{ formatPlaceShort(row.rank, row.tied) }}</span
                     >
                     <div class="relative shrink-0">
