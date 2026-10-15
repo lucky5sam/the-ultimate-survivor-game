@@ -417,7 +417,11 @@ async function lockIn() {
                 maxlength="1"
                 :aria-label="`League code digit ${i + 1}`"
                 class="h-14 w-11 rounded-lg border bg-surface-default text-center text-2xl font-bold text-text-default shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-border-accent sm:h-16 sm:w-14"
-                :class="errorMsg ? 'border-status-error' : 'border-border-strong focus:border-border-accent'"
+                :class="
+                  errorMsg
+                    ? 'border-status-error'
+                    : 'border-border-strong focus:border-border-accent'
+                "
                 @input="onCodeInput($event, i)"
                 @keydown="onCodeKeydown($event, i)"
                 @focus="(e) => (e.target as HTMLInputElement).select()"
@@ -481,7 +485,6 @@ async function lockIn() {
             </div>
           </div>
         </div>
-
       </template>
 
       <!-- ── Step 3: Team Name ── -->
@@ -573,7 +576,9 @@ async function lockIn() {
       <template v-else-if="step === 4">
         <div class="mx-auto mb-6 w-full max-w-5xl">
           <h2 class="text-2xl font-bold text-text-default mb-0.5">Pick Your Players</h2>
-          <p class="text-text-subtle text-base">Choose 4 castaways for your team. Tribe assignments are speculative.</p>
+          <p class="text-text-subtle text-base">
+            Choose 4 castaways for your team. Tribe assignments are speculative.
+          </p>
         </div>
 
         <!-- Reflowing grid, alphabetical. Tribe is shown on each card, so no grouping.

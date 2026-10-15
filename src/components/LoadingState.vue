@@ -18,14 +18,12 @@ withDefaults(
 </script>
 
 <template>
-  <div class="flex flex-col items-center justify-center gap-3 py-12" role="status" aria-live="polite">
-    <svg
-      class="spinner"
-      :width="size"
-      :height="size"
-      viewBox="0 0 50 50"
-      aria-hidden="true"
-    >
+  <div
+    class="flex flex-col items-center justify-center gap-3 py-12"
+    role="status"
+    aria-live="polite"
+  >
+    <svg class="spinner" :width="size" :height="size" viewBox="0 0 50 50" aria-hidden="true">
       <defs>
         <linearGradient id="spinner-gradient" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0%" stop-color="var(--color-survivor-fire)" />

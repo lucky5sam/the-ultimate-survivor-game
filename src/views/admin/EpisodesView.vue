@@ -507,128 +507,128 @@ onMounted(loadSeasons)
 
         <form @submit.prevent="saveEpisode" class="space-y-4">
           <div v-show="modalTab === 'details'" class="space-y-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Episode number</label>
-            <input
-              v-model.number="form.number"
-              type="number"
-              min="1"
-              required
-              class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">
-              Title <span class="text-gray-400 font-normal">(optional)</span>
-            </label>
-            <input
-              v-model="form.title"
-              type="text"
-              placeholder="e.g. It's a New Era"
-              class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">
-              Air date <span class="text-gray-400 font-normal">(optional)</span>
-            </label>
-            <input
-              v-model="form.air_date"
-              type="date"
-              class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">
-              Roster locks at
-              <span class="text-gray-400 font-normal">(ET — when the episode airs)</span>
-            </label>
-            <input
-              v-model="form.locks_at"
-              type="datetime-local"
-              class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <p class="mt-1 text-xs text-gray-400">
-              Rosters and bounty picks lock at this time and unlock when the next episode's lock
-              time is set in the future. Enter it as Eastern Time (8:00 PM for a normal airing).
-            </p>
-          </div>
-
-          <div class="flex gap-6">
-            <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Episode number</label>
               <input
-                type="checkbox"
-                v-model="form.is_merge"
-                class="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                v-model.number="form.number"
+                type="number"
+                min="1"
+                required
+                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
-              Merge episode
-            </label>
-            <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-              <input
-                type="checkbox"
-                v-model="form.is_finale"
-                class="rounded border-gray-300 text-amber-500 focus:ring-amber-500"
-              />
-              Finale
-            </label>
-          </div>
+            </div>
 
-          <!-- Eliminated this episode — the source of truth (only on edit) -->
-          <div v-if="editingId">
-            <label class="block text-sm font-medium text-gray-700 mb-1">
-              Eliminated this episode <span class="text-gray-400 font-normal">(voted out)</span>
-            </label>
-            <div
-              class="max-h-44 overflow-y-auto rounded-lg border border-gray-300 divide-y divide-gray-100"
-            >
-              <label
-                v-for="c in selectableForElimination"
-                :key="c.id"
-                class="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer"
-              >
-                <input
-                  type="checkbox"
-                  :value="c.id"
-                  v-model="form.eliminatedIds"
-                  class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-                {{ displayName(c) }}
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">
+                Title <span class="text-gray-400 font-normal">(optional)</span>
               </label>
-              <p
-                v-if="selectableForElimination.length === 0"
-                class="px-3 py-2 text-sm text-gray-400"
-              >
-                No contestants available
+              <input
+                v-model="form.title"
+                type="text"
+                placeholder="e.g. It's a New Era"
+                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">
+                Air date <span class="text-gray-400 font-normal">(optional)</span>
+              </label>
+              <input
+                v-model="form.air_date"
+                type="date"
+                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">
+                Roster locks at
+                <span class="text-gray-400 font-normal">(ET — when the episode airs)</span>
+              </label>
+              <input
+                v-model="form.locks_at"
+                type="datetime-local"
+                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <p class="mt-1 text-xs text-gray-400">
+                Rosters and bounty picks lock at this time and unlock when the next episode's lock
+                time is set in the future. Enter it as Eastern Time (8:00 PM for a normal airing).
               </p>
             </div>
-          </div>
 
-          <!-- Winner — finale only -->
-          <div v-if="editingId && form.is_finale">
-            <label class="block text-sm font-medium text-gray-700 mb-1">
-              Winner <span class="text-gray-400 font-normal">(finale bounty target)</span>
-            </label>
-            <select
-              v-model="form.bounty_contestant_id"
-              class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Not set</option>
-              <option v-for="c in contestants" :key="c.id" :value="c.id">
-                {{ displayName(c) }}
-              </option>
-            </select>
-          </div>
+            <div class="flex gap-6">
+              <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  v-model="form.is_merge"
+                  class="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                />
+                Merge episode
+              </label>
+              <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  v-model="form.is_finale"
+                  class="rounded border-gray-300 text-amber-500 focus:ring-amber-500"
+                />
+                Finale
+              </label>
+            </div>
+
+            <!-- Eliminated this episode — the source of truth (only on edit) -->
+            <div v-if="editingId">
+              <label class="block text-sm font-medium text-gray-700 mb-1">
+                Eliminated this episode <span class="text-gray-400 font-normal">(voted out)</span>
+              </label>
+              <div
+                class="max-h-44 overflow-y-auto rounded-lg border border-gray-300 divide-y divide-gray-100"
+              >
+                <label
+                  v-for="c in selectableForElimination"
+                  :key="c.id"
+                  class="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    :value="c.id"
+                    v-model="form.eliminatedIds"
+                    class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  {{ displayName(c) }}
+                </label>
+                <p
+                  v-if="selectableForElimination.length === 0"
+                  class="px-3 py-2 text-sm text-gray-400"
+                >
+                  No contestants available
+                </p>
+              </div>
+            </div>
+
+            <!-- Winner — finale only -->
+            <div v-if="editingId && form.is_finale">
+              <label class="block text-sm font-medium text-gray-700 mb-1">
+                Winner <span class="text-gray-400 font-normal">(finale bounty target)</span>
+              </label>
+              <select
+                v-model="form.bounty_contestant_id"
+                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Not set</option>
+                <option v-for="c in contestants" :key="c.id" :value="c.id">
+                  {{ displayName(c) }}
+                </option>
+              </select>
+            </div>
           </div>
 
           <!-- ── Votes tab ── -->
           <div v-show="modalTab === 'votes'">
             <template v-if="editingId">
               <p class="mb-3 text-xs text-gray-500">
-                Who each contestant voted for at Tribal Council. Check "void" for a vote nullified by
-                a hidden immunity idol.
+                Who each contestant voted for at Tribal Council. Check "void" for a vote nullified
+                by a hidden immunity idol.
               </p>
               <div class="space-y-2">
                 <div
@@ -641,7 +641,10 @@ onMounted(loadSeasons)
                     :tribe="tribeAt(c, form.number)"
                     :size="18"
                   />
-                  <span class="w-28 shrink-0 truncate text-sm text-gray-700" :title="displayName(c)">
+                  <span
+                    class="w-28 shrink-0 truncate text-sm text-gray-700"
+                    :title="displayName(c)"
+                  >
                     {{ displayName(c) }}
                   </span>
                   <span class="shrink-0 text-xs text-gray-400">→</span>

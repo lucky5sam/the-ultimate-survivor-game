@@ -199,10 +199,7 @@ function handleSubmit() {
       </div>
 
       <BaseCard padding="lg">
-        <div
-          v-if="mode !== 'forgot'"
-          class="mb-6 flex gap-1 rounded-md bg-surface-subtle p-1"
-        >
+        <div v-if="mode !== 'forgot'" class="mb-6 flex gap-1 rounded-md bg-surface-subtle p-1">
           <button
             @click="switchMode('signin')"
             :class="[
@@ -341,11 +338,7 @@ function handleSubmit() {
       <!-- Attribution callout beneath the login card. -->
       <div class="mt-6 flex items-center justify-center gap-2 text-sm text-text-subtle">
         <span>Presented by</span>
-        <img
-          :src="lucky5LogoUrl"
-          alt="Lucky 5 Games"
-          class="h-5 w-auto select-none"
-        />
+        <img :src="lucky5LogoUrl" alt="Lucky 5 Games" class="h-5 w-auto select-none" />
         <span class="font-medium text-text-default">Lucky 5 Games</span>
       </div>
     </div>

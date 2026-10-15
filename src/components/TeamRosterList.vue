@@ -165,7 +165,9 @@ function playerStatus(id: string): { out: boolean; ep: number | null } {
               <!-- A voted-out player's name drops to the subtle text color -->
               <p
                 class="text-sm font-semibold leading-tight"
-                :class="playerStatus(player.contestant_id).out ? 'text-text-subtle' : 'text-text-default'"
+                :class="
+                  playerStatus(player.contestant_id).out ? 'text-text-subtle' : 'text-text-default'
+                "
               >
                 <span>{{ contestantPrimary(player.contestant_id) }}</span>
                 <span
@@ -191,7 +193,8 @@ function playerStatus(id: string): { out: boolean; ep: number | null } {
                 contestantOccupation(player.contestant_id)
               }}</template>
               <template v-else
-                >Ep {{ player.effective_from_episode }} – <template
+                >Ep {{ player.effective_from_episode }} –
+                <template
                   v-if="
                     playerStatus(player.contestant_id).out && playerStatus(player.contestant_id).ep
                   "
