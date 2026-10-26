@@ -3,6 +3,8 @@
 // The trigger IS the search input: focus/click it and type to filter — no
 // separate search box. When closed it shows the selected contestant (avatar +
 // name); when open it shows what you type, with the current pick as placeholder.
+// Avatars carry the contestant's current tribe-color ring for context (gray
+// once they're out).
 import { ref, computed, nextTick } from 'vue'
 import ContestantAvatar from './ContestantAvatar.vue'
 import { displayName } from '../utils/contestantName'
@@ -76,6 +78,7 @@ function choose(id: string) {
         :photo-url="selected.photo_url"
         :name="displayName(selected)"
         :size="32"
+        :tribe="selected.tribe"
         :grayscale="isOut(selected.id)"
       />
       <input
@@ -112,6 +115,7 @@ function choose(id: string) {
             :photo-url="c.photo_url"
             :name="displayName(c)"
             :size="28"
+            :tribe="c.tribe"
             :grayscale="isOut(c.id)"
           />
           <span class="flex-1 truncate text-sm text-text-default">{{ displayName(c) }}</span>
