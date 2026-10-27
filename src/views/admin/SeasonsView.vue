@@ -667,7 +667,7 @@ onMounted(loadSeasons)
               </div>
               <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">
-                  Lock swaps after episode
+                  Swaps lock at the start of episode
                   <span class="text-gray-400 font-normal">(blank = never)</span>
                 </label>
                 <input
@@ -678,7 +678,8 @@ onMounted(loadSeasons)
                   class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <p class="mt-1 text-xs text-gray-400">
-                  No swaps allowed once the season passes this episode.
+                  Players can swap up until this episode's roster lock, then never again. My Team
+                  shows a banner from one episode before.
                 </p>
               </div>
             </div>
