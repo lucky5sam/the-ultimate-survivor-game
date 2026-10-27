@@ -253,6 +253,17 @@ const swapsLocked = computed(
     nextUpcomingEpisode.value.number > seasonConfig.value.swap_lock_after_episode,
 )
 
+// The permanent swap deadline (season's swap_lock_after_episode): swaps lock at
+// the start of that episode. Announced in a banner from one episode before it,
+// e.g. deadline Episode 7 → shown while Episode 6 or 7 is the next to lock.
+// Returns the deadline episode number while the banner should show, else null.
+const swapDeadlineEpisode = computed<number | null>(() => {
+  const cutoff = seasonConfig.value.swap_lock_after_episode
+  const next = nextUpcomingEpisode.value
+  if (cutoff === null || !next || swapsLocked.value || spoilerCap.value !== null) return null
+  return next.number >= cutoff - 1 ? cutoff : null
+})
+
 // Roster ordered MVP-first (drives the action-menu lookups). Row rendering and
 // position labels now live in the shared TeamRosterList component.
 const rosterSorted = computed(() =>
@@ -986,6 +997,18 @@ onUnmounted(() => {
 
 <template>
   <div class="flex flex-1 flex-col">
+    <!-- Permanent swap deadline banner, just under the tabs, from one episode
+         before the deadline until swaps lock. -->
+    <div
+      v-if="!loading && existingTeam && !teamLock && swapDeadlineEpisode"
+      class="flex items-center gap-2 border-b border-status-warning bg-status-warning px-6 py-2 text-sm font-semibold text-stone-900"
+    >
+      <i class="fa-solid fa-triangle-exclamation"></i>
+      <span
+        >Player Swaps will lock permanently at the start of Episode {{ swapDeadlineEpisode }}</span
+      >
+    </div>
+
     <!-- Viewing a previous season -->
     <div
       v-if="!loading && currentSeasonId && !isOnCurrentSeason"
