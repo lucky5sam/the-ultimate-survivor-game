@@ -1004,9 +1004,7 @@ onUnmounted(() => {
       class="flex items-center gap-2 border-b border-status-warning bg-status-warning px-6 py-2 text-sm font-semibold text-stone-900"
     >
       <i class="fa-solid fa-triangle-exclamation"></i>
-      <span
-        >Player Swaps will lock permanently at the start of Episode {{ swapDeadlineEpisode }}</span
-      >
+      <span>Player Swaps will lock at the start of Episode {{ swapDeadlineEpisode }}</span>
     </div>
 
     <!-- Viewing a previous season -->
